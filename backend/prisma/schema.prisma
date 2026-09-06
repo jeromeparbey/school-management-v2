@@ -1,0 +1,1083 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============ UTILISATEURS ET AUTHENTIFICATION ============
+
+model Utilisateur {
+  id                String          @id @default(cuid())
+  email             String          @unique
+  motDePasse        String
+  prenom            String
+  nom               String
+  role              RoleUtilisateur @default(ENSEIGNANT)
+  estActif          Boolean         @default(true)
+  emailVerifie      Boolean         @default(false)
+  telephone         String?
+  photoProfil       String?
+  derniereConnexion DateTime?
+  jetonActualisation String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  
+  // Relations
+  eleve             Eleve?
+  enseignant        Enseignant?
+  logsAudit         LogAudit[]
+  notifications     Notification[]
+  logsEmail         LogEmail[]
+  elevesCrees       Eleve[]         @relation("EleveCreateur")
+  elevesModifies    Eleve[]         @relation("EleveModificateur")
+  enseignantsCrees  Enseignant[]    @relation("EnseignantCreateur")
+  enseignantsModifies Enseignant[]  @relation("EnseignantModificateur")
+  paiementsCrees    Paiement[]      @relation("PaiementCreateur")
+  paiementsAnnules  Paiement[]      @relation("PaiementAnnuleur")
+  absencesApprouvees Absence[]      @relation("AbsenceApprobateur")
+  avancesApprouvees Avance[]        @relation("AvanceApprobateur")
+  bulletinsGenres   Bulletin[]      @relation("BulletinGenerateur")
+  notesSaisies      Note[]          @relation("NoteSaisisseur")
+  notesModifiees    Note[]          @relation("NoteModificateur")
+  notesValidees     Note[]          @relation("NoteValidateur")
+  emploisTempsCrees EmploiTemps[]   @relation("EmploiTempsCreateur")
+  heuresSuppApprouvees HeureSupp[]  @relation("HeureSuppApprobateur")
+  reclamationsAssignees Reclamation[] @relation("ReclamationAssignee")
+  reductionsApprouvees Reduction[]  @relation("ReductionApprobateur")
+  recusGeneres      Recu[]          @relation("RecuGenerateur")
+  bulletinsValides  Bulletin[]      @relation("BulletinValidateur")
+  paiesApprouvees   Paie[]          @relation("PaieApprobateur")
+  historiquesSalairesApprouves HistoriqueSalaire[] @relation("HistoriqueSalaireApprobateur")
+  appreciations     Appreciation[]  @relation("AppreciationAuteur")
+  
+  @@map("utilisateurs")
+}
+
+enum RoleUtilisateur {
+  DIRECTEUR
+  SECRETAIRE
+  ENSEIGNANT
+  PARENT
+  ADMIN
+}
+
+// ============ ETABLISSEMENT ============
+
+model Etablissement {
+  id              String      @id @default(cuid())
+  nom             String
+  logo            String?
+  adresse         String?
+  telephone       String?
+  email           String?
+  devise         String      @default("XOF")
+  fuseauHoraire  String      @default("Africa/Abidjan")
+  formatDate     String      @default("DD/MM/YYYY")
+  joursOuvrables String[]    @default(["LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI"])
+  heureDebut     String?     @default("08:00")
+  heureFin       String?     @default("17:00")
+  toleranceRetard Int        @default(15)
+  tauxHeureSup   Float       @default(1.5)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  // Relations
+  anneesScolaires AnneeScolaire[]
+  parametres      Parametres?
+  reglesEvaluation RegleEvaluation[]
+  matieres        Matiere[]
+  
+  @@map("etablissements")
+}
+
+model Parametres {
+  id                    String   @id @default(cuid())
+  etablissementId       String   @unique
+  modelesEmail          Json?
+  modelesRecu           Json?
+  preferencesNotification Json?
+  parametresPaie        Json?
+  reglesPresence        Json?
+  parametresSysteme     Json?
+  baremesNotes          Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  // Relations
+  etablissement Etablissement @relation(fields: [etablissementId], references: [id])
+  
+  @@map("parametres")
+}
+
+// ============ ANNEE SCOLAIRE ET NIVEAUX ============
+
+model AnneeScolaire {
+  id              String      @id @default(cuid())
+  nom             String
+  dateDebut       DateTime
+  dateFin         DateTime
+  estActive       Boolean     @default(false)
+  estArchive      Boolean     @default(false)
+  etablissementId String
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  // Relations
+  etablissement   Etablissement @relation(fields: [etablissementId], references: [id])
+  classes         Classe[]
+  inscriptions    Inscription[]
+  plansScolarite  PlanScolarite[]
+  periodes        Periode[]
+  bulletins       Bulletin[]
+  affectations    AffectationEnseignant[]
+  assignments     AssignmentScolarite[]
+  
+  @@map("annees_scolaires")
+}
+
+model Periode {
+  id              String      @id @default(cuid())
+  nom             String      // "Trimestre 1", "Semestre 1", etc.
+  type            TypePeriode
+  dateDebut       DateTime
+  dateFin         DateTime
+  ordre           Int
+  anneeScolaireId String
+  estActive       Boolean     @default(true)
+  estCloturee     Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  // Relations
+  anneeScolaire   AnneeScolaire @relation(fields: [anneeScolaireId], references: [id])
+  bulletins       Bulletin[]
+  notes           Note[]
+  appreciations   Appreciation[]
+  
+  @@map("periodes")
+}
+
+enum TypePeriode {
+  TRIMESTRE
+  SEMESTRE
+  BULLETIN
+}
+
+model Niveau {
+  id              String      @id @default(cuid())
+  nom             String      // Primaire, Collège, Lycée
+  code            String      @unique
+  description     String?
+  ordre           Int         @default(0)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  // Relations
+  classes         Classe[]
+  matieres        Matiere[]
+  plansScolarite  PlanScolarite[]
+  reglesEvaluation RegleEvaluation[]
+  
+  @@map("niveaux")
+}
+
+// ============ CLASSES ET MATIERES ============
+
+model Classe {
+  id              String      @id @default(cuid())
+  nom             String
+  code            String      @unique
+  capacite        Int?
+  salle           String?
+  anneeScolaireId String
+  niveauId        String
+  estActive       Boolean     @default(true)
+  estArchive      Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  // Relations
+  anneeScolaire   AnneeScolaire @relation(fields: [anneeScolaireId], references: [id])
+  niveau          Niveau        @relation(fields: [niveauId], references: [id])
+  inscriptions    Inscription[]
+  affectations    AffectationEnseignant[]
+  emploisTemps    EmploiTemps[]
+  plansScolarite  PlanScolarite[]
+  bulletins       Bulletin[]
+  assignments     AssignmentScolarite[]
+  
+  @@map("classes")
+}
+
+model Matiere {
+  id              String      @id @default(cuid())
+  nom             String
+  code            String      @unique
+  niveauId        String
+  coefficient     Float       @default(1.0)
+  dureeCours      Int         @default(60)
+  description     String?
+  estActive       Boolean     @default(true)
+  estArchive      Boolean     @default(false)
+  etablissementId String
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  // Relations
+  niveau          Niveau        @relation(fields: [niveauId], references: [id])
+  etablissement   Etablissement @relation(fields: [etablissementId], references: [id])
+  affectations    AffectationEnseignant[]
+  emploisTemps    EmploiTemps[]
+  notes           Note[]
+  reglesEvaluation RegleEvaluation[]
+  appreciations   Appreciation[]
+  
+  @@map("matieres")
+}
+
+// ============ ELEVES ============
+
+model Eleve {
+  id                String          @id @default(cuid())
+  matricule         String          @unique
+  prenom            String
+  nom               String
+  sexe              String
+  dateNaissance     DateTime
+  lieuNaissance     String?
+  nationalite       String?
+  adresse           String?
+  telephone         String?
+  email             String?
+  photo             String?
+  infoMedicale      String?
+  statut            StatutEleve     @default(ACTIF)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  
+  // Relations
+  utilisateurId     String?         @unique
+  utilisateur       Utilisateur?    @relation(fields: [utilisateurId], references: [id])
+  creePar           Utilisateur?    @relation("EleveCreateur", fields: [creeParId], references: [id])
+  creeParId         String?
+  modifiePar        Utilisateur?    @relation("EleveModificateur", fields: [modifieParId], references: [id])
+  modifieParId      String?
+  inscriptions      Inscription[]
+  responsables      Responsable[]
+  paiements         Paiement[]
+  assignmentsScolarite AssignmentScolarite[]
+  reductions        Reduction[]
+  notes             Note[]
+  bulletins         Bulletin[]
+  appreciations     Appreciation[]
+  recus             Recu[]
+  
+  @@index([statut])
+  @@index([nom, prenom])
+  @@map("eleves")
+}
+
+enum StatutEleve {
+  ACTIF
+  TRANSFERE
+  SORTI
+  SUSPENDU
+  ARCHIVE
+}
+
+model Responsable {
+  id                String      @id @default(cuid())
+  prenom            String
+  nom               String
+  lien              String      // Père, Mère, Tuteur, etc.
+  telephone         String
+  email             String?
+  adresse           String?
+  estPrincipal      Boolean     @default(false)
+  eleveId           String
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  
+  // Relations
+  eleve             Eleve       @relation(fields: [eleveId], references: [id])
+  
+  @@map("responsables")
+}
+
+model Inscription {
+  id                String      @id @default(cuid())
+  eleveId           String
+  classeId          String
+  anneeScolaireId   String
+  dateInscription   DateTime    @default(now())
+  estActive         Boolean     @default(true)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  
+  // Relations
+  eleve             Eleve       @relation(fields: [eleveId], references: [id])
+  classe            Classe      @relation(fields: [classeId], references: [id])
+  anneeScolaire     AnneeScolaire @relation(fields: [anneeScolaireId], references: [id])
+  
+  @@unique([eleveId, classeId, anneeScolaireId])
+  @@map("inscriptions")
+}
+
+// ============ ENSEIGNANTS ============
+
+model Enseignant {
+  id                String          @id @default(cuid())
+  matricule         String          @unique
+  prenom            String
+  nom               String
+  sexe              String
+  dateNaissance     DateTime
+  telephone         String
+  email             String?         @unique
+  adresse           String?
+  photo             String?
+  dateEmbauche      DateTime
+  typeContrat       String
+  qualification     String?
+  specialite        String?
+  salaireBase       Float
+  infosBancaires    Json?
+  estActif          Boolean         @default(true)
+  estArchive        Boolean         @default(false)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  
+  // Relations
+  utilisateurId     String?         @unique
+  utilisateur       Utilisateur?    @relation(fields: [utilisateurId], references: [id])
+  creePar           Utilisateur?    @relation("EnseignantCreateur", fields: [creeParId], references: [id])
+  creeParId         String?
+  modifiePar        Utilisateur?    @relation("EnseignantModificateur", fields: [modifieParId], references: [id])
+  modifieParId      String?
+  affectations      AffectationEnseignant[]
+  emploisTemps      EmploiTemps[]
+  presences         Presence[]
+  heuresSupp        HeureSupp[]
+  absences          Absence[]
+  avances           Avance[]
+  reclamations      Reclamation[]
+  paies             Paie[]
+  historiquesSalaire HistoriqueSalaire[]
+  notes             Note[]          @relation("NoteEnseignant")
+  
+  @@index([estActif])
+  @@index([nom, prenom])
+  @@map("enseignants")
+}
+
+model AffectationEnseignant {
+  id                String      @id @default(cuid())
+  enseignantId      String
+  classeId          String
+  matiereId         String
+  anneeScolaireId   String
+  heuresHebdo       Float?      @default(0)
+  estPrincipal      Boolean     @default(false)
+  valableDu         DateTime
+  valableAu         DateTime?
+  estActive         Boolean     @default(true)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  
+  // Relations
+  enseignant        Enseignant  @relation(fields: [enseignantId], references: [id])
+  classe            Classe      @relation(fields: [classeId], references: [id])
+  matiere           Matiere     @relation(fields: [matiereId], references: [id])
+  anneeScolaire     AnneeScolaire @relation(fields: [anneeScolaireId], references: [id])
+  
+  @@unique([enseignantId, classeId, matiereId, anneeScolaireId])
+  @@map("affectations_enseignants")
+}
+
+// ============ EMPLOI DU TEMPS ============
+
+model EmploiTemps {
+  id                String      @id @default(cuid())
+  jour              JourSemaine
+  heureDebut        String      // HH:mm
+  heureFin          String      // HH:mm
+  classeId          String
+  enseignantId      String
+  matiereId         String
+  salle             String?
+  estRecurrent      Boolean     @default(true)
+  valableDu         DateTime
+  valableAu         DateTime?
+  estActive         Boolean     @default(true)
+  creePar           String
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  
+  // Relations
+  classe            Classe      @relation(fields: [classeId], references: [id])
+  enseignant        Enseignant  @relation(fields: [enseignantId], references: [id])
+  matiere           Matiere     @relation(fields: [matiereId], references: [id])
+  creeParUtilisateur Utilisateur @relation("EmploiTempsCreateur", fields: [creePar], references: [id])
+  
+  @@map("emplois_temps")
+}
+
+enum JourSemaine {
+  LUNDI
+  MARDI
+  MERCREDI
+  JEUDI
+  VENDREDI
+  SAMEDI
+  DIMANCHE
+}
+
+// ============ PRESENCE ET HEURES SUPP ============
+
+model Presence {
+  id                String            @id @default(cuid())
+  enseignantId      String
+  heureArrivee      DateTime?
+  heureDepart       DateTime?
+  date              DateTime          @default(now())
+  statut            StatutPresence    @default(PRESENT)
+  notes             String?
+  latitude          Float?
+  longitude         Float?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  // Relations
+  enseignant        Enseignant        @relation(fields: [enseignantId], references: [id])
+  
+  @@unique([enseignantId, date])
+  @@map("presences")
+}
+
+enum StatutPresence {
+  PRESENT
+  ABSENT
+  RETARD
+  EXCUSE
+  CONGE
+  FORMATION
+}
+
+model HeureSupp {
+  id                String            @id @default(cuid())
+  enseignantId      String
+  date              DateTime
+  heureDebut        String?
+  heureFin          String?
+  heures            Float
+  motif             String?
+  statut            StatutDemande     @default(BROUILLON)
+  approuvePar       String?
+  approuveLe        DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  // Relations
+  enseignant        Enseignant        @relation(fields: [enseignantId], references: [id])
+  approbateur       Utilisateur?      @relation("HeureSuppApprobateur", fields: [approuvePar], references: [id])
+  
+  @@map("heures_supp")
+}
+
+// ============ ABSENCES, AVANCES, RECLAMATIONS ============
+
+model Absence {
+  id                String            @id @default(cuid())
+  enseignantId      String
+  type              TypeAbsence
+  dateDebut         DateTime
+  dateFin           DateTime
+  motif             String
+  pieceJointe       String?
+  statut            StatutDemande     @default(BROUILLON)
+  approuvePar       String?
+  approuveLe        DateTime?
+  motifRejet        String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  // Relations
+  enseignant        Enseignant        @relation(fields: [enseignantId], references: [id])
+  approbateur       Utilisateur?      @relation("AbsenceApprobateur", fields: [approuvePar], references: [id])
+  
+  @@map("absences")
+}
+
+enum TypeAbsence {
+  CONGES_ANNUELS
+  MALADIE
+  MATERNITE
+  PATERNITE
+  PERSONNELLE
+  NON_PAYEE
+  FORMATION
+}
+
+enum StatutDemande {
+  BROUILLON
+  SOUMISE
+  APPROUVEE
+  REJETEE
+  ANNULEE
+}
+
+model Avance {
+  id                String            @id @default(cuid())
+  enseignantId      String
+  montant           Float
+  motif             String
+  dateDemandee      DateTime
+  remboursementPrevu String?
+  statut            StatutDemande     @default(BROUILLON)
+  approuvePar       String?
+  approuveLe        DateTime?
+  motifRejet        String?
+  integreePaie      Boolean           @default(false)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  // Relations
+  enseignant        Enseignant        @relation(fields: [enseignantId], references: [id])
+  approbateur       Utilisateur?      @relation("AvanceApprobateur", fields: [approuvePar], references: [id])
+  
+  @@map("avances")
+}
+
+model Reclamation {
+  id                String            @id @default(cuid())
+  enseignantId      String
+  categorie         String
+  sujet             String
+  description       String
+  piecesJointes     String[]
+  priorite          Priorite          @default(MOYENNE)
+  statut            StatutReclamation @default(OUVERTE)
+  assigneA          String?
+  reponse           String?
+  fermeeLe          DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  // Relations
+  enseignant        Enseignant        @relation(fields: [enseignantId], references: [id])
+  assigneUtilisateur Utilisateur?     @relation("ReclamationAssignee", fields: [assigneA], references: [id])
+  
+  @@map("reclamations")
+}
+
+enum Priorite {
+  BASSE
+  MOYENNE
+  HAUTE
+  CRITIQUE
+}
+
+enum StatutReclamation {
+  OUVERTE
+  EN_COURS
+  RESOLUE
+  FERMEE
+}
+
+// ============ SCOLARITE ET PAIEMENTS ============
+
+model PlanScolarite {
+  id                String            @id @default(cuid())
+  nom               String
+  description       String?
+  anneeScolaireId   String
+  niveauId          String?
+  classeId          String?
+  fraisInscription  Float             @default(0)
+  fraisScolarite    Float             @default(0)
+  autresFrais       Json?
+  montantTotal      Float
+  devise            String            @default("XOF")
+  estActif          Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  // Relations
+  anneeScolaire     AnneeScolaire     @relation(fields: [anneeScolaireId], references: [id])
+  niveau            Niveau?           @relation(fields: [niveauId], references: [id])
+  classe            Classe?           @relation(fields: [classeId], references: [id])
+  echeances         Echeance[]
+  assignments       AssignmentScolarite[]
+  
+  @@map("plans_scolarite")
+}
+
+model Echeance {
+  id                String            @id @default(cuid())
+  planScolariteId   String
+  nom               String
+  montant           Float
+  dateLimite        DateTime
+  ordre             Int               @default(0)
+  estPayee          Boolean           @default(false)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  // Relations
+  planScolarite     PlanScolarite     @relation(fields: [planScolariteId], references: [id])
+  allocationsPaiement AllocationPaiement[]
+  
+  @@map("echeances")
+}
+
+model AssignmentScolarite {
+  id                String            @id @default(cuid())
+  eleveId           String
+  planScolariteId   String
+  classeId          String?
+  anneeScolaireId   String
+  montantPersonnalise Float?
+  statut            StatutScolarite   @default(ACTIF)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  // Relations
+  eleve             Eleve             @relation(fields: [eleveId], references: [id])
+  planScolarite     PlanScolarite     @relation(fields: [planScolariteId], references: [id])
+  classe            Classe?           @relation(fields: [classeId], references: [id])
+  anneeScolaire     AnneeScolaire     @relation(fields: [anneeScolaireId], references: [id])
+  paiements         Paiement[]        @relation("AssignmentPaiement")
+  reductions        Reduction[]
+  
+  @@unique([eleveId, planScolariteId, anneeScolaireId])
+  @@map("assignments_scolarite")
+}
+
+enum StatutScolarite {
+  ACTIF
+  COMPLET
+  ANNULE
+  EN_RETARD
+}
+
+model Reduction {
+  id                String            @id @default(cuid())
+  eleveId           String
+  assignmentScolariteId String
+  type              TypeReduction
+  valeur            Float
+  motif             String
+  approuvePar       String
+  approuveLe        DateTime
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  // Relations
+  eleve             Eleve             @relation(fields: [eleveId], references: [id])
+  assignmentScolarite AssignmentScolarite @relation(fields: [assignmentScolariteId], references: [id])
+  approbateur       Utilisateur       @relation("ReductionApprobateur", fields: [approuvePar], references: [id])
+  
+  @@map("reductions")
+}
+
+enum TypeReduction {
+  FIXE
+  POURCENTAGE
+}
+
+model Paiement {
+  id                String            @id @default(cuid())
+  reference         String            @unique
+  eleveId           String
+  montant           Float
+  datePaiement      DateTime          @default(now())
+  moyen             MoyenPaiement
+  referenceMoyen    String?
+  caissierId        String
+  notes             String?
+  statut            StatutPaiement    @default(COMPLET)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  annuleLe          DateTime?
+  motifAnnulation   String?
+  annulePar         String?
+  
+  // Relations
+  eleve             Eleve             @relation(fields: [eleveId], references: [id])
+  caissier          Utilisateur       @relation("PaiementCreateur", fields: [caissierId], references: [id])
+  annuleParUtilisateur Utilisateur?   @relation("PaiementAnnuleur", fields: [annulePar], references: [id])
+  allocations       AllocationPaiement[]
+  recu              Recu?
+  assignment        AssignmentScolarite? @relation("AssignmentPaiement", fields: [assignmentId], references: [id])
+  assignmentId      String?
+  
+  @@index([eleveId])
+  @@index([datePaiement])
+  @@index([statut])
+  @@map("paiements")
+}
+
+enum MoyenPaiement {
+  ESPECES
+  VIREMENT
+  MOBILE_MONEY
+  CARTE
+  CHEQUE
+  AUTRE
+}
+
+enum StatutPaiement {
+  COMPLET
+  ANNULE
+  REMBOURSE
+}
+
+model AllocationPaiement {
+  id                String            @id @default(cuid())
+  paiementId        String
+  echeanceId        String
+  montant           Float
+  createdAt         DateTime          @default(now())
+  
+  // Relations
+  paiement          Paiement          @relation(fields: [paiementId], references: [id])
+  echeance          Echeance          @relation(fields: [echeanceId], references: [id])
+  
+  @@unique([paiementId, echeanceId])
+  @@map("allocations_paiement")
+}
+
+model Recu {
+  id                String            @id @default(cuid())
+  numeroRecu        String            @unique
+  paiementId        String            @unique
+  eleveId           String
+  nomEleve          String
+  nomClasse         String
+  montant           Float
+  datePaiement      DateTime
+  moyenPaiement     MoyenPaiement
+  echeancesCouvertes Json
+  soldeApres        Float
+  generePar         String
+  cheminPDF         String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  // Relations
+  paiement          Paiement          @relation(fields: [paiementId], references: [id])
+  eleve             Eleve             @relation(fields: [eleveId], references: [id])
+  generateur        Utilisateur       @relation("RecuGenerateur", fields: [generePar], references: [id])
+  
+  @@map("recus")
+}
+
+// ============ NOTES ET BULLETINS ============
+
+model RegleEvaluation {
+  id                String            @id @default(cuid())
+  nom               String
+  description       String?
+  type              TypeEvaluation
+  coefficient       Float             @default(1.0)
+  baremeMin         Float             @default(0)
+  baremeMax         Float             @default(20)
+  seuilReussite     Float             @default(10)
+  etablissementId   String
+  niveauId          String?
+  matiereId         String?
+  estActive         Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  // Relations
+  etablissement     Etablissement     @relation(fields: [etablissementId], references: [id])
+  niveau            Niveau?           @relation(fields: [niveauId], references: [id])
+  matiere           Matiere?          @relation(fields: [matiereId], references: [id])
+  notes             Note[]
+  
+  @@map("regles_evaluation")
+}
+
+enum TypeEvaluation {
+  DEVOIR
+  TEST
+  EXAMEN
+  TP
+  PROJET
+  PARTICIPATION
+  COMPOSITION
+}
+
+model Note {
+  id                String            @id @default(cuid())
+  eleveId           String
+  matiereId         String
+  periodeId         String
+  regleEvaluationId String
+  valeur            Float
+  coefficient       Float             @default(1.0)
+  commentaire       String?
+  dateSaisie        DateTime          @default(now())
+  saisiePar         String
+  modifieLe         DateTime?
+  modifiePar        String?
+  estValide         Boolean           @default(false)
+  validePar         String?
+  valideLe          DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  // Relations
+  eleve             Eleve             @relation(fields: [eleveId], references: [id])
+  matiere           Matiere           @relation(fields: [matiereId], references: [id])
+  periode           Periode           @relation(fields: [periodeId], references: [id])
+  regleEvaluation   RegleEvaluation   @relation(fields: [regleEvaluationId], references: [id])
+  enseignant        Enseignant?       @relation("NoteEnseignant", fields: [enseignantId], references: [id])
+  enseignantId      String?
+  saisisseur        Utilisateur       @relation("NoteSaisisseur", fields: [saisiePar], references: [id])
+  modificateur      Utilisateur?      @relation("NoteModificateur", fields: [modifiePar], references: [id])
+  validateur        Utilisateur?      @relation("NoteValidateur", fields: [validePar], references: [id])
+  
+  @@unique([eleveId, matiereId, periodeId, regleEvaluationId])
+  @@index([eleveId, matiereId])
+  @@index([periodeId])
+  @@index([saisiePar])
+  @@index([estValide])
+  @@map("notes")
+}
+
+model Appreciation {
+  id                String            @id @default(cuid())
+  eleveId           String
+  periodeId         String
+  matiereId         String?
+  type              TypeAppreciation  @default(GENERALE)
+  texte             String
+  auteurId          String
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  // Relations
+  eleve             Eleve             @relation(fields: [eleveId], references: [id])
+  periode           Periode           @relation(fields: [periodeId], references: [id])
+  matiere           Matiere?          @relation(fields: [matiereId], references: [id])
+  auteur            Utilisateur       @relation("AppreciationAuteur", fields: [auteurId], references: [id])
+  
+  @@map("appreciations")
+}
+
+enum TypeAppreciation {
+  GENERALE
+  PAR_MATIERE
+  COMPORTEMENT
+  PROGRESSION
+}
+
+model Bulletin {
+  id                String            @id @default(cuid())
+  eleveId           String
+  classeId          String
+  periodeId         String
+  anneeScolaireId   String
+  notesDetaillees   Json              // Stockage des notes détaillées par matière
+  moyenneGenerale   Float
+  rang              Int?
+  effectifClasse    Int?
+  appreciationGenerale String?
+  mentions          String[]
+  decision          String?
+  generePar         String
+  genereLe          DateTime          @default(now())
+  estValide         Boolean           @default(false)
+  validePar         String?
+  valideLe          DateTime?
+  cheminPDF         String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  // Relations
+  eleve             Eleve             @relation(fields: [eleveId], references: [id])
+  classe            Classe            @relation(fields: [classeId], references: [id])
+  periode           Periode           @relation(fields: [periodeId], references: [id])
+  anneeScolaire     AnneeScolaire     @relation(fields: [anneeScolaireId], references: [id])
+  generateur        Utilisateur       @relation("BulletinGenerateur", fields: [generePar], references: [id])
+  validateur        Utilisateur?      @relation("BulletinValidateur", fields: [validePar], references: [id])
+  
+  @@unique([eleveId, periodeId, anneeScolaireId])
+  @@index([eleveId, periodeId])
+  @@map("bulletins")
+}
+
+// ============ PAIE ET SALAIRES ============
+
+model PeriodePaie {
+  id                String            @id @default(cuid())
+  nom               String
+  dateDebut         DateTime
+  dateFin           DateTime
+  estCloturee       Boolean           @default(false)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  // Relations
+  paies             Paie[]
+  
+  @@map("periodes_paie")
+}
+
+model Paie {
+  id                String            @id @default(cuid())
+  enseignantId      String
+  periodeId         String
+  salaireBase       Float
+  heuresSupp        Float             @default(0)
+  montantHeuresSupp Float             @default(0)
+  primes            Json?
+  retenues          Json?
+  avances           Float             @default(0)
+  totalBrut         Float
+  totalNet          Float
+  statut            StatutPaie        @default(BROUILLON)
+  approuvePar       String?
+  approuveLe        DateTime?
+  payeLe            DateTime?
+  referencePaiement String?
+  notes             String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  // Relations
+  enseignant        Enseignant        @relation(fields: [enseignantId], references: [id])
+  periode           PeriodePaie       @relation(fields: [periodeId], references: [id])
+  approbateur       Utilisateur?      @relation("PaieApprobateur", fields: [approuvePar], references: [id])
+  
+  @@map("paies")
+}
+
+enum StatutPaie {
+  BROUILLON
+  CALCULEE
+  APPROUVEE
+  PAYEE
+  ANNULEE
+}
+
+model HistoriqueSalaire {
+  id                String            @id @default(cuid())
+  enseignantId      String
+  ancienSalaire     Float
+  nouveauSalaire    Float
+  dateEffet         DateTime
+  motif             String
+  approuvePar       String
+  createdAt         DateTime          @default(now())
+  
+  // Relations
+  enseignant        Enseignant        @relation(fields: [enseignantId], references: [id])
+  approbateur       Utilisateur       @relation("HistoriqueSalaireApprobateur", fields: [approuvePar], references: [id])
+  
+  @@map("historiques_salaire")
+}
+
+// ============ NOTIFICATIONS ET LOGS ============
+
+model Notification {
+  id                String            @id @default(cuid())
+  utilisateurId     String
+  titre             String
+  message           String
+  type              TypeNotification
+  priorite          Priorite          @default(MOYENNE)
+  lue               Boolean           @default(false)
+  lueLe             DateTime?
+  lien              String?
+  metadonnees       Json?
+  createdAt         DateTime          @default(now())
+  
+  // Relations
+  utilisateur       Utilisateur       @relation(fields: [utilisateurId], references: [id])
+  
+  @@map("notifications")
+}
+
+enum TypeNotification {
+  PAIEMENT_RECU
+  RECU_DISPONIBLE
+  ECHEANCE_PROCHAIN
+  ECHEANCE_RETARD
+  DEMANDE_ABSENCE
+  DEMANDE_AVANCE
+  RECLAMATION
+  DEMANDE_APPROUVEE
+  DEMANDE_REJETEE
+  CHANGEMENT_EMPLOI
+  COURS_BIENTOT
+  PRESENCE_MANQUANTE
+  HEURE_SUPP_APPROUVEE
+  PAIE_CALCULEE
+  PAIE_APPROUVEE
+  PAIE_PAYEE
+  BULLETIN_DISPONIBLE
+  NOTE_SAISIE
+  ALERTE_SYSTEME
+}
+
+model LogEmail {
+  id                String            @id @default(cuid())
+  destinataire      String
+  sujet             String
+  modele            String?
+  statut            StatutEmail       @default(EN_ATTENTE)
+  erreur            String?
+  metadonnees       Json?
+  envoyeLe          DateTime          @default(now())
+  
+  // Relations
+  utilisateurId     String?
+  utilisateur       Utilisateur?      @relation(fields: [utilisateurId], references: [id])
+  
+  @@map("logs_email")
+}
+
+enum StatutEmail {
+  EN_ATTENTE
+  ENVOYE
+  ECHEC
+}
+
+model LogAudit {
+  id                String            @id @default(cuid())
+  utilisateurId     String
+  action            String
+  entite            String            // Nom de l'entité concernée (Eleve, Enseignant, Paiement, etc.)
+  entiteId          String?           // ID de l'entité concernée
+  ancienneValeur    Json?             // Valeur avant la modification (stockée en JSON)
+  nouvelleValeur    Json?             // Valeur après la modification (stockée en JSON)
+  description       String?           // Description textuelle de l'action
+  ipAdresse         String?           // Adresse IP de l'utilisateur
+  userAgent         String?           // Navigateur/OS de l'utilisateur
+  statut            StatutAudit       @default(SUCCES)
+  messageErreur     String?           // Message d'erreur si l'action a échoué
+  dureeExecution    Int?              // Temps d'exécution en millisecondes
+  metadonnees       Json?             // Métadonnées additionnelles
+  createdAt         DateTime          @default(now())
+  
+  // Relations
+  utilisateur       Utilisateur       @relation(fields: [utilisateurId], references: [id])
+  
+  @@index([utilisateurId])
+  @@index([entite])
+  @@index([entiteId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("logs_audit")
+}
+
+enum StatutAudit {
+  SUCCES
+  ECHEC
+  ATTENTE
+}

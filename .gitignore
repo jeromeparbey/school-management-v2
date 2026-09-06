@@ -1,0 +1,235 @@
+# ============================================
+# DEPENDENCIES
+# ============================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ============================================
+# BUILD & DIST
+# ============================================
+dist/
+build/
+out/
+.next/
+.vercel/
+*.tsbuildinfo
+*.tgz
+*.tar.gz
+
+# ============================================
+# ENVIRONMENT VARIABLES
+# ============================================
+.env
+.env.local
+.env.production
+.env.development
+.env.test
+.env*.local
+.env.*.local
+.env.docker
+.env.example
+*.env
+
+# ============================================
+# IDE & EDITOR
+# ============================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.vscode/*
+!.vscode/extensions.json
+.idea/*
+!.idea/workspace.xml
+
+# ============================================
+# OS FILES
+# ============================================
+.DS_Store
+Thumbs.db
+*.log
+*.pid
+*.seed
+*.pid.lock
+*.tmp
+*.temp
+*.cache
+*.swp
+
+# ============================================
+# BACKUP FILES
+# ============================================
+*.bak
+*.backup
+*.old
+*.orig
+*.rej
+*.patch
+*.diff
+
+# ============================================
+# COVERAGE & TEST
+# ============================================
+coverage/
+.nyc_output/
+*.lcov
+*.xml
+*.html
+*.test.js
+*.spec.js
+jest.config.js
+*.test.ts
+*.spec.ts
+
+# ============================================
+# LOGS
+# ============================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+pm2-*.log
+pm2.log
+
+# ============================================
+# DATABASE
+# ============================================
+*.db
+*.sql
+*.sqlite
+*.sqlite3
+*.db-journal
+*.sql-journal
+
+# ============================================
+# PRISMA
+# ============================================
+prisma/*.db
+prisma/*.sqlite
+prisma/*.sqlite-journal
+prisma/migrations/
+!prisma/migrations/.gitkeep
+
+# ============================================
+# UPLOADS
+# ============================================
+uploads/
+bulletins/
+recus/
+temp/
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.ico
+*.pdf
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.ppt
+*.pptx
+
+# ============================================
+# DOCKER
+# ============================================
+docker-compose.override.yml
+.dockerignore
+*.dockerignore
+*.container
+*.image
+
+# ============================================
+# PACKAGE MANAGER LOCKS
+# ============================================
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+npm-shrinkwrap.json
+*.lock
+
+# ============================================
+# SECURITY
+# ============================================
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.csr
+*.pub
+*.priv
+*.secret
+*.secrets
+*.jks
+*.keystore
+*.truststore
+
+# ============================================
+# CONFIGURATION FILES
+# ============================================
+config.json
+config.local.json
+*.config.json
+*.config.js
+!jest.config.js
+!vite.config.ts
+!webpack.config.js
+!tsconfig.json
+
+# ============================================
+# MISC
+# ============================================
+*.tmp
+*.temp
+*.cache
+.cache/
+.parcel-cache/
+.nx/
+.next/
+.nuxt/
+.swc/
+.turbo/
+.vercel/
+.netlify/
+.sass-cache/
+.scannerwork/
+.eslintcache
+.stylelintcache
+.prettiercache
+
+# ============================================
+# COMPRESSED FILES
+# ============================================
+*.zip
+*.rar
+*.7z
+*.gz
+*.tgz
+*.bz2
+*.xz
+
+# ============================================
+# DEBUG & PROFILING
+# ============================================
+*.log
+*.heap
+*.prof
+*.cpuprofile
+*.heapsnapshot
+*.jsonl
