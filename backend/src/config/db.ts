@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+
 // Créer l'adaptateur PostgreSQL
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL,
