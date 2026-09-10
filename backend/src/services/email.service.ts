@@ -1,5 +1,5 @@
 
-import nodemailer from 'nodemailer';
+import * as nodemailer from 'nodemailer';
 import { AppError } from '../utils/AppError';
 
 export class EmailService {

@@ -1,41 +1,64 @@
 // backend/src/modules/auth/auth.service.ts
 
-import { AuthRepository } from './auth.repository';
+import { authRepository, AuthRepository } from './auth.repository';
 import { AuthUtils } from './auth.utils';
-import { 
-  IOtpStore, 
+import type {
+  IOtpStore,
   IResetTokenStore,
   LoginRequest,
   RegisterRequest,
   UserResponse,
-  TokensResponse 
+  TokensResponse,
 } from './auth.types';
 import { AppError } from '../../utils/AppError';
 import { EmailService } from '../../services/email.service';
 
+// ============================================
+// INITIALISATION DES STORES GLOBAUX
+// ============================================
+// On initialise une seule fois au chargement du module.
+// Le typage vient de auth.types.ts (declare global).
+if (!globalThis.otpStore) {
+  globalThis.otpStore = new Map<string, IOtpStore>();
+}
+if (!globalThis.resetTokenStore) {
+  globalThis.resetTokenStore = new Map<string, IResetTokenStore>();
+}
+
+// ============================================
+// SERVICE
+// ============================================
+
 export class AuthService {
-  private repository: AuthRepository;
-  private emailService: EmailService;
+  private readonly repository: AuthRepository;
+  private readonly emailService: EmailService;
+
+  // Constantes de configuration
+  private readonly OTP_TTL_MS = 15 * 60 * 1000; // 15 minutes
+  private readonly OTP_MAX_ATTEMPTS = 3;
+  private readonly RESET_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 
   constructor() {
-    this.repository = new AuthRepository();
+    this.repository = authRepository;
     this.emailService = new EmailService();
   }
 
-  /**
-   * Inscription d'un nouvel utilisateur
-   */
+  // ------------------------------------------
+  // INSCRIPTION
+  // ------------------------------------------
+
   async register(data: RegisterRequest): Promise<{
     user: UserResponse;
     tokens: TokensResponse;
   }> {
-    // Vérifier si l'email existe déjà
-    const existingUser = await this.repository.findByEmail(data.email);
-    if (existingUser) {
+    const email = data.email.toLowerCase().trim();
+
+    // Vérifier l'unicité
+    if (await this.repository.emailExists(email)) {
       throw new AppError('Un utilisateur avec cet email existe déjà', 409);
     }
 
-    // Valider la force du mot de passe
+    // Valider le mot de passe
     const passwordValidation = AuthUtils.isStrongPassword(data.motDePasse);
     if (!passwordValidation.valid) {
       throw new AppError(
@@ -44,57 +67,62 @@ export class AuthService {
       );
     }
 
-    // Hasher le mot de passe
+    // Hasher
     const hashedPassword = await AuthUtils.hashPassword(data.motDePasse);
 
-    // Créer l'utilisateur
+    // Créer
     const user = await this.repository.create({
-      email: data.email,
+      email,
       motDePasse: hashedPassword,
       prenom: data.prenom,
       nom: data.nom,
-      role: data.role || 'ENSEIGNANT',
-      telephone: data.telephone
+      role: data.role ?? 'ENSEIGNANT',
+      telephone: data.telephone,
     });
 
-    // Générer l'OTP
+    // OTP
     const otp = AuthUtils.generateOtp();
-    await this.storeOtp(user.id, otp);
+    this.storeOtp(user.id, otp);
 
-    // Envoyer l'OTP par email
-    await this.emailService.sendOtpEmail(user.email, otp, user.prenom);
+    // Envoyer l'email (non bloquant en cas d'échec)
+    try {
+      await this.emailService.sendOtpEmail(user.email, otp, user.prenom);
+    } catch (err) {
+      console.error('⚠️ Échec envoi OTP:', err);
+    }
 
-    // Générer les tokens
+    // Tokens
     const tokens = this.generateTokens(user.id, user.role);
-
-    // Sauvegarder le refresh token
     await this.repository.updateRefreshToken(user.id, tokens.refreshToken);
 
     return {
       user: AuthUtils.sanitizeUser(user),
-      tokens
+      tokens,
     };
   }
 
-  /**
-   * Connexion d'un utilisateur
-   */
+  // ------------------------------------------
+  // CONNEXION
+  // ------------------------------------------
+
   async login(data: LoginRequest): Promise<{
     user: UserResponse;
     tokens: TokensResponse;
   }> {
-    // Trouver l'utilisateur
     const user = await this.repository.findByEmail(data.email);
+
+    // Message générique (pas de fuite d'info)
     if (!user) {
       throw new AppError('Email ou mot de passe incorrect', 401);
     }
 
-    // Vérifier si le compte est actif
     if (!user.estActif) {
-      throw new AppError('Compte désactivé. Contactez l\'administrateur.', 403);
+      throw new AppError(
+        "Compte désactivé. Contactez l'administrateur.",
+        403
+      );
     }
 
-    // Vérifier le mot de passe
     const isValidPassword = await AuthUtils.verifyPassword(
       data.motDePasse,
       user.motDePasse
@@ -103,136 +131,128 @@ export class AuthService {
       throw new AppError('Email ou mot de passe incorrect', 401);
     }
 
-    // Mettre à jour la dernière connexion
     await this.repository.updateLastLogin(user.id);
 
-    // Générer les tokens
     const tokens = this.generateTokens(user.id, user.role);
-
-    // Sauvegarder le refresh token
     await this.repository.updateRefreshToken(user.id, tokens.refreshToken);
 
     return {
       user: AuthUtils.sanitizeUser(user),
-      tokens
+      tokens,
     };
   }
 
-  /**
-   * Vérification de l'OTP
-   */
+  // ------------------------------------------
+  // OTP
+  // ------------------------------------------
+
   async verifyOtp(userId: string, otp: string): Promise<boolean> {
-    const storedOtp = await this.getStoredOtp(userId);
+    const storedOtp = this.getStoredOtp(userId);
+
     if (!storedOtp) {
       throw new AppError('OTP invalide ou expiré', 400);
     }
 
-    // Vérifier les tentatives
-    if (storedOtp.attempts >= 3) {
-      await this.clearOtp(userId);
-      throw new AppError('Trop de tentatives. Veuillez demander un nouveau code.', 400);
-    }
-
-    // Vérifier l'OTP
-    if (storedOtp.otp !== otp) {
-      storedOtp.attempts += 1;
-      await this.storeOtp(userId, storedOtp.otp, storedOtp.attempts);
-      throw new AppError('OTP invalide', 400);
-    }
-
-    // Vérifier l'expiration
     if (Date.now() > storedOtp.expiresAt) {
-      await this.clearOtp(userId);
+      this.clearOtp(userId);
       throw new AppError('OTP expiré. Veuillez demander un nouveau code.', 400);
     }
 
-    // Marquer l'email comme vérifié
+    if (storedOtp.attempts >= this.OTP_MAX_ATTEMPTS) {
+      this.clearOtp(userId);
+      throw new AppError(
+        'Trop de tentatives. Veuillez demander un nouveau code.',
+        400
+      );
+    }
+
+    if (storedOtp.otp !== otp) {
+      storedOtp.attempts += 1;
+      this.storeOtp(userId, storedOtp.otp, storedOtp.attempts);
+      throw new AppError('OTP invalide', 400);
+    }
+
     await this.repository.verifyEmail(userId);
-    await this.clearOtp(userId);
+    this.clearOtp(userId);
 
     return true;
   }
 
-  /**
-   * Renvoyer un nouvel OTP
-   */
   async resendOtp(userId: string): Promise<void> {
     const user = await this.repository.findById(userId);
     if (!user) {
       throw new AppError('Utilisateur non trouvé', 404);
     }
-
     if (user.emailVerifie) {
       throw new AppError('Email déjà vérifié', 400);
     }
 
-    // Générer un nouvel OTP
     const otp = AuthUtils.generateOtp();
-    await this.storeOtp(userId, otp);
+    this.storeOtp(userId, otp);
 
-    // Envoyer le nouvel OTP
     await this.emailService.sendOtpEmail(user.email, otp, user.prenom);
   }
 
-  /**
-   * Rafraîchir les tokens
-   */
-  async refreshTokens(refreshToken: string): Promise<TokensResponse> {
-    // Vérifier le refresh token
-    const decoded = AuthUtils.verifyToken(
-      refreshToken,
-      process.env.JWT_REFRESH_SECRET || 'refresh_secret'
-    ) as { userId: string };
+  // ------------------------------------------
+  // TOKENS
+  // ------------------------------------------
 
-    // Vérifier que le refresh token existe en base
-    const user = await this.repository.findByRefreshToken(refreshToken);
-    if (!user) {
+  async refreshTokens(refreshToken: string): Promise<TokensResponse> {
+    let decoded: { userId?: string };
+    try {
+      decoded = AuthUtils.verifyToken(
+        refreshToken,
+        process.env.JWT_REFRESH_SECRET || 'refresh_secret'
+      ) as { userId?: string };
+    } catch {
+      throw new AppError('Refresh token invalide ou expiré', 401);
+    }
+
+    if (!decoded?.userId) {
       throw new AppError('Refresh token invalide', 401);
     }
 
-    // Générer de nouveaux tokens
-    const tokens = this.generateTokens(user.id, user.role);
+    const user = await this.repository.findByRefreshToken(refreshToken);
+    if (!user) {
+      throw new AppError('Refresh token révoqué', 401);
+    }
 
-    // Mettre à jour le refresh token
+    const tokens = this.generateTokens(user.id, user.role);
     await this.repository.updateRefreshToken(user.id, tokens.refreshToken);
 
     return tokens;
   }
 
-  /**
-   * Déconnexion
-   */
   async logout(userId: string): Promise<void> {
     await this.repository.updateRefreshToken(userId, null);
   }
 
-  /**
-   * Demande de réinitialisation du mot de passe
-   */
+  // ------------------------------------------
+  // MOT DE PASSE
+  // ------------------------------------------
+
   async forgotPassword(email: string): Promise<void> {
     const user = await this.repository.findByEmail(email);
-    if (!user) {
-      // Pour des raisons de sécurité, on ne révèle pas si l'email existe
-      return;
-    }
 
-    // Générer un token de réinitialisation
+    // Sécurité : ne pas révéler l'existence de l'email
+    if (!user) return;
+
     const resetToken = AuthUtils.generateResetToken();
-    await this.storeResetToken(user.id, resetToken);
+    this.storeResetToken(user.id, resetToken);
 
-    // Envoyer l'email de réinitialisation
-    await this.emailService.sendResetPasswordEmail(
-      user.email,
-      resetToken,
-      user.prenom
-    );
+    try {
+      await this.emailService.sendResetPasswordEmail(
+        user.email,
+        resetToken,
+        user.prenom
+      );
+    } catch (err) {
+      console.error('⚠️ Échec envoi email reset:', err);
+    }
   }
 
-  /**
-   * Réinitialiser le mot de passe
-   */
   async resetPassword(token: string, newPassword: string): Promise<void> {
-    // Valider le nouveau mot de passe
+    // Valider le mot de passe
     const passwordValidation = AuthUtils.isStrongPassword(newPassword);
     if (!passwordValidation.valid) {
       throw new AppError(
@@ -241,19 +261,18 @@ export class AuthService {
       );
     }
 
-    // Vérifier le token
-    const resetData = await this.getStoredResetToken(token);
+    const resetData = this.getStoredResetToken(token);
     if (!resetData) {
       throw new AppError('Token de réinitialisation invalide', 400);
     }
 
     if (resetData.used) {
-      await this.clearResetToken(token);
+      this.clearResetToken(token);
       throw new AppError('Ce token a déjà été utilisé', 400);
     }
 
     if (Date.now() > resetData.expiresAt) {
-      await this.clearResetToken(token);
+      this.clearResetToken(token);
       throw new AppError('Le token a expiré. Veuillez refaire une demande.', 400);
     }
 
@@ -263,21 +282,22 @@ export class AuthService {
 
     // Marquer le token comme utilisé
     resetData.used = true;
-    await this.storeResetToken(resetData.userId, token, resetData.used);
+    this.storeResetToken(resetData.userId, token, resetData.used);
 
-    // Invalider tous les refresh tokens existants
-    await this.repository.updateRefreshToken(resetData.userId, null);
-
-    // Envoyer une confirmation
+    // Envoyer confirmation
     const user = await this.repository.findById(resetData.userId);
     if (user) {
-      await this.emailService.sendPasswordChangedEmail(user.email, user.prenom);
+      try {
+        await this.emailService.sendPasswordChangedEmail(
+          user.email,
+          user.prenom
+        );
+      } catch (err) {
+        console.error('⚠️ Échec envoi email confirmation:', err);
+      }
     }
   }
 
-  /**
-   * Changer le mot de passe (utilisateur connecté)
-   */
   async changePassword(
     userId: string,
     ancienMotDePasse: string,
@@ -288,16 +308,14 @@ export class AuthService {
       throw new AppError('Utilisateur non trouvé', 404);
     }
 
-    // Vérifier l'ancien mot de passe
-    const isValidPassword = await AuthUtils.verifyPassword(
+    const isValid = await AuthUtils.verifyPassword(
       ancienMotDePasse,
       user.motDePasse
     );
-    if (!isValidPassword) {
+    if (!isValid) {
       throw new AppError('Ancien mot de passe incorrect', 400);
     }
 
-    // Valider le nouveau mot de passe
     const passwordValidation = AuthUtils.isStrongPassword(nouveauMotDePasse);
     if (!passwordValidation.valid) {
       throw new AppError(
@@ -306,20 +324,21 @@ export class AuthService {
       );
     }
 
-    // Mettre à jour le mot de passe
     const hashedPassword = await AuthUtils.hashPassword(nouveauMotDePasse);
     await this.repository.updatePassword(userId, hashedPassword);
 
-    // Invalider tous les refresh tokens existants pour forcer une reconnexion
-    await this.repository.updateRefreshToken(userId, null);
-
-    // Envoyer une notification
-    await this.emailService.sendPasswordChangedEmail(user.email, user.prenom);
+    // Notification (non bloquant)
+    try {
+      await this.emailService.sendPasswordChangedEmail(user.email, user.prenom);
+    } catch (err) {
+      console.error('⚠️ Échec envoi email:', err);
+    }
   }
 
-  /**
-   * Obtenir les informations de l'utilisateur connecté
-   */
+  // ------------------------------------------
+  // PROFIL
+  // ------------------------------------------
+
   async getCurrentUser(userId: string): Promise<UserResponse> {
     const user = await this.repository.getUserInfo(userId);
     if (!user) {
@@ -328,9 +347,6 @@ export class AuthService {
     return user;
   }
 
-  /**
-   * Mettre à jour le profil de l'utilisateur
-   */
   async updateProfile(
     userId: string,
     data: {
@@ -340,82 +356,65 @@ export class AuthService {
       photoProfil?: string;
     }
   ): Promise<UserResponse> {
-    const user = await this.repository.updateProfile(userId, data);
-    return AuthUtils.sanitizeUser(user);
+    return this.repository.updateProfile(userId, data);
   }
 
-  /**
-   * Stocker l'OTP
-   */
-  private async storeOtp(userId: string, otp: string, attempts: number = 0): Promise<void> {
-    const otpStore = global.otpStore || new Map();
-    global.otpStore = otpStore;
+  // ------------------------------------------
+  // STORES OTP (privés, synchrones)
+  // ------------------------------------------
 
-    otpStore.set(userId, {
+  private storeOtp(userId: string, otp: string, attempts = 0): void {
+    globalThis.otpStore.set(userId, {
       otp,
-      expiresAt: Date.now() + 15 * 60 * 1000, // 15 minutes
-      attempts
+      expiresAt: Date.now() + this.OTP_TTL_MS,
+      attempts,
     });
   }
 
-  /**
-   * Récupérer l'OTP stocké
-   */
-  private async getStoredOtp(userId: string): Promise<IOtpStore | null> {
-    const otpStore = global.otpStore || new Map();
-    return otpStore.get(userId) || null;
+  private getStoredOtp(userId: string): IOtpStore | null {
+    return globalThis.otpStore.get(userId) ?? null;
   }
 
-  /**
-   * Effacer l'OTP
-   */
-  private async clearOtp(userId: string): Promise<void> {
-    const otpStore = global.otpStore || new Map();
-    otpStore.delete(userId);
+  private clearOtp(userId: string): void {
+    globalThis.otpStore.delete(userId);
   }
 
-  /**
-   * Stocker le token de réinitialisation
-   */
-  private async storeResetToken(
+  // ------------------------------------------
+  // STORES RESET TOKEN (privés, synchrones)
+  // ------------------------------------------
+
+  private storeResetToken(
     userId: string,
     token: string,
-    used: boolean = false
-  ): Promise<void> {
-    const resetTokenStore = global.resetTokenStore || new Map();
-    global.resetTokenStore = resetTokenStore;
-
-    resetTokenStore.set(token, {
-      userId,
+    used = false
+  ): void {
+    globalThis.resetTokenStore.set(token, {
       token,
-      expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 heures
-      used
+      userId,
+      expiresAt: Date.now() + this.RESET_TOKEN_TTL_MS,
+      used,
     });
   }
 
-  /**
-   * Récupérer le token de réinitialisation stocké
-   */
-  private async getStoredResetToken(token: string): Promise<IResetTokenStore & { userId: string } | null> {
-    const resetTokenStore = global.resetTokenStore || new Map();
-    return resetTokenStore.get(token) || null;
+  private getStoredResetToken(token: string): IResetTokenStore | null {
+    return globalThis.resetTokenStore.get(token) ?? null;
   }
 
-  /**
-   * Effacer le token de réinitialisation
-   */
-  private async clearResetToken(token: string): Promise<void> {
-    const resetTokenStore = global.resetTokenStore || new Map();
-    resetTokenStore.delete(token);
+  private clearResetToken(token: string): void {
+    globalThis.resetTokenStore.delete(token);
   }
 
-  /**
-   * Générer les tokens d'accès et de rafraîchissement
-   */
+  // ------------------------------------------
+  // TOKENS JWT
+  // ------------------------------------------
+
   private generateTokens(userId: string, role: string): TokensResponse {
     return {
       accessToken: AuthUtils.generateAccessToken(userId, role),
-      refreshToken: AuthUtils.generateRefreshToken(userId)
+      refreshToken: AuthUtils.generateRefreshToken(userId),
     };
   }
 }
+
+// Singleton
+export const authService = new AuthService();

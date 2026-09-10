@@ -1,5 +1,11 @@
 // backend/src/modules/auth/auth.types.ts
 
+import type { RoleUtilisateur } from '@prisma/client';
+
+// ============================================
+// REQUÊTES
+// ============================================
+
 export interface LoginRequest {
   email: string;
   motDePasse: string;
@@ -10,7 +16,7 @@ export interface RegisterRequest {
   motDePasse: string;
   prenom: string;
   nom: string;
-  role?: 'DIRECTEUR' | 'SECRETAIRE' | 'ENSEIGNANT' | 'PARENT' | 'ADMIN';
+  role?: RoleUtilisateur;
   telephone?: string;
 }
 
@@ -37,6 +43,10 @@ export interface ChangePasswordRequest {
   nouveauMotDePasse: string;
 }
 
+// ============================================
+// RÉPONSES
+// ============================================
+
 export interface TokensResponse {
   accessToken: string;
   refreshToken: string;
@@ -47,7 +57,7 @@ export interface UserResponse {
   email: string;
   prenom: string;
   nom: string;
-  role: string;
+  role: RoleUtilisateur;
   estActif: boolean;
   emailVerifie: boolean;
   telephone?: string | null;
@@ -57,20 +67,33 @@ export interface UserResponse {
   updatedAt: Date;
 }
 
+// ============================================
+// STORES EN MÉMOIRE (OTP / RESET TOKEN)
+// ============================================
+
 export interface IOtpStore {
   otp: string;
   expiresAt: number;
   attempts: number;
 }
 
+/** Le token de réinitialisation contient aussi l'userId associé */
 export interface IResetTokenStore {
   token: string;
+  userId: string;
   expiresAt: number;
   used: boolean;
 }
 
-// Déclaration globale pour le stockage
+// ============================================
+// DÉCLARATION GLOBALE (une seule fois, non-optionnelle)
+// ============================================
+
 declare global {
+  // eslint-disable-next-line no-var
   var otpStore: Map<string, IOtpStore>;
+  // eslint-disable-next-line no-var
   var resetTokenStore: Map<string, IResetTokenStore>;
 }
+
+export {};

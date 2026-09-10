@@ -3,87 +3,128 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../config/db';
+import { AuthUtils } from '../modules/auth/auth.utils';
+import type { RoleUtilisateur } from '@prisma/client';
 
-interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    email: string;
-    role: string;
-  };
+// ============================================
+// TYPES
+// ============================================
+
+/**
+ * Utilisateur authentifié injecté dans req.auth.
+ */
+export interface AuthUser {
+  userId: string;
+  email: string;
+  role: RoleUtilisateur;
 }
 
+// ============================================
+// EXTENSION DU TYPE Request (déclaration locale)
+// ============================================
+
+/**
+ * On étend Request via une interface qui sera utilisée dans les middlewares.
+ * Plus fiable que de toucher à Express.User global.
+ */
+export interface AuthRequest extends Request {
+  auth?: AuthUser;
+  rawBody?: Buffer;
+}
+
+// ============================================
+// HELPERS
+// ============================================
+
+function sendAuthError(
+  res: Response,
+  status: number,
+  message: string,
+  code: string
+): Response {
+  return res.status(status).json({
+    status,
+    message,
+    code,
+    timestamp: new Date().toISOString(),
+  });
+}
+
+function extractBearerToken(req: Request): string | null {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+  const token = authHeader.slice(7).trim();
+  return token.length > 0 ? token : null;
+}
+
+// ============================================
+// MIDDLEWARE PRINCIPAL
+// ============================================
+
 export const authMiddleware = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
-) => {
+): Promise<void> => {
   try {
-    // Récupérer le token du header Authorization
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
-        status: 401,
-        message: 'Token d\'authentification requis',
-        code: 'MISSING_TOKEN',
-        timestamp: new Date().toISOString()
-      });
+    const token = extractBearerToken(req);
+    if (!token) {
+      return void sendAuthError(
+        res,
+        401,
+        "Token d'authentification requis",
+        'MISSING_TOKEN'
+      );
     }
 
-    const token = authHeader.split(' ')[1];
-    const secret = process.env.JWT_SECRET || 'default_secret';
-
-    // Vérifier le token
-    let decoded;
+    let payload;
     try {
-      decoded = jwt.verify(token, secret) as { userId: string; role: string };
+      payload = AuthUtils.verifyAccessToken(token);
     } catch (error) {
       if (error instanceof jwt.TokenExpiredError) {
-        return res.status(401).json({
-          status: 401,
-          message: 'Token expiré',
-          code: 'TOKEN_EXPIRED',
-          timestamp: new Date().toISOString()
-        });
+        return void sendAuthError(res, 401, 'Token expiré', 'TOKEN_EXPIRED');
       }
       if (error instanceof jwt.JsonWebTokenError) {
-        return res.status(401).json({
-          status: 401,
-          message: 'Token invalide',
-          code: 'INVALID_TOKEN',
-          timestamp: new Date().toISOString()
-        });
+        return void sendAuthError(res, 401, 'Token invalide', 'INVALID_TOKEN');
       }
       throw error;
     }
 
-    // Vérifier que l'utilisateur existe et est actif
     const user = await prisma.utilisateur.findUnique({
-      where: { 
-        id: decoded.userId,
-        estActif: true
-      },
+      where: { id: payload.userId },
       select: {
         id: true,
         email: true,
         role: true,
-        estActif: true
-      }
+        estActif: true,
+      },
     });
 
     if (!user) {
-      return res.status(401).json({
-        status: 401,
-        message: 'Utilisateur non trouvé ou compte désactivé',
-        code: 'USER_NOT_FOUND',
-        timestamp: new Date().toISOString()
-      });
+      return void sendAuthError(
+        res,
+        401,
+        'Utilisateur non trouvé',
+        'USER_NOT_FOUND'
+      );
     }
 
-    // Ajouter l'utilisateur à la requête
-    req.user = {
-      id: user.id,
+    if (!user.estActif) {
+      return void sendAuthError(
+        res,
+        403,
+        "Compte désactivé. Contactez l'administrateur.",
+        'ACCOUNT_DISABLED'
+      );
+    }
+
+    // ✅ On utilise req.auth (propriété custom) au lieu de req.user
+    (req as AuthRequest).auth = {
+      userId: user.id,
       email: user.email,
-      role: user.role
+      role: user.role,
     };
 
     next();
@@ -92,30 +133,128 @@ export const authMiddleware = async (
   }
 };
 
-// Middleware optionnel (ne bloque pas si pas de token)
-export const optionalAuthMiddleware = async (
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
-) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.split(' ')[1];
-      const secret = process.env.JWT_SECRET || 'default_secret';
-      const decoded = jwt.verify(token, secret) as { userId: string; role: string };
-      
-      const user = await prisma.utilisateur.findUnique({
-        where: { id: decoded.userId, estActif: true },
-        select: { id: true, email: true, role: true }
-      });
+// ============================================
+// MIDDLEWARE OPTIONNEL
+// ============================================
 
-      if (user) {
-        req.user = user;
-      }
+export const optionalAuthMiddleware = async (
+  req: Request,
+  _res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const token = extractBearerToken(req);
+    if (!token) {
+      return next();
     }
-  } catch (error) {
-    // Ignorer les erreurs pour le middleware optionnel
+
+    const payload = AuthUtils.tryVerifyAccessToken(token);
+    if (!payload) {
+      return next();
+    }
+
+    const user = await prisma.utilisateur.findUnique({
+      where: { id: payload.userId },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        estActif: true,
+      },
+    });
+
+    if (user && user.estActif) {
+      (req as AuthRequest).auth = {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+      };
+    }
+  } catch {
+    // Silent
   }
   next();
 };
+
+// ============================================
+// MIDDLEWARE : VÉRIFICATION EMAIL
+// ============================================
+
+export const requireEmailVerified = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const authReq = req as AuthRequest;
+    if (!authReq.auth?.userId) {
+      return void sendAuthError(res, 401, 'Non authentifié', 'UNAUTHENTICATED');
+    }
+
+    const user = await prisma.utilisateur.findUnique({
+      where: { id: authReq.auth.userId },
+      select: { emailVerifie: true },
+    });
+
+    if (!user?.emailVerifie) {
+      return void sendAuthError(
+        res,
+        403,
+        'Veuillez vérifier votre email avant de continuer.',
+        'EMAIL_NOT_VERIFIED'
+      );
+    }
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ============================================
+// MIDDLEWARE : VÉRIFICATION DE RÔLES (RBAC)
+// ============================================
+
+export const requireRole =
+  (...allowedRoles: RoleUtilisateur[]) =>
+  (req: Request, res: Response, next: NextFunction): void => {
+    const authReq = req as AuthRequest;
+
+    if (!authReq.auth?.userId) {
+      return void sendAuthError(res, 401, 'Non authentifié', 'UNAUTHENTICATED');
+    }
+
+    if (!allowedRoles.includes(authReq.auth.role)) {
+      return void sendAuthError(
+        res,
+        403,
+        'Accès refusé : permissions insuffisantes.',
+        'FORBIDDEN'
+      );
+    }
+
+    next();
+  };
+
+// ============================================
+// HELPERS POUR LES CONTROLLERS
+// ============================================
+
+/**
+ * Récupère l'utilisateur authentifié depuis la requête.
+ * Lance une erreur si non authentifié.
+ */
+export function getAuthUser(req: Request): AuthUser {
+  const authReq = req as AuthRequest;
+  if (!authReq.auth) {
+    throw new Error('Utilisateur non authentifié');
+  }
+  return authReq.auth;
+}
+
+/**
+ * Récupère l'userId de l'utilisateur authentifié (ou null).
+ */
+export function getAuthUserId(req: Request): string | null {
+  return (req as AuthRequest).auth?.userId ?? null;
+}
