@@ -1,8 +1,8 @@
-// src/App.tsx
+// frontend2/src/App.tsx
 
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './hooks/useAuth';
+import { AuthProvider, useAuth } from './hooks/AuthContext';
 import HomePage from './pages/home/HomePage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
@@ -10,16 +10,15 @@ import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import VerifyOtpPage from './pages/auth/VerifyOtpPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
-import './index.css';
 
 // ============================================
 // COMPOSANT PROTECTED ROUTE
 // ============================================
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { user, isInitializing } = useAuth();
 
-  // Afficher un loader pendant le chargement
-  if (loading) {
+  // Afficher un loader pendant la restauration de session
+  if (isInitializing) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -42,10 +41,10 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 // COMPOSANT PUBLIC ROUTE
 // ============================================
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { user, isInitializing } = useAuth();
 
-  // Afficher un loader pendant le chargement
-  if (loading) {
+  // Afficher un loader pendant la restauration de session
+  if (isInitializing) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -73,7 +72,7 @@ function App() {
       <AuthProvider>
         <Routes>
           {/* ============================================
-              ROUTES PUBLIQUES (Accessibles sans authentification)
+              ROUTES PUBLIQUES
               ============================================ */}
 
           {/* Page d'accueil */}
@@ -130,7 +129,7 @@ function App() {
           />
 
           {/* ============================================
-              ROUTES PROTÉGÉES (Authentification requise)
+              ROUTES PROTÉGÉES
               ============================================ */}
 
           {/* Tableau de bord */}
@@ -144,10 +143,8 @@ function App() {
           />
 
           {/* ============================================
-              ROUTE 404 - Redirection
+              404 → Redirection vers l'accueil
               ============================================ */}
-
-          {/* Redirection vers l'accueil pour les routes inconnues */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>

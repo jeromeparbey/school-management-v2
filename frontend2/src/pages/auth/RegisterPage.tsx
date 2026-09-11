@@ -18,7 +18,7 @@ import {
   BriefcaseIcon,
   ShieldCheckIcon
 } from '@heroicons/react/24/outline';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from '../../hooks/AuthContext';
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();

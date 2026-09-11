@@ -1,158 +1,177 @@
-// frontend/src/services/auth.service.ts
+// frontend2/src/services/auth.service.ts
+import { authApi, apiClient } from '../api/auth.api';
+import type {
+  User,
+  Tokens,
+  LoginPayload,
+  RegisterPayload,
+  VerifyOtpPayload,
+  ResendOtpPayload,
+  ForgotPasswordPayload,
+  ResetPasswordPayload,
+  ChangePasswordPayload,
+  UpdateProfilePayload,
+} from '../types/auth.types';
 
-import axios from 'axios';
+// ============================================
+// CLÉS DE STOCKAGE
+// ============================================
+const ACCESS_TOKEN_KEY = 'accessToken';
+const REFRESH_TOKEN_KEY = 'refreshToken';
+const USER_KEY = 'authUser';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api/v1';
+// ============================================
+// SERVICE AUTH
+// ============================================
 
-const api = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Interceptor pour ajouter le token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('accessToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-// Interceptor pour rafraîchir le token
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-
-      try {
-        const refreshToken = localStorage.getItem('refreshToken');
-        if (!refreshToken) throw new Error('No refresh token');
-
-        const response = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
-        const { accessToken, refreshToken: newRefreshToken } = response.data.data;
-
-        localStorage.setItem('accessToken', accessToken);
-        localStorage.setItem('refreshToken', newRefreshToken);
-
-        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-        return api(originalRequest);
-      } catch (err) {
-        localStorage.clear();
-        window.location.href = '/login';
-        return Promise.reject(err);
-      }
-    }
-
-    return Promise.reject(error);
+class AuthService {
+  // ------------------------------------------
+  // TOKENS
+  // ------------------------------------------
+  getAccessToken(): string | null {
+    return localStorage.getItem(ACCESS_TOKEN_KEY);
   }
-);
 
-export const authService = {
-  // Inscription
-  async register(data: {
-    email: string;
-    motDePasse: string;
-    prenom: string;
-    nom: string;
-    role?: string;
-    telephone?: string;
-  }) {
-    const response = await api.post('/auth/register', data);
-    return response.data;
-  },
-
-  // Connexion
-  async login(email: string, motDePasse: string) {
-    const response = await api.post('/auth/login', { email, motDePasse });
-    if (response.data.data.tokens) {
-      localStorage.setItem('accessToken', response.data.data.tokens.accessToken);
-      localStorage.setItem('refreshToken', response.data.data.tokens.refreshToken);
-      localStorage.setItem('user', JSON.stringify(response.data.data.user));
-    }
-    return response.data;
-  },
-
-  // Vérification OTP
-  async verifyOtp(userId: string, otp: string) {
-    const response = await api.post('/auth/verify-otp', { userId, otp });
-    return response.data;
-  },
-
-  // Renvoyer OTP
-  async resendOtp(userId: string) {
-    const response = await api.post('/auth/resend-otp', { userId });
-    return response.data;
-  },
-
-  // Rafraîchir token
-  async refreshToken() {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (!refreshToken) throw new Error('No refresh token');
-    const response = await api.post('/auth/refresh', { refreshToken });
-    if (response.data.data) {
-      localStorage.setItem('accessToken', response.data.data.accessToken);
-      localStorage.setItem('refreshToken', response.data.data.refreshToken);
-    }
-    return response.data;
-  },
-
-  // Déconnexion
-  async logout() {
-    const token = localStorage.getItem('accessToken');
-    if (token) {
-      await api.post('/auth/logout', {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-    }
-    localStorage.clear();
-  },
-
-  // Obtenir l'utilisateur connecté
-  async getCurrentUser() {
-    const response = await api.get('/auth/me');
-    return response.data;
-  },
-
-  // Mot de passe oublié
-  async forgotPassword(email: string) {
-    const response = await api.post('/auth/forgot-password', { email });
-    return response.data;
-  },
- 
-  // Réinitialiser mot de passe
-  async resetPassword(token: string, nouveauMotDePasse: string) {
-    const response = await api.post('/auth/reset-password', {
-      token,
-      nouveauMotDePasse
-    });
-    return response.data;
-  },
-
-  // Changer mot de passe
-  async changePassword(ancienMotDePasse: string, nouveauMotDePasse: string) {
-    const response = await api.post('/auth/change-password', {
-      ancienMotDePasse,
-      nouveauMotDePasse
-    });
-    return response.data;
-  },
-
-  // Mettre à jour le profil
-  async updateProfile(data: {
-    prenom?: string;
-    nom?: string;
-    telephone?: string;
-    photoProfil?: string;
-  }) {
-    const response = await api.put('/auth/me', data);
-    return response.data;
+  getRefreshToken(): string | null {
+    return localStorage.getItem(REFRESH_TOKEN_KEY);
   }
-};
+
+  setTokens(tokens: Tokens): void {
+    localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
+    localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+  }
+
+  clearTokens(): void {
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+  }
+
+  // ------------------------------------------
+  // UTILISATEUR (cache local)
+  // ------------------------------------------
+  getCachedUser(): User | null {
+    const raw = localStorage.getItem(USER_KEY);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as User;
+    } catch {
+      localStorage.removeItem(USER_KEY);
+      return null;
+    }
+  }
+
+  setCachedUser(user: User): void {
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  }
+
+  clearCachedUser(): void {
+    localStorage.removeItem(USER_KEY);
+  }
+
+  // ------------------------------------------
+  // ÉTAT
+  // ------------------------------------------
+  isAuthenticated(): boolean {
+    return !!this.getAccessToken();
+  }
+
+  clearAll(): void {
+    this.clearTokens();
+    this.clearCachedUser();
+  }
+
+  // ------------------------------------------
+  // ACTIONS API
+  // ------------------------------------------
+
+  async login(payload: LoginPayload): Promise<User> {
+    const res = await authApi.login(payload);
+    if (!res.data) throw new Error(res.message ?? 'Échec de la connexion');
+
+    const { user, tokens } = res.data;
+    this.setTokens(tokens);
+    this.setCachedUser(user);
+    return user;
+  }
+
+  async register(payload: RegisterPayload): Promise<User> {
+    const res = await authApi.register(payload);
+    if (!res.data) throw new Error(res.message ?? "Échec de l'inscription");
+
+    const { user, tokens } = res.data;
+    this.setTokens(tokens);
+    this.setCachedUser(user);
+    return user;
+  }
+
+  async verifyOtp(payload: VerifyOtpPayload): Promise<User> {
+    const res = await authApi.verifyOtp(payload);
+    if (!res.data) throw new Error(res.message ?? 'OTP invalide');
+
+    const { user, tokens } = res.data;
+    this.setTokens(tokens);
+    this.setCachedUser(user);
+    return user;
+  }
+
+  async resendOtp(payload: ResendOtpPayload): Promise<void> {
+    await authApi.resendOtp(payload);
+  }
+
+  async forgotPassword(payload: ForgotPasswordPayload): Promise<void> {
+    await authApi.forgotPassword(payload);
+  }
+
+  async resetPassword(payload: ResetPasswordPayload): Promise<void> {
+    await authApi.resetPassword(payload);
+  }
+
+  async changePassword(payload: ChangePasswordPayload): Promise<void> {
+    await authApi.changePassword(payload);
+  }
+
+  async updateProfile(payload: UpdateProfilePayload): Promise<User> {
+    const res = await authApi.updateProfile(payload);
+    if (!res.data) throw new Error(res.message ?? 'Échec de la mise à jour');
+
+    this.setCachedUser(res.data);
+    return res.data;
+  }
+
+  async fetchMe(): Promise<User> {
+    const res = await authApi.me();
+    if (!res.data) throw new Error(res.message ?? 'Utilisateur introuvable');
+
+    this.setCachedUser(res.data);
+    return res.data;
+  }
+
+  async refresh(): Promise<Tokens> {
+    const refreshToken = this.getRefreshToken();
+    if (!refreshToken) throw new Error('Aucun refresh token disponible');
+
+    const res = await authApi.refresh({ refreshToken });
+    if (!res.data) throw new Error(res.message ?? 'Échec du refresh');
+
+    this.setTokens(res.data.tokens);
+    return res.data.tokens;
+  }
+
+  async logout(): Promise<void> {
+    try {
+      await authApi.logout();
+    } catch {
+      // On ignore les erreurs réseau : on veut quand même purger le client
+    } finally {
+      this.clearAll();
+    }
+  }
+}
+
+// ============================================
+// EXPORT SINGLETON
+// ============================================
+export const authService = new AuthService();
+
+// Ré-export pratique pour les intercepteurs
+export { apiClient };

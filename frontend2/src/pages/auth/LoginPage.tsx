@@ -1,50 +1,65 @@
-// frontend/src/pages/auth/LoginPage.tsx
+// frontend2/src/pages/auth/LoginPage.tsx
 
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { 
-  EnvelopeIcon, 
-  LockClosedIcon, 
-  EyeIcon, 
+import {
+  EnvelopeIcon,
+  LockClosedIcon,
+  EyeIcon,
   EyeSlashIcon,
   ArrowRightIcon,
   CheckCircleIcon,
   ExclamationCircleIcon,
-  AcademicCapIcon
+  AcademicCapIcon,
 } from '@heroicons/react/24/outline';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from '../../hooks/AuthContext';
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { login, user, loading } = useAuth();
-  
+  const location = useLocation();
+
+  // ⚠️ On récupère TOUT depuis le context — pas de state local pour l'erreur
+  const { login, user, isAuthenticated, isLoading, error, clearError } = useAuth();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Redirection après connexion (vers la page demandée initialement ou /dashboard)
+  const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? '/dashboard';
 
   // Rediriger si déjà connecté
   useEffect(() => {
-    if (user) {
-      navigate('/dashboard');
+    if (isAuthenticated && user) {
+      navigate(from, { replace: true });
     }
-  }, [user, navigate]);
+  }, [isAuthenticated, user, navigate, from]);
+
+  // Nettoyer l'erreur quand on quitte la page
+  useEffect(() => {
+    return () => clearError();
+  }, [clearError]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setIsSubmitting(true);
+    clearError();
 
     try {
-      await login(email, password);
-      navigate('/dashboard');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Erreur de connexion. Veuillez réessayer.');
-    } finally {
-      setIsSubmitting(false);
+      // ⚠️ On passe un OBJET LoginPayload, pas deux arguments
+      await login({ email, motDePasse: password });
+
+      // Si "se souvenir de moi" est coché, on persiste le flag
+      if (rememberMe) {
+        localStorage.setItem('rememberMe', 'true');
+      } else {
+        localStorage.removeItem('rememberMe');
+      }
+
+      // Le useEffect ci-dessus gère la redirection
+    } catch {
+      // L'erreur est déjà dans le context via `error`
     }
   };
 
@@ -108,7 +123,7 @@ const LoginPage: React.FC = () => {
             <p className="text-gray-600 mt-1">Connectez-vous pour accéder à votre espace</p>
           </div>
 
-          {/* Error message */}
+          {/* Error message — vient du context */}
           {error && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
@@ -138,7 +153,8 @@ const LoginPage: React.FC = () => {
                   className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 outline-none"
                   placeholder="exemple@email.com"
                   required
-                  disabled={isSubmitting}
+                  autoComplete="email"
+                  disabled={isLoading}
                 />
               </div>
             </motion.div>
@@ -165,12 +181,14 @@ const LoginPage: React.FC = () => {
                   className="w-full pl-12 pr-12 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 outline-none"
                   placeholder="••••••••"
                   required
-                  disabled={isSubmitting}
+                  autoComplete="current-password"
+                  disabled={isLoading}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
                 >
                   {showPassword ? (
                     <EyeSlashIcon className="w-5 h-5" />
@@ -198,17 +216,33 @@ const LoginPage: React.FC = () => {
             <motion.div variants={itemVariants}>
               <motion.button
                 type="submit"
-                disabled={isSubmitting}
-                className="w-full py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all duration-300 flex items-center justify-center gap-3 group relative overflow-hidden"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+                disabled={isLoading}
+                className="w-full py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all duration-300 flex items-center justify-center gap-3 group relative overflow-hidden disabled:opacity-60 disabled:cursor-not-allowed"
+                whileHover={{ scale: isLoading ? 1 : 1.02 }}
+                whileTap={{ scale: isLoading ? 1 : 0.98 }}
               >
                 <span className="relative z-10 flex items-center gap-3">
-                  {isSubmitting ? (
+                  {isLoading ? (
                     <>
-                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      <svg
+                        className="animate-spin h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        />
                       </svg>
                       Connexion en cours...
                     </>
