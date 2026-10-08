@@ -15,6 +15,11 @@ import {
   resetPasswordSchema,
   changePasswordSchema,
   updateProfileSchema,
+  // Schémas spécialisés
+  registerEleveSchema,
+  registerSurveillantSchema,
+  loginEleveSchema,
+  loginSurveillantSchema,
 } from './auth.validation';
 
 const router = Router();
@@ -42,12 +47,58 @@ const loginLimiter = rateLimit({
   skipSuccessfulRequests: true,
 });
 
+/** Connexion élèves : 8 tentatives / 15 min */
+const loginEleveLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 8,
+  message: rateLimitHandler(
+    'Trop de tentatives de connexion. Réessayez dans 15 minutes.'
+  ),
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+});
+
+/** Connexion surveillants : 5 tentatives / 15 min */
+const loginSurveillantLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: rateLimitHandler(
+    'Trop de tentatives de connexion. Réessayez dans 15 minutes.'
+  ),
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+});
+
 /** Inscription : 10 / heure / IP */
 const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 10,
   message: rateLimitHandler(
     "Trop d'inscriptions depuis cette adresse. Réessayez plus tard."
+  ),
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/** Inscription élève : 5 / heure */
+const registerEleveLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: rateLimitHandler(
+    "Trop d'inscriptions d'élèves depuis cette adresse. Réessayez plus tard."
+  ),
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/** Inscription surveillant : 3 / heure */
+const registerSurveillantLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 3,
+  message: rateLimitHandler(
+    "Trop d'inscriptions de surveillants depuis cette adresse. Réessayez plus tard."
   ),
   standardHeaders: true,
   legacyHeaders: false,
@@ -64,7 +115,7 @@ const otpLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-/** Renvoi OTP : encore plus strict, 3 / heure */
+/** Renvoi OTP : 3 / heure */
 const resendOtpLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 3,
@@ -86,7 +137,7 @@ const forgotPasswordLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-/** Refresh token : 30 / 15 min (usage légitime fréquent) */
+/** Refresh token : 30 / 15 min */
 const refreshLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
@@ -107,7 +158,7 @@ const resetPasswordLimiter = rateLimit({
 });
 
 // ============================================
-// ROUTES PUBLIQUES
+// ROUTES PUBLIQUES — INSCRIPTION
 // ============================================
 
 /**
@@ -123,8 +174,50 @@ router.post(
 );
 
 /**
+ * @route   POST /api/v1/auth/register/eleve
+ * @desc    Inscription d'un élève
+ * @access  Public
+ */
+router.post(
+  '/register/eleve',
+  registerEleveLimiter,
+  validateRequest(registerEleveSchema),
+  authController.registerEleve
+);
+
+/**
+ * @route   POST /api/v1/auth/register/surveillant
+ * @desc    Inscription d'un surveillant
+ * @access  Private (ADMIN / DIRECTEUR)
+ */
+router.post(
+  '/register/surveillant',
+  registerSurveillantLimiter,
+  authMiddleware,
+  validateRequest(registerSurveillantSchema),
+  authController.registerSurveillant
+);
+
+// ============================================
+// ROUTES PUBLIQUES — CONNEXION
+// ============================================
+
+/**
+ * @route   POST /api/v1/auth/login/super-admin
+ * @desc    Connexion d'un SUPER_ADMIN (catalogue global)
+ * @access  Public
+ * ⚠️ DOIT être placée AVANT /login (sinon Express matche /login en premier)
+ */
+router.post(
+  '/login/super-admin',
+  loginLimiter,
+  validateRequest(loginSchema),
+  authController.loginSuperAdmin
+);
+
+/**
  * @route   POST /api/v1/auth/login
- * @desc    Connexion d'un utilisateur
+ * @desc    Connexion d'un utilisateur (rôle détecté automatiquement)
  * @access  Public
  */
 router.post(
@@ -135,8 +228,36 @@ router.post(
 );
 
 /**
+ * @route   POST /api/v1/auth/login/eleve
+ * @desc    Connexion d'un élève
+ * @access  Public
+ */
+router.post(
+  '/login/eleve',
+  loginEleveLimiter,
+  validateRequest(loginEleveSchema),
+  authController.loginEleve
+);
+
+/**
+ * @route   POST /api/v1/auth/login/surveillant
+ * @desc    Connexion d'un surveillant
+ * @access  Public
+ */
+router.post(
+  '/login/surveillant',
+  loginSurveillantLimiter,
+  validateRequest(loginSurveillantSchema),
+  authController.loginSurveillant
+);
+
+// ============================================
+// ROUTES PUBLIQUES — OTP & TOKENS
+// ============================================
+
+/**
  * @route   POST /api/v1/auth/verify-otp
- * @desc    Vérification de l'OTP pour activer le compte
+ * @desc    Vérification de l'OTP
  * @access  Public
  */
 router.post(
@@ -161,7 +282,7 @@ router.post(
 /**
  * @route   POST /api/v1/auth/refresh
  * @desc    Rafraîchir les tokens d'accès
- * @access  Public (nécessite un refresh token valide dans le body ou cookie)
+ * @access  Public
  */
 router.post(
   '/refresh',
@@ -169,6 +290,10 @@ router.post(
   validateRequest(refreshTokenSchema),
   authController.refreshToken
 );
+
+// ============================================
+// ROUTES PUBLIQUES — MOT DE PASSE
+// ============================================
 
 /**
  * @route   POST /api/v1/auth/forgot-password
@@ -194,15 +319,19 @@ router.post(
   authController.resetPassword
 );
 
+// ============================================
+// ROUTES PUBLIQUES — DÉCONNEXION
+// ============================================
+
 /**
  * @route   POST /api/v1/auth/logout
- * @desc    Déconnexion (fonctionne même avec un access token expiré)
- * @access  Public (le userId est extrait du refresh token)
+ * @desc    Déconnexion
+ * @access  Public
  */
 router.post('/logout', authController.logout);
 
 // ============================================
-// ROUTES PROTÉGÉES
+// ROUTES PROTÉGÉES — PROFIL
 // ============================================
 
 /**
@@ -214,7 +343,7 @@ router.get('/me', authMiddleware, authController.getCurrentUser);
 
 /**
  * @route   PUT /api/v1/auth/me
- * @desc    Mettre à jour le profil de l'utilisateur connecté
+ * @desc    Mettre à jour le profil
  * @access  Private
  */
 router.put(
@@ -226,7 +355,7 @@ router.put(
 
 /**
  * @route   POST /api/v1/auth/change-password
- * @desc    Changer le mot de passe (utilisateur connecté)
+ * @desc    Changer le mot de passe
  * @access  Private
  */
 router.post(
@@ -237,6 +366,32 @@ router.post(
 );
 
 // ============================================
+// ROUTES PROTÉGÉES — PROFIL ÉLÈVE / SURVEILLANT
+// ============================================
+
+/**
+ * @route   GET /api/v1/auth/me/eleve
+ * @desc    Récupérer le profil élève
+ * @access  Private (ELEVE)
+ */
+router.get(
+  '/me/eleve',
+  authMiddleware,
+  authController.getEleveProfile
+);
+
+/**
+ * @route   GET /api/v1/auth/me/surveillant
+ * @desc    Récupérer le profil surveillant
+ * @access  Private (SURVEILLANT)
+ */
+router.get(
+  '/me/surveillant',
+  authMiddleware,
+  authController.getSurveillantProfile
+);
+
+// ============================================
 // EXPORT
 // ============================================
 
@@ -244,13 +399,6 @@ export default router;
 
 /**
  * Métadonnées pour le chargeur dynamique de routes (server.ts).
- *
- * ⚠️ IMPORTANT : `publicRoute: false` car ce routeur contient
- * des routes protégées par authMiddleware. Les routes publiques
- * ci-dessus gèrent leur propre auth (login, register, refresh...).
- *
- * Cela évite que le chargeur applique authMiddleware globalement
- * et casse les routes publiques.
  */
 export const publicRoute = false;
 export const basePath = '/auth';

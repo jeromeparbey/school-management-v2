@@ -1,0 +1,164 @@
+// prisma/schema.prisma
+// SCHÉMA GLOBAL - Contient uniquement le catalogue multi-tenant
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated/global-client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// CATALOGUE DES ÉTABLISSEMENTS (TENANTS)
+// ============================================
+
+model Etablissement {
+  id                    String                @id @default(cuid())
+  nom                   String
+  code                  String                @unique
+  schemaName            String                @unique // ← nom du schéma PostgreSQL ex: "tenant_ecole_a_1f"
+  type                  TypeEtablissement     @default(PRIVE)
+  logo                  String?
+  adresse               String?
+  ville                 String?
+  pays                  String                @default("Côte d'Ivoire")
+  telephone             String?
+  email                 String?
+  siteWeb               String?
+  numeroAgrement        String?
+  devise                String                @default("XOF")
+  fuseauHoraire         String                @default("Africa/Abidjan")
+  formatDate            String                @default("DD/MM/YYYY")
+  joursOuvrables        String[]              @default(["LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI"])
+  heureDebut            String?               @default("08:00")
+  heureFin              String?               @default("17:00")
+  toleranceRetard       Int                   @default(15)
+  tauxHeureSup          Float                 @default(1.5)
+  estActif              Boolean               @default(true)
+  estArchive            Boolean               @default(false)
+  planAbonnement        PlanAbonnement        @default(STANDARD)
+  dateExpiration        DateTime?
+  maxUtilisateurs       Int                   @default(1000)
+  statutProvisionnement StatutProvisionnement @default(EN_ATTENTE)
+  erreurProvisionnement String?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  utilisateursGlobaux UtilisateurGlobal[]
+  abonnements         AbonnementEtablissement[]
+  factures            FactureEtablissement[]
+
+  @@index([code])
+  @@index([schemaName])
+  @@index([estActif])
+  @@map("etablissements")
+}
+
+enum TypeEtablissement {
+  PUBLIC
+  PRIVE
+  PRIVE_LAIQUE
+  PRIVE_CONFESSIONNEL
+  INTERNATIONAL
+}
+
+enum PlanAbonnement {
+  GRATUIT
+  BASIQUE
+  STANDARD
+  PREMIUM
+  ENTERPRISE
+}
+
+enum StatutProvisionnement {
+  EN_ATTENTE
+  EN_COURS
+  TERMINE
+  ECHEC
+}
+
+// ============================================
+// UTILISATEURS GLOBAUX (SUPER_ADMIN uniquement)
+// ============================================
+
+model UtilisateurGlobal {
+  id                 String     @id @default(cuid())
+  email              String     @unique
+  motDePasse         String
+  prenom             String
+  nom                String
+  role               RoleGlobal @default(SUPER_ADMIN)
+  estActif           Boolean    @default(true)
+  emailVerifie       Boolean    @default(false)
+  telephone          String?
+  photoProfil        String?
+  derniereConnexion  DateTime?
+  jetonActualisation String?
+  etablissementId    String? // null pour SUPER_ADMIN global
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  etablissement Etablissement? @relation(fields: [etablissementId], references: [id])
+
+  @@index([etablissementId])
+  @@index([role])
+  @@map("utilisateurs_globaux")
+}
+
+enum RoleGlobal {
+  SUPER_ADMIN
+  ADMIN_SYSTEME
+}
+
+// ============================================
+// ABONNEMENTS ET FACTURATION
+// ============================================
+
+model AbonnementEtablissement {
+  id                 String         @id @default(cuid())
+  etablissementId    String
+  plan               PlanAbonnement
+  dateDebut          DateTime
+  dateFin            DateTime
+  montantMensuel     Float
+  estActif           Boolean        @default(true)
+  renouvellementAuto Boolean        @default(false)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  etablissement Etablissement          @relation(fields: [etablissementId], references: [id])
+  factures      FactureEtablissement[]
+
+  @@map("abonnements_etablissement")
+}
+
+model FactureEtablissement {
+  id                String        @id @default(cuid())
+  etablissementId   String
+  abonnementId      String?
+  numeroFacture     String        @unique
+  montant           Float
+  dateEmission      DateTime      @default(now())
+  dateEcheance      DateTime
+  datePaiement      DateTime?
+  statut            StatutFacture @default(EN_ATTENTE)
+  methodePaiement   String?
+  referencePaiement String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  etablissement Etablissement            @relation(fields: [etablissementId], references: [id])
+  abonnement    AbonnementEtablissement? @relation(fields: [abonnementId], references: [id])
+
+  @@map("factures_etablissement")
+}
+
+enum StatutFacture {
+  EN_ATTENTE
+  PAYEE
+  EN_RETARD
+  ANNULEE
+  REMBOURSEE
+}

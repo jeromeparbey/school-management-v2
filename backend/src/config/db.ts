@@ -1,42 +1,72 @@
 // src/config/db.ts
-import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import dotenv from 'dotenv';
+// ⚠️ Ce fichier est une passerelle de compatibilité.
+// Pour le multi-schéma, utilisez directement :
+//   - `globalPrisma` (depuis `./global-db`) pour le catalogue
+//   - `getTenantClient(schemaName)` (depuis `./tenant-db`) pour les données d'une école
 
-dotenv.config();
+import 'dotenv/config';
+import {
+  globalPrisma,
+  connectGlobalDB,
+  disconnectGlobalDB,
+} from './global-db';
+import {
+  getTenantClient,
+  disconnectAllTenants,
+} from './tenant-db';
 
+// ============================================
+// EXPORTS DE COMPATIBILITÉ
+// ============================================
 
-// Créer l'adaptateur PostgreSQL
-const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL,
-});
+/**
+ * Client Prisma "par défaut" → pointe vers le CATALOGUE GLOBAL (schéma public).
+ *
+ * ⚠️ Pour accéder aux données d'une école (élèves, notes, paiements...),
+ * utilisez `getTenantClient(schemaName)`.
+ */
+export const prisma = globalPrisma;
 
-// Créer le client Prisma avec l'adaptateur
-const prisma = new PrismaClient({
-  adapter,
-  log: process.env.NODE_ENV === 'development' ? ['query', 'info', 'warn', 'error'] : ['error'],
-});
-
-// Fonction de connexion
-async function connectDB() {
+/**
+ * Connexion au catalogue global.
+ */
+export async function connectDB() {
   try {
-    await prisma.$connect();
-    console.log('✅ Connexion à la base de données établie');
-    return prisma;
+    await connectGlobalDB();
+    return globalPrisma;
   } catch (error) {
     console.error('❌ Erreur de connexion à la base de données:', error);
     throw error;
   }
 }
 
-// Fonction de déconnexion
-async function disconnectDB() {
+/**
+ * Déconnexion du catalogue global + de tous les clients tenant en cache.
+ */
+export async function disconnectDB() {
   try {
-    await prisma.$disconnect();
-    console.log('✅ Déconnexion de la base de données effectuée');
+    await disconnectGlobalDB();
+    await disconnectAllTenants();
   } catch (error) {
     console.error('❌ Erreur lors de la déconnexion:', error);
   }
 }
 
-export { prisma, connectDB, disconnectDB };
+// ============================================
+// RÉ-EXPORTS POUR LE MULTI-SCHÉMA
+// ============================================
+
+export { globalPrisma, getTenantClient };
+
+/**
+ * Alias sémantique pour plus de clarté dans le code métier.
+ *
+ * @example
+ * ```typescript
+ * import { getTenantPrisma } from '../config/db';
+ *
+ * const tenantPrisma = await getTenantPrisma(etablissement.schemaName);
+ * const eleves = await tenantPrisma.eleve.findMany();
+ * ```
+ */
+export const getTenantPrisma = getTenantClient;

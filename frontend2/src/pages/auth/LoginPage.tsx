@@ -268,18 +268,6 @@ const LoginPage: React.FC = () => {
             </div>
           </motion.div>
 
-          {/* Register link */}
-          <motion.div variants={itemVariants} className="text-center">
-            <p className="text-gray-600">
-              Pas encore de compte ?{' '}
-              <Link
-                to="/register"
-                className="text-blue-600 hover:text-blue-700 font-semibold transition-colors hover:underline"
-              >
-                Créer un compte
-              </Link>
-            </p>
-          </motion.div>
 
           {/* Trust badges */}
           <motion.div

@@ -240,7 +240,7 @@ const HomePage: React.FC = () => {
                   Connexion
                 </motion.button>
               </Link>
-              <Link to="/register">
+              <Link to="/login">
                 <motion.button
                   className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-semibold rounded-xl shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all duration-300"
                   whileHover={{ scale: 1.05, y: -2 }}
@@ -383,7 +383,7 @@ const HomePage: React.FC = () => {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <Link to="/register">
+                  <Link to="/login">
                     <button className="px-10 py-4.5 bg-white text-blue-700 font-semibold rounded-2xl shadow-2xl hover:shadow-blue-500/30 transition-all duration-300 flex items-center gap-3 text-lg group">
                       Commencer maintenant
                       <motion.div

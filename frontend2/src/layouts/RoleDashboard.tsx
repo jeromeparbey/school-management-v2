@@ -2,7 +2,7 @@ import React from 'react';
 import { useAuth } from '../hooks/AuthContext';
 import DashboardPage from '../pages/dashboard/DashboardPage';
 import SecretaireDashboardPage from '../pages/dashboard/secretaire/SecretaireDashboardPage';
- import EnseignantDashboardPage from '../pages/dashboard/enseignant/EnseignantDashboardPage';
+ import EnseignantDashboardPage from '../pages/dashboard/directeur/enseignant/EnseignantDashboardPage';
  import ParentDashboardPage from '../pages/dashboard/parent/ParentDashboardPage';
 import AdminDashboardPage from '../pages/dashboard/admin/AdminDashboardPage';
 
