@@ -1,7 +1,7 @@
 // backend/src/modules/auth/auth.controller.ts
 
 import { Request, Response, NextFunction } from 'express';
-import { authService, AuthService } from './auth.service';
+import { authService, AuthService, AuthContext } from './auth.service';
 import { AuthUtils } from './auth.utils';
 import { AppError } from '../../utils/AppError';
 import { globalPrisma } from '../../config/global-db';
@@ -24,13 +24,6 @@ interface ApiSuccess<T = unknown> {
   status: number;
   message?: string;
   data?: T;
-  timestamp: string;
-}
-
-interface ApiError {
-  status: number;
-  message: string;
-  errors?: unknown;
   timestamp: string;
 }
 
@@ -138,33 +131,38 @@ function isValidDate(value: string): boolean {
 }
 
 /**
- * ⚠️ FONCTION CLÉ : Résout le nom du schéma d'un établissement.
+ * ⚠️ FONCTION CLÉ : Résout un contexte d'authentification tenant.
  *
- * Sans établissementId : cherche dans tous les schémas de tous les établissements.
- * Avec établissementId : va directement chercher ce schéma.
+ * - Retourne `{ schemaName, etablissementId }`
+ * - Le `schemaName` est utilisé par le repository (ciblage du schéma PG)
+ * - L'`etablissementId` est injecté dans le JWT (scope TENANT) pour que
+ *   le `authMiddleware` puisse retrouver l'établissement sans requête supplémentaire.
+ *
+ * Sans `etablissementId` : cherche dans tous les schémas des établissements actifs.
+ * Avec `etablissementId` : va directement chercher ce schéma.
  */
-async function resolveSchemaName(
+async function resolveAuthContext(
   email: string,
   etablissementId?: string
-): Promise<string> {
+): Promise<AuthContext> {
   // Cas 1 : l'établissementId est fourni
   if (etablissementId) {
     const etab = await globalPrisma.etablissement.findUnique({
       where: { id: etablissementId },
-      select: { schemaName: true, estActif: true },
+      select: { id: true, schemaName: true, estActif: true },
     });
 
     if (!etab || !etab.estActif) {
       throw new AppError('Établissement introuvable ou inactif', 404);
     }
 
-    return etab.schemaName;
+    return { schemaName: etab.schemaName, etablissementId: etab.id };
   }
 
   // Cas 2 : chercher dans tous les établissements actifs
   const etablissements = await globalPrisma.etablissement.findMany({
     where: { estActif: true },
-    select: { schemaName: true },
+    select: { id: true, schemaName: true },
   });
 
   for (const etab of etablissements) {
@@ -174,7 +172,7 @@ async function resolveSchemaName(
         email
       );
       if (exists) {
-        return etab.schemaName;
+        return { schemaName: etab.schemaName, etablissementId: etab.id };
       }
     } catch (error) {
       // Si le schéma n'existe pas ou est cassé, on passe au suivant
@@ -188,6 +186,23 @@ async function resolveSchemaName(
 
   // Aucun établissement trouvé pour cet email
   throw new AppError('Email ou mot de passe incorrect', 401);
+}
+
+/**
+ * Résout un contexte tenant uniquement à partir d'un `etablissementId`.
+ * Utilisé pour les routes qui ont l'ID mais pas l'email (verifyOtp, etc.).
+ */
+async function resolveAuthContextById(
+  etablissementId: string
+): Promise<AuthContext> {
+  const etab = await globalPrisma.etablissement.findUnique({
+    where: { id: etablissementId },
+    select: { id: true, schemaName: true, estActif: true },
+  });
+  if (!etab || !etab.estActif) {
+    throw new AppError('Établissement introuvable ou inactif', 404);
+  }
+  return { schemaName: etab.schemaName, etablissementId: etab.id };
 }
 
 // ============================================
@@ -242,13 +257,13 @@ export class AuthController {
         throw new AppError("L'identifiant de l'établissement est requis", 400);
       }
 
-      // Résoudre le schéma
-      const schemaName = await resolveSchemaName(
+      // Résoudre le contexte
+      const ctx = await resolveAuthContext(
         body.email.trim().toLowerCase(),
         body.etablissementId
       );
 
-      const result = await this.authService.register(schemaName, {
+      const result = await this.authService.register(ctx, {
         email: body.email.trim().toLowerCase(),
         motDePasse: body.motDePasse,
         prenom: body.prenom.trim(),
@@ -312,13 +327,12 @@ export class AuthController {
         throw new AppError('Groupe sanguin invalide', 400);
       }
 
-      // Résoudre le schéma
-      const schemaName = await resolveSchemaName(
+      const ctx = await resolveAuthContext(
         body.email.trim().toLowerCase(),
         body.etablissementId
       );
 
-      const result = await this.authService.registerEleve(schemaName, {
+      const result = await this.authService.registerEleve(ctx, {
         email: body.email.trim().toLowerCase(),
         motDePasse: body.motDePasse,
         prenom: body.prenom.trim(),
@@ -389,13 +403,12 @@ export class AuthController {
         throw new AppError("L'identifiant de l'établissement est requis", 400);
       }
 
-      // Résoudre le schéma
-      const schemaName = await resolveSchemaName(
+      const ctx = await resolveAuthContext(
         body.email.trim().toLowerCase(),
         body.etablissementId
       );
 
-      const result = await this.authService.registerSurveillant(schemaName, {
+      const result = await this.authService.registerSurveillant(ctx, {
         email: body.email.trim().toLowerCase(),
         motDePasse: body.motDePasse,
         prenom: body.prenom.trim(),
@@ -421,7 +434,7 @@ export class AuthController {
   };
 
   // ------------------------------------------
-  // CONNEXION GÉNÉRIQUE
+  // CONNEXION GÉNÉRIQUE (tenant)
   // ------------------------------------------
 
   login = async (
@@ -439,13 +452,12 @@ export class AuthController {
         throw new AppError('Mot de passe requis', 400);
       }
 
-      // Résoudre le schéma (avec ou sans etablissementId)
-      const schemaName = await resolveSchemaName(
+      const ctx = await resolveAuthContext(
         body.email.trim().toLowerCase(),
         body.etablissementId
       );
 
-      const result = await this.authService.login(schemaName, {
+      const result = await this.authService.login(ctx, {
         email: body.email.trim().toLowerCase(),
         motDePasse: body.motDePasse,
       });
@@ -455,46 +467,73 @@ export class AuthController {
       next(error);
     }
   };
-loginSuperAdmin = async (
-  req: Request<{}, {}, LoginRequest>,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const body = requireBody(req.body);
-    if (!body.email || !body.motDePasse) {
-      throw new AppError('Email et mot de passe requis', 400);
+
+  // ------------------------------------------
+  // CONNEXION — SUPER-ADMIN (catalogue global)
+  // ------------------------------------------
+
+  loginSuperAdmin = async (
+    req: Request<{}, {}, LoginRequest>,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const body = requireBody(req.body);
+      if (!body.email || !body.motDePasse) {
+        throw new AppError('Email et mot de passe requis', 400);
+      }
+
+      // Chercher dans le catalogue global
+      const user = await globalPrisma.utilisateurGlobal.findUnique({
+        where: { email: body.email.trim().toLowerCase() },
+      });
+
+      if (!user) throw new AppError('Email ou mot de passe incorrect', 401);
+      if (!user.estActif) throw new AppError('Compte désactivé', 403);
+
+      const isValid = await AuthUtils.verifyPassword(
+        body.motDePasse,
+        user.motDePasse
+      );
+      if (!isValid) throw new AppError('Email ou mot de passe incorrect', 401);
+
+      // ═══════════════════════════════════════════════════════
+      // 🔥 INJECTION DU SCOPE 'GLOBAL' — CRITIQUE
+      // ═══════════════════════════════════════════════════════
+      const tokens = {
+        accessToken: AuthUtils.generateAccessToken({
+          userId: user.id,
+          email: user.email,
+          role: user.role,
+          scope: 'GLOBAL',
+        }),
+        refreshToken: AuthUtils.generateRefreshToken({
+          userId: user.id,
+          scope: 'GLOBAL',
+        }),
+      };
+
+      await globalPrisma.utilisateurGlobal.update({
+        where: { id: user.id },
+        data: {
+          jetonActualisation: tokens.refreshToken,
+          derniereConnexion: new Date(),
+        },
+      });
+
+      sendSuccess(
+        res,
+        {
+          user: AuthUtils.sanitizeGlobalUser(user),
+          tokens,
+        },
+        'Connexion super-admin réussie'
+      );
+    } catch (error) {
+      next(error);
     }
+  };
 
-    // Chercher dans le catalogue global
-    const user = await globalPrisma.utilisateurGlobal.findUnique({
-      where: { email: body.email.trim().toLowerCase() },
-    });
-
-    if (!user) throw new AppError('Email ou mot de passe incorrect', 401);
-    if (!user.estActif) throw new AppError('Compte désactivé', 403);
-
-    const isValid = await AuthUtils.verifyPassword(body.motDePasse, user.motDePasse);
-    if (!isValid) throw new AppError('Email ou mot de passe incorrect', 401);
-
-    const tokens = {
-      accessToken: AuthUtils.generateAccessToken(user.id, user.role),
-      refreshToken: AuthUtils.generateRefreshToken(user.id),
-    };
-
-    await globalPrisma.utilisateurGlobal.update({
-      where: { id: user.id },
-      data: { jetonActualisation: tokens.refreshToken, derniereConnexion: new Date() },
-    });
-
-    sendSuccess(res, {
-      user: AuthUtils.sanitizeUser(user as any),
-      tokens,
-    }, 'Connexion super-admin réussie');
-  } catch (error) {
-    next(error);
-  }
-};
   // ------------------------------------------
   // CONNEXION — ÉLÈVE
   // ------------------------------------------
@@ -514,12 +553,12 @@ loginSuperAdmin = async (
         throw new AppError('Mot de passe requis', 400);
       }
 
-      const schemaName = await resolveSchemaName(
+      const ctx = await resolveAuthContext(
         body.email.trim().toLowerCase(),
         body.etablissementId
       );
 
-      const result = await this.authService.loginEleve(schemaName, {
+      const result = await this.authService.loginEleve(ctx, {
         email: body.email.trim().toLowerCase(),
         motDePasse: body.motDePasse,
       });
@@ -549,12 +588,12 @@ loginSuperAdmin = async (
         throw new AppError('Mot de passe requis', 400);
       }
 
-      const schemaName = await resolveSchemaName(
+      const ctx = await resolveAuthContext(
         body.email.trim().toLowerCase(),
         body.etablissementId
       );
 
-      const result = await this.authService.loginSurveillant(schemaName, {
+      const result = await this.authService.loginSurveillant(ctx, {
         email: body.email.trim().toLowerCase(),
         motDePasse: body.motDePasse,
       });
@@ -587,16 +626,8 @@ loginSuperAdmin = async (
         throw new AppError("L'identifiant de l'établissement est requis", 400);
       }
 
-      // Pour verifyOtp, on a besoin du schéma
-      const etab = await globalPrisma.etablissement.findUnique({
-        where: { id: body.etablissementId },
-        select: { schemaName: true },
-      });
-      if (!etab) {
-        throw new AppError('Établissement introuvable', 404);
-      }
-
-      await this.authService.verifyOtp(etab.schemaName, body.userId, body.otp);
+      const ctx = await resolveAuthContextById(body.etablissementId);
+      await this.authService.verifyOtp(ctx, body.userId, body.otp);
 
       sendSuccess(res, undefined, 'Email vérifié avec succès');
     } catch (error) {
@@ -619,15 +650,8 @@ loginSuperAdmin = async (
         throw new AppError("L'identifiant de l'établissement est requis", 400);
       }
 
-      const etab = await globalPrisma.etablissement.findUnique({
-        where: { id: body.etablissementId },
-        select: { schemaName: true },
-      });
-      if (!etab) {
-        throw new AppError('Établissement introuvable', 404);
-      }
-
-      await this.authService.resendOtp(etab.schemaName, body.userId);
+      const ctx = await resolveAuthContextById(body.etablissementId);
+      await this.authService.resendOtp(ctx, body.userId);
 
       sendSuccess(
         res,
@@ -659,53 +683,40 @@ loginSuperAdmin = async (
         throw new AppError('Refresh token requis', 400);
       }
 
-      // Décoder le token pour récupérer l'userId
+      // Décoder pour récupérer userId + scope + schemaName
       const payload = AuthUtils.tryVerifyRefreshToken(refreshToken);
       if (!payload?.userId) {
         throw new AppError('Refresh token invalide', 401);
       }
 
-      // Résoudre le schéma
-      let schemaName: string;
-
-      if (body.etablissementId) {
-        const etab = await globalPrisma.etablissement.findUnique({
-          where: { id: body.etablissementId },
-          select: { schemaName: true },
-        });
-        if (!etab) {
-          throw new AppError('Établissement introuvable', 404);
-        }
-        schemaName = etab.schemaName;
-      } else {
-        // Chercher dans tous les schémas
-        const etablissements = await globalPrisma.etablissement.findMany({
-          where: { estActif: true },
-          select: { schemaName: true },
-        });
-
-        schemaName = '';
-        for (const etab of etablissements) {
-          const user = await authService.findUserInSchema(
-            etab.schemaName,
-            payload.userId // on cherche par ID ici, pas email
-          );
-          // Note : cette partie nécessite d'adapter findUserInSchema pour accepter un userId
-          // Ou de passer par une autre méthode
-          // Pour simplifier, on prend le premier
-          schemaName = etab.schemaName;
-          break;
-        }
-
-        if (!schemaName) {
-          throw new AppError('Refresh token révoqué', 401);
-        }
+      // ⚠️ Si le refresh token est de scope GLOBAL, on refuse ici
+      // (les super-admins doivent utiliser une route dédiée, ou on gère plus tard)
+      if (payload.scope === 'GLOBAL') {
+        throw new AppError(
+          'Utilisez la route dédiée pour rafraîchir les tokens super-admin.',
+          400
+        );
       }
 
-      const tokens = await this.authService.refreshTokens(
-        schemaName,
-        refreshToken
-      );
+      // Résoudre le contexte tenant
+      let ctx: AuthContext;
+
+      if (body.etablissementId) {
+        ctx = await resolveAuthContextById(body.etablissementId);
+      } else if (payload.schemaName && payload.etablissementId) {
+        // 🔥 Le refresh token contient déjà schemaName + etablissementId
+        ctx = {
+          schemaName: payload.schemaName,
+          etablissementId: payload.etablissementId,
+        };
+      } else {
+        throw new AppError(
+          'Impossible de résoudre le contexte du refresh token.',
+          401
+        );
+      }
+
+      const tokens = await this.authService.refreshTokens(ctx, refreshToken);
 
       sendSuccess(res, tokens, 'Tokens rafraîchis avec succès');
     } catch (error) {
@@ -724,28 +735,56 @@ loginSuperAdmin = async (
   ): Promise<void> => {
     try {
       let userId = req.user?.userId;
-      let schemaName = (req as any).tenant?.schemaName;
+      let ctx: AuthContext | null = null;
 
-      if (!userId) {
+      // Construire le contexte depuis req.user (si authMiddleware est passé)
+      if (req.user?.scope === 'TENANT' && req.user.schemaName && req.user.etablissementId) {
+        ctx = {
+          schemaName: req.user.schemaName,
+          etablissementId: req.user.etablissementId,
+        };
+      } else if (req.user?.scope === 'GLOBAL') {
+        // Logout super-admin : révoquer le refresh token en catalogue
+        if (userId) {
+          await globalPrisma.utilisateurGlobal.update({
+            where: { id: userId },
+            data: { jetonActualisation: null },
+          });
+        }
+        res.clearCookie?.('refreshToken');
+        sendSuccess(res, undefined, 'Déconnexion réussie');
+        return;
+      }
+
+      // Si on a un refresh token, on essaie de résoudre le contexte
+      if (!ctx) {
         const refreshToken =
           (req.body?.refreshToken as string | undefined) ||
           (req.cookies?.refreshToken as string | undefined);
 
         if (refreshToken) {
           const payload = AuthUtils.tryVerifyRefreshToken(refreshToken);
-          if (payload?.userId) {
+          if (
+            payload?.userId &&
+            payload.scope === 'TENANT' &&
+            payload.schemaName &&
+            payload.etablissementId
+          ) {
             userId = payload.userId;
+            ctx = {
+              schemaName: payload.schemaName,
+              etablissementId: payload.etablissementId,
+            };
           }
         }
       }
 
-      // Si on a le schemaName (via middleware), on logout directement
-      if (userId && schemaName) {
-        await this.authService.logout(schemaName, userId);
+      // Logout tenant
+      if (userId && ctx) {
+        await this.authService.logout(ctx, userId);
       }
 
       res.clearCookie?.('refreshToken');
-
       sendSuccess(res, undefined, 'Déconnexion réussie');
     } catch (error) {
       next(error);
@@ -768,15 +807,12 @@ loginSuperAdmin = async (
         throw new AppError('Email invalide', 400);
       }
 
-      const schemaName = await resolveSchemaName(
+      const ctx = await resolveAuthContext(
         body.email.trim().toLowerCase(),
         body.etablissementId
       );
 
-      await this.authService.forgotPassword(
-        schemaName,
-        body.email.trim().toLowerCase()
-      );
+      await this.authService.forgotPassword(ctx, body.email.trim().toLowerCase());
 
       sendSuccess(
         res,
@@ -806,19 +842,8 @@ loginSuperAdmin = async (
         throw new AppError("L'identifiant de l'établissement est requis", 400);
       }
 
-      const etab = await globalPrisma.etablissement.findUnique({
-        where: { id: body.etablissementId },
-        select: { schemaName: true },
-      });
-      if (!etab) {
-        throw new AppError('Établissement introuvable', 404);
-      }
-
-      await this.authService.resetPassword(
-        etab.schemaName,
-        body.token,
-        body.nouveauMotDePasse
-      );
+      const ctx = await resolveAuthContextById(body.etablissementId);
+      await this.authService.resetPassword(ctx, body.token, body.nouveauMotDePasse);
 
       sendSuccess(res, undefined, 'Mot de passe réinitialisé avec succès');
     } catch (error) {
@@ -833,9 +858,10 @@ loginSuperAdmin = async (
   ): Promise<void> => {
     try {
       const userId = requireUserId(req);
-      const schemaName = (req as any).tenant?.schemaName;
+      const schemaName = req.user?.schemaName;
+      const etablissementId = req.user?.etablissementId;
 
-      if (!schemaName) {
+      if (!schemaName || !etablissementId) {
         throw new AppError('Établissement non identifié', 400);
       }
 
@@ -854,8 +880,9 @@ loginSuperAdmin = async (
         );
       }
 
+      const ctx: AuthContext = { schemaName, etablissementId };
       await this.authService.changePassword(
-        schemaName,
+        ctx,
         userId,
         body.ancienMotDePasse,
         body.nouveauMotDePasse
@@ -878,13 +905,15 @@ loginSuperAdmin = async (
   ): Promise<void> => {
     try {
       const userId = requireUserId(req);
-      const schemaName = (req as any).tenant?.schemaName;
+      const schemaName = req.user?.schemaName;
+      const etablissementId = req.user?.etablissementId;
 
-      if (!schemaName) {
+      if (!schemaName || !etablissementId) {
         throw new AppError('Établissement non identifié', 400);
       }
 
-      const user = await this.authService.getCurrentUser(schemaName, userId);
+      const ctx: AuthContext = { schemaName, etablissementId };
+      const user = await this.authService.getCurrentUser(ctx, userId);
 
       sendSuccess(res, user);
     } catch (error) {
@@ -899,9 +928,10 @@ loginSuperAdmin = async (
   ): Promise<void> => {
     try {
       const userId = requireUserId(req);
-      const schemaName = (req as any).tenant?.schemaName;
+      const schemaName = req.user?.schemaName;
+      const etablissementId = req.user?.etablissementId;
 
-      if (!schemaName) {
+      if (!schemaName || !etablissementId) {
         throw new AppError('Établissement non identifié', 400);
       }
 
@@ -926,11 +956,8 @@ loginSuperAdmin = async (
         throw new AppError('Numéro de téléphone invalide', 400);
       }
 
-      const user = await this.authService.updateProfile(
-        schemaName,
-        userId,
-        updateData
-      );
+      const ctx: AuthContext = { schemaName, etablissementId };
+      const user = await this.authService.updateProfile(ctx, userId, updateData);
 
       sendSuccess(res, user, 'Profil mis à jour avec succès');
     } catch (error) {
@@ -949,13 +976,15 @@ loginSuperAdmin = async (
   ): Promise<void> => {
     try {
       const userId = requireUserId(req);
-      const schemaName = (req as any).tenant?.schemaName;
+      const schemaName = req.user?.schemaName;
+      const etablissementId = req.user?.etablissementId;
 
-      if (!schemaName) {
+      if (!schemaName || !etablissementId) {
         throw new AppError('Établissement non identifié', 400);
       }
 
-      const eleve = await this.authService.getEleveProfile(schemaName, userId);
+      const ctx: AuthContext = { schemaName, etablissementId };
+      const eleve = await this.authService.getEleveProfile(ctx, userId);
 
       sendSuccess(res, eleve);
     } catch (error) {
@@ -970,16 +999,15 @@ loginSuperAdmin = async (
   ): Promise<void> => {
     try {
       const userId = requireUserId(req);
-      const schemaName = (req as any).tenant?.schemaName;
+      const schemaName = req.user?.schemaName;
+      const etablissementId = req.user?.etablissementId;
 
-      if (!schemaName) {
+      if (!schemaName || !etablissementId) {
         throw new AppError('Établissement non identifié', 400);
       }
 
-      const surveillant = await this.authService.getSurveillantProfile(
-        schemaName,
-        userId
-      );
+      const ctx: AuthContext = { schemaName, etablissementId };
+      const surveillant = await this.authService.getSurveillantProfile(ctx, userId);
 
       sendSuccess(res, surveillant);
     } catch (error) {

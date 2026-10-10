@@ -29,6 +29,23 @@ if (!globalThis.resetTokenStore) {
 }
 
 // ============================================
+// CONTEXTE D'AUTHENTIFICATION TENANT
+// ============================================
+
+/**
+ * Contexte obligatoire pour toute opération liée à un tenant.
+ * Transporte le schéma Prisma ET l'ID du catalogue (Etablissement.id).
+ *
+ * - `schemaName` : utilisé par le repository pour cibler le bon schéma PG
+ * - `etablissementId` : injecté dans le JWT (scope TENANT) pour permettre
+ *   au authMiddleware de retrouver l'établissement sans requête supplémentaire.
+ */
+export interface AuthContext {
+  schemaName: string;
+  etablissementId: string;
+}
+
+// ============================================
 // TYPES D'ENTRÉE POUR INSCRIPTIONS SPÉCIALISÉES
 // ============================================
 
@@ -87,12 +104,13 @@ export class AuthService {
   // ------------------------------------------
 
   async register(
-    schemaName: string,
+    ctx: AuthContext,
     data: RegisterRequest
   ): Promise<{
     user: UserResponse;
     tokens: TokensResponse;
   }> {
+    const { schemaName } = ctx;
     const email = data.email.toLowerCase().trim();
 
     // Vérifier l'unicité
@@ -133,7 +151,12 @@ export class AuthService {
     }
 
     // Tokens
-    const tokens = this.generateTokens(user.id, user.role);
+    const tokens = this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      ctx
+    );
     await this.repository.updateRefreshToken(
       schemaName,
       user.id,
@@ -151,13 +174,14 @@ export class AuthService {
   // ------------------------------------------
 
   async registerEleve(
-    schemaName: string,
+    ctx: AuthContext,
     data: RegisterEleveRequest
   ): Promise<{
     user: UserResponse;
     tokens: TokensResponse;
     matricule: string;
   }> {
+    const { schemaName } = ctx;
     const email = data.email.toLowerCase().trim();
 
     if (await this.repository.emailExists(schemaName, email)) {
@@ -199,7 +223,12 @@ export class AuthService {
       console.error('⚠️ Échec envoi OTP:', err);
     }
 
-    const tokens = this.generateTokens(user.id, user.role);
+    const tokens = this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      ctx
+    );
     await this.repository.updateRefreshToken(
       schemaName,
       user.id,
@@ -218,13 +247,14 @@ export class AuthService {
   // ------------------------------------------
 
   async registerSurveillant(
-    schemaName: string,
+    ctx: AuthContext,
     data: RegisterSurveillantRequest
   ): Promise<{
     user: UserResponse;
     tokens: TokensResponse;
     matricule: string;
   }> {
+    const { schemaName } = ctx;
     const email = data.email.toLowerCase().trim();
 
     if (await this.repository.emailExists(schemaName, email)) {
@@ -267,7 +297,12 @@ export class AuthService {
       console.error('⚠️ Échec envoi OTP:', err);
     }
 
-    const tokens = this.generateTokens(user.id, user.role);
+    const tokens = this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      ctx
+    );
     await this.repository.updateRefreshToken(
       schemaName,
       user.id,
@@ -286,12 +321,13 @@ export class AuthService {
   // ------------------------------------------
 
   async login(
-    schemaName: string,
+    ctx: AuthContext,
     data: LoginRequest
   ): Promise<{
     user: UserResponse;
     tokens: TokensResponse;
   }> {
+    const { schemaName } = ctx;
     const user = await this.repository.findByEmail(schemaName, data.email);
 
     if (!user) {
@@ -315,7 +351,12 @@ export class AuthService {
 
     await this.repository.updateLastLogin(schemaName, user.id);
 
-    const tokens = this.generateTokens(user.id, user.role);
+    const tokens = this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      ctx
+    );
     await this.repository.updateRefreshToken(
       schemaName,
       user.id,
@@ -333,7 +374,7 @@ export class AuthService {
   // ------------------------------------------
 
   async loginEleve(
-    schemaName: string,
+    ctx: AuthContext,
     data: LoginRequest
   ): Promise<{
     user: UserResponse;
@@ -344,6 +385,7 @@ export class AuthService {
       statut: string;
     };
   }> {
+    const { schemaName } = ctx;
     const user = await this.repository.findByEmail(schemaName, data.email);
 
     if (!user) {
@@ -379,7 +421,12 @@ export class AuthService {
 
     await this.repository.updateLastLogin(schemaName, user.id);
 
-    const tokens = this.generateTokens(user.id, user.role);
+    const tokens = this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      ctx
+    );
     await this.repository.updateRefreshToken(
       schemaName,
       user.id,
@@ -402,7 +449,7 @@ export class AuthService {
   // ------------------------------------------
 
   async loginSurveillant(
-    schemaName: string,
+    ctx: AuthContext,
     data: LoginRequest
   ): Promise<{
     user: UserResponse;
@@ -413,6 +460,7 @@ export class AuthService {
       zoneSurveillance: string | null;
     };
   }> {
+    const { schemaName } = ctx;
     const user = await this.repository.findByEmail(schemaName, data.email);
 
     if (!user) {
@@ -448,7 +496,12 @@ export class AuthService {
 
     await this.repository.updateLastLogin(schemaName, user.id);
 
-    const tokens = this.generateTokens(user.id, user.role);
+    const tokens = this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      ctx
+    );
     await this.repository.updateRefreshToken(
       schemaName,
       user.id,
@@ -471,10 +524,11 @@ export class AuthService {
   // ------------------------------------------
 
   async verifyOtp(
-    schemaName: string,
+    ctx: AuthContext,
     userId: string,
     otp: string
   ): Promise<boolean> {
+    const { schemaName } = ctx;
     const storedOtp = this.getStoredOtp(userId);
 
     if (!storedOtp) {
@@ -506,7 +560,8 @@ export class AuthService {
     return true;
   }
 
-  async resendOtp(schemaName: string, userId: string): Promise<void> {
+  async resendOtp(ctx: AuthContext, userId: string): Promise<void> {
+    const { schemaName } = ctx;
     const user = await this.repository.findById(schemaName, userId);
     if (!user) {
       throw new AppError('Utilisateur non trouvé', 404);
@@ -526,15 +581,15 @@ export class AuthService {
   // ------------------------------------------
 
   async refreshTokens(
-    schemaName: string,
+    ctx: AuthContext,
     refreshToken: string
   ): Promise<TokensResponse> {
+    const { schemaName } = ctx;
+
     let decoded: { userId?: string };
     try {
-      decoded = AuthUtils.verifyToken(
-        refreshToken,
-        process.env.JWT_REFRESH_SECRET || 'refresh_secret'
-      ) as { userId?: string };
+      // ⚠️ On utilise verifyRefreshToken (vérifie signature + type)
+      decoded = AuthUtils.verifyRefreshToken(refreshToken);
     } catch {
       throw new AppError('Refresh token invalide ou expiré', 401);
     }
@@ -551,7 +606,12 @@ export class AuthService {
       throw new AppError('Refresh token révoqué', 401);
     }
 
-    const tokens = this.generateTokens(user.id, user.role);
+    const tokens = this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      ctx
+    );
     await this.repository.updateRefreshToken(
       schemaName,
       user.id,
@@ -561,15 +621,16 @@ export class AuthService {
     return tokens;
   }
 
-  async logout(schemaName: string, userId: string): Promise<void> {
-    await this.repository.updateRefreshToken(schemaName, userId, null);
+  async logout(ctx: AuthContext, userId: string): Promise<void> {
+    await this.repository.updateRefreshToken(ctx.schemaName, userId, null);
   }
 
   // ------------------------------------------
   // MOT DE PASSE
   // ------------------------------------------
 
-  async forgotPassword(schemaName: string, email: string): Promise<void> {
+  async forgotPassword(ctx: AuthContext, email: string): Promise<void> {
+    const { schemaName } = ctx;
     const user = await this.repository.findByEmail(schemaName, email);
 
     // Sécurité : ne pas révéler l'existence de l'email
@@ -590,10 +651,12 @@ export class AuthService {
   }
 
   async resetPassword(
-    schemaName: string,
+    ctx: AuthContext,
     token: string,
     newPassword: string
   ): Promise<void> {
+    const { schemaName } = ctx;
+
     const passwordValidation = AuthUtils.isStrongPassword(newPassword);
     if (!passwordValidation.valid) {
       throw new AppError(
@@ -641,11 +704,12 @@ export class AuthService {
   }
 
   async changePassword(
-    schemaName: string,
+    ctx: AuthContext,
     userId: string,
     ancienMotDePasse: string,
     nouveauMotDePasse: string
   ): Promise<void> {
+    const { schemaName } = ctx;
     const user = await this.repository.findById(schemaName, userId);
     if (!user) {
       throw new AppError('Utilisateur non trouvé', 404);
@@ -682,10 +746,10 @@ export class AuthService {
   // ------------------------------------------
 
   async getCurrentUser(
-    schemaName: string,
+    ctx: AuthContext,
     userId: string
   ): Promise<UserResponse> {
-    const user = await this.repository.getUserInfo(schemaName, userId);
+    const user = await this.repository.getUserInfo(ctx.schemaName, userId);
     if (!user) {
       throw new AppError('Utilisateur non trouvé', 404);
     }
@@ -693,7 +757,7 @@ export class AuthService {
   }
 
   async updateProfile(
-    schemaName: string,
+    ctx: AuthContext,
     userId: string,
     data: {
       prenom?: string;
@@ -702,7 +766,11 @@ export class AuthService {
       photoProfil?: string;
     }
   ): Promise<UserResponse> {
-    const user = await this.repository.updateProfile(schemaName, userId, data);
+    const user = await this.repository.updateProfile(
+      ctx.schemaName,
+      userId,
+      data
+    );
     return user as unknown as UserResponse;
   }
 
@@ -710,9 +778,9 @@ export class AuthService {
   // PROFIL ÉLÈVE / SURVEILLANT
   // ------------------------------------------
 
-  async getEleveProfile(schemaName: string, userId: string) {
+  async getEleveProfile(ctx: AuthContext, userId: string) {
     const userWithEleve = await this.repository.findEleveByUserId(
-      schemaName,
+      ctx.schemaName,
       userId
     );
     if (!userWithEleve?.eleve) {
@@ -721,9 +789,9 @@ export class AuthService {
     return userWithEleve.eleve;
   }
 
-  async getSurveillantProfile(schemaName: string, userId: string) {
+  async getSurveillantProfile(ctx: AuthContext, userId: string) {
     const userWithSurv = await this.repository.findSurveillantByUserId(
-      schemaName,
+      ctx.schemaName,
       userId
     );
     if (!userWithSurv?.surveillant) {
@@ -739,10 +807,7 @@ export class AuthService {
   /**
    * Vérifie si un email existe dans un schéma donné (utile pour le controller)
    */
-  async findUserInSchema(
-    schemaName: string,
-    email: string
-  ): Promise<boolean> {
+  async findUserInSchema(schemaName: string, email: string): Promise<boolean> {
     return this.repository.emailExists(schemaName, email);
   }
 
@@ -795,10 +860,35 @@ export class AuthService {
   // TOKENS JWT
   // ------------------------------------------
 
-  private generateTokens(userId: string, role: string): TokensResponse {
+  /**
+   * Génère une paire de tokens pour un utilisateur TENANT.
+   *
+   * ⚠️ Injecte automatiquement :
+   *  - scope: 'TENANT'
+   *  - etablissementId (depuis ctx)
+   *  - schemaName (depuis ctx)
+   */
+  private generateTokens(
+    userId: string,
+    email: string,
+    role: string,
+    ctx: AuthContext
+  ): TokensResponse {
     return {
-      accessToken: AuthUtils.generateAccessToken(userId, role),
-      refreshToken: AuthUtils.generateRefreshToken(userId),
+      accessToken: AuthUtils.generateAccessToken({
+        userId,
+        email,
+        role: role as any,
+        scope: 'TENANT',
+        etablissementId: ctx.etablissementId,
+        schemaName: ctx.schemaName,
+      }),
+      refreshToken: AuthUtils.generateRefreshToken({
+        userId,
+        scope: 'TENANT',
+        etablissementId: ctx.etablissementId,
+        schemaName: ctx.schemaName,
+      }),
     };
   }
 }

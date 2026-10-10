@@ -29,13 +29,10 @@ import { auditMiddleware } from "./middleware/audit";
 // ============================================
 // ESM __dirname polyfill
 // ============================================
-// Si tsx exécute en CJS, __dirname existe déjà. On le protège avec un check.
-const currentFilename = typeof __filename !== "undefined"
-  ? __filename
-  : fileURLToPath(import.meta.url);
-const currentDirname = typeof __dirname !== "undefined"
-  ? __dirname
-  : path.dirname(currentFilename);
+const currentFilename =
+  typeof __filename !== "undefined" ? __filename : fileURLToPath(import.meta.url);
+const currentDirname =
+  typeof __dirname !== "undefined" ? __dirname : path.dirname(currentFilename);
 
 // ============================================
 // CONFIGURATION
@@ -46,25 +43,88 @@ const NODE_ENV = process.env.NODE_ENV || "development";
 const API_PREFIX = "/api/v1";
 
 // ============================================
+// STOCKAGE DES ROUTES MONTÉES (pour log final)
+// ============================================
+
+interface MountedRoute {
+  method: string;
+  path: string;
+  type: "public" | "protected";
+  roles: string[];
+}
+
+const mountedRoutes: MountedRoute[] = [];
+
+// ============================================
 // EXPRESS APP
 // ============================================
 const app = express();
 
 // ============================================
-// FONCTION POUR EXTRAIRE USER_ID DU SOCKET
+// SOCKET.IO — TYPES + HELPERS
 // ============================================
-function getUserIdFromSocket(socket: import("socket.io").Socket): string | null {
+
+interface SocketAuthPayload {
+  userId: string;
+  role?: string;
+  scope?: "GLOBAL" | "TENANT";
+  etablissementId?: string;
+  schemaName?: string;
+}
+
+/**
+ * Décoder le JWT depuis le handshake socket.
+ * Retourne le payload complet (scope, schemaName, etc.).
+ */
+function getAuthPayloadFromSocket(
+  socket: import("socket.io").Socket
+): SocketAuthPayload | null {
   try {
     const token = socket.handshake.auth.token;
     if (!token) return null;
 
     const secret = process.env.JWT_SECRET || "default_secret";
-    const payload = jwt.verify(token, secret) as { userId?: string };
-    return payload.userId ?? null;
+    const payload = jwt.verify(token, secret) as SocketAuthPayload;
+    return payload.userId ? payload : null;
   } catch (err) {
     console.warn("⚠️ Socket auth token invalide", err);
     return null;
   }
+}
+
+/**
+ * Récupère le rôle d'un utilisateur connecté au socket.
+ * Route vers le BON client Prisma selon le scope :
+ *  - GLOBAL → globalPrisma.utilisateurGlobal
+ *  - TENANT → getTenantClient(schemaName).utilisateur
+ */
+async function fetchUserRole(
+  payload: SocketAuthPayload
+): Promise<string | null> {
+  // ── Scope GLOBAL : catalogue (SUPER_ADMIN, ADMIN_SYSTEME)
+  if (payload.scope === "GLOBAL") {
+    const { globalPrisma } = await import("./config/global-db");
+    const user = await globalPrisma.utilisateurGlobal.findUnique({
+      where: { id: payload.userId },
+      select: { role: true },
+    });
+    return user?.role ?? null;
+  }
+
+  // ── Scope TENANT : établissement
+  if (payload.scope === "TENANT" && payload.schemaName) {
+    const { getTenantClient } = await import("./config/tenant-db");
+    const tenantClient = await getTenantClient(payload.schemaName);
+    if (!tenantClient) return null;
+
+    const user = await tenantClient.utilisateur.findUnique({
+      where: { id: payload.userId },
+      select: { role: true },
+    });
+    return user?.role ?? null;
+  }
+
+  return null;
 }
 
 // ============================================
@@ -83,14 +143,16 @@ const io = new SocketIOServer(httpServer, {
 });
 
 // ============================================
-// GESTION DES CONNEXIONS SOCKET.IO
+// SOCKET.IO — HANDLERS
 // ============================================
 io.on("connection", (socket) => {
   console.log(`✅ Client connecté : ${socket.id}`);
   console.log(`📡 Transport: ${socket.conn.transport.name}`);
 
-  const userId = getUserIdFromSocket(socket);
-  if (userId) {
+  const payload = getAuthPayloadFromSocket(socket);
+
+  if (payload) {
+    const { userId } = payload;
     socket.join(`user:${userId}`);
     console.log(`🔗 Socket ${socket.id} rejoint la room user:${userId}`);
 
@@ -100,21 +162,25 @@ io.on("connection", (socket) => {
       timestamp: new Date().toISOString(),
     });
 
-    prisma.utilisateur
-      .findUnique({
-        where: { id: userId },
-        select: { role: true },
-      })
-      .then((user: { role: string } | null) => {
-        if (user) {
-          const role = user.role;
+    // 🔥 Récupération du rôle via le BON client selon le scope
+    fetchUserRole(payload)
+      .then((role) => {
+        if (role) {
           socket.join(`role:${role}`);
           console.log(`🔗 Socket ${socket.id} rejoint la room role:${role}`);
           socket.emit("role-assigned", { role });
+
+          // Bonus : room par établissement (uniquement pour TENANT)
+          if (payload.scope === "TENANT" && payload.etablissementId) {
+            socket.join(`etablissement:${payload.etablissementId}`);
+            console.log(
+              `🔗 Socket ${socket.id} rejoint la room etablissement:${payload.etablissementId}`
+            );
+          }
         }
       })
       .catch((err: Error) => {
-        console.error("Erreur lors de la récupération du rôle:", err);
+        console.error("❌ Erreur lors de la récupération du rôle:", err);
       });
   } else {
     console.log(`⚠️ Socket ${socket.id} non authentifié`);
@@ -157,9 +223,6 @@ io.on("connection", (socket) => {
   });
 });
 
-// ============================================
-// EXPORT DE IO POUR LES AUTRES MODULES
-// ============================================
 export { io };
 
 // ============================================
@@ -199,6 +262,7 @@ app.use(
 );
 
 app.use(compression());
+
 app.use(
   morgan(NODE_ENV === "development" ? "dev" : "combined", {
     skip: (req) => req.path === "/health" || req.path === "/",
@@ -238,7 +302,7 @@ app.use("/recus", express.static(recusDir));
 app.use("/images", express.static(uploadsDir));
 
 // ============================================
-// ROUTES PUBLIQUES
+// ROUTES PUBLIQUES DE BASE
 // ============================================
 
 app.get("/", (_req: Request, res: Response) => {
@@ -269,11 +333,78 @@ app.get("/health", (_req: Request, res: Response) => {
 });
 
 // ============================================
-// HELPER : import dynamique cross-platform
+// HELPERS
 // ============================================
+
 async function dynamicImport(filePath: string): Promise<any> {
   const moduleUrl = pathToFileURL(filePath).href;
   return await import(moduleUrl);
+}
+
+/**
+ * Cherche le fichier de routes d'un module (ex: etablissement.routes.ts, routes.ts, ...)
+ * Retourne null si aucun fichier valide.
+ */
+function findRoutesFile(dir: string, folderName: string): string | null {
+  const possibleFiles = [
+    `${folderName}.routes.ts`,
+    `${folderName}.routes.js`,
+    `index.routes.ts`,
+    `index.routes.js`,
+    `routes.ts`,
+    `routes.js`,
+  ];
+
+  for (const file of possibleFiles) {
+    const fullPath = path.join(dir, file);
+    try {
+      if (existsSync(fullPath) && statSync(fullPath).isFile()) {
+        return fullPath;
+      }
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+/**
+ * Vérifie si un router est valide (pas vide, pas corrompu).
+ * Détecte le cas "argument handler is required" à l'avance.
+ */
+function isValidRouter(router: any): { valid: boolean; reason?: string } {
+  if (!router) {
+    return { valid: false, reason: "routeur non exporté (default manquant)" };
+  }
+  if (typeof router !== "function") {
+    return { valid: false, reason: "default export n'est pas une fonction/routeur" };
+  }
+  // Vérifier que le routeur a bien une stack de routes
+  const stack = router.stack;
+  if (!Array.isArray(stack)) {
+    return { valid: false, reason: "routeur invalide (stack manquante)" };
+  }
+  if (stack.length === 0) {
+    return { valid: false, reason: "routeur vide (aucune route définie)" };
+  }
+  return { valid: true };
+}
+
+/**
+ * Enregistre une route pour le log final.
+ */
+function recordRoute(
+  method: string,
+  fullPath: string,
+  isPublic: boolean,
+  roles: string[]
+): void {
+  mountedRoutes.push({
+    method,
+    path: fullPath,
+    type: isPublic ? "public" : "protected",
+    roles,
+  });
 }
 
 // ============================================
@@ -297,15 +428,31 @@ async function loadAuthRoutes(): Promise<void> {
         const authModule = await dynamicImport(authPath);
         const router = authModule.default;
 
-        if (router) {
-          app.use(`${API_PREFIX}/auth`, router);
-          console.log(`✅ Route auth montée: ${API_PREFIX}/auth`);
-          loaded = true;
-          break;
+        const check = isValidRouter(router);
+        if (!check.valid) {
+          console.warn(`   ⚠️ Auth: ${check.reason}`);
+          continue;
         }
+
+        app.use(`${API_PREFIX}/auth`, router);
+        console.log(`✅ Route auth montée: ${API_PREFIX}/auth`);
+
+        // Enregistrer les routes auth
+        recordRoute("POST", `${API_PREFIX}/auth/register`, true, []);
+        recordRoute("POST", `${API_PREFIX}/auth/login`, true, []);
+        recordRoute("POST", `${API_PREFIX}/auth/login/super-admin`, true, []);
+        recordRoute("POST", `${API_PREFIX}/auth/logout`, true, []);
+        recordRoute("GET", `${API_PREFIX}/auth/me`, false, []);
+        recordRoute("POST", `${API_PREFIX}/auth/change-password`, false, []);
+
+        loaded = true;
+        break;
       }
     } catch (error: any) {
-      console.error(`❌ Erreur import auth (${path.basename(authPath)}):`, error.message);
+      console.error(
+        `❌ Erreur import auth (${path.basename(authPath)}):`,
+        error.message
+      );
     }
   }
 
@@ -315,7 +462,96 @@ async function loadAuthRoutes(): Promise<void> {
 }
 
 // ============================================
-// CHARGEMENT DYNAMIQUE DES AUTRES ROUTES
+// CHARGEMENT D'UN MODULE DE ROUTES
+// ============================================
+
+/**
+ * Charge un module de routes à partir de son chemin de dossier.
+ * Applique auth + audit + rbac selon les métadonnées exportées.
+ */
+async function loadModuleRoutes(
+  moduleDir: string,
+  moduleName: string,
+  routePrefix?: string
+): Promise<void> {
+  const indent = routePrefix ? "  " : "";
+  console.log(`\n${indent}🔍 Traitement du module: ${moduleName}`);
+
+  const filePath = findRoutesFile(moduleDir, moduleName);
+  if (!filePath) {
+    console.log(`${indent}   ⚠️ Aucun fichier de routes trouvé pour ${moduleName}`);
+    return;
+  }
+  console.log(`${indent}   📄 Fichier trouvé: ${path.basename(filePath)}`);
+
+  let routeModule: any;
+  try {
+    routeModule = await dynamicImport(filePath);
+  } catch (error: any) {
+    console.error(
+      `${indent}   ❌ Erreur import ${moduleName}: ${error.message}`
+    );
+    return;
+  }
+
+  const router = routeModule.default;
+
+  // ✅ Vérification AVANT le mount (évite "argument handler is required")
+  const check = isValidRouter(router);
+  if (!check.valid) {
+    console.error(`${indent}   ❌ ${moduleName}: ${check.reason}`);
+    return;
+  }
+
+  const isPublic: boolean = routeModule.publicRoute === true;
+  const requiredRoles: string[] = routeModule.roles || [];
+  const basePath: string = routeModule.basePath || `/${moduleName}`;
+  const disableAudit: boolean = routeModule.disableAudit === true;
+
+  console.log(`${indent}   📋 Métadonnées:`);
+  console.log(`${indent}      - Base path: ${basePath}`);
+  console.log(`${indent}      - Public: ${isPublic}`);
+  console.log(
+    `${indent}      - Rôles: ${requiredRoles.length > 0 ? requiredRoles.join(", ") : "Aucun"}`
+  );
+  console.log(`${indent}      - Audit: ${disableAudit ? "Désactivé" : "Activé"}`);
+
+  let finalRouter = router;
+
+  if (!isPublic) {
+    const protectedRouter = express.Router();
+    protectedRouter.use(authMiddleware);
+    console.log(`${indent}      🔒 Authentification appliquée`);
+
+    if (!disableAudit) {
+      protectedRouter.use(auditMiddleware(basePath, moduleName));
+      console.log(`${indent}      📝 Audit appliqué`);
+    }
+
+    if (requiredRoles.length > 0) {
+      protectedRouter.use(rbacMiddleware(requiredRoles));
+      console.log(`${indent}      👤 RBAC appliqué: [${requiredRoles.join(", ")}]`);
+    }
+
+    protectedRouter.use(router);
+    finalRouter = protectedRouter;
+  } else {
+    console.log(`${indent}      🔓 Route publique`);
+  }
+
+  const fullPath = `${API_PREFIX}${basePath}`;
+  app.use(fullPath, finalRouter);
+
+  const routeType = isPublic
+    ? "🔓 publique"
+    : `🔒 protégée${requiredRoles.length > 0 ? ` [${requiredRoles.join(", ")}]` : ""}`;
+  console.log(`${indent}   ✅ Route montée: ${fullPath} (${routeType})`);
+
+  recordRoute("ALL", fullPath, isPublic, requiredRoles);
+}
+
+// ============================================
+// CHARGEMENT DYNAMIQUE DE TOUS LES MODULES
 // ============================================
 async function loadRoutes(): Promise<void> {
   const modulesDir = path.join(currentDirname, "modules");
@@ -332,99 +568,84 @@ async function loadRoutes(): Promise<void> {
     .filter((dirent) => dirent.isDirectory())
     .map((dirent) => dirent.name)
     .filter((name) => !name.startsWith("."))
-    .filter((name) => name !== "auth"); // ✅ auth déjà monté
+    .filter((name) => name !== "auth");
 
   console.log(`📁 ${folders.length} dossiers trouvés dans modules`);
 
   for (const folder of folders) {
-    console.log(`\n🔍 Traitement du module: ${folder}`);
+    const folderPath = path.join(modulesDir, folder);
 
-    const possibleFiles = [
-      `${folder}.routes.ts`,
-      `${folder}.routes.js`,
-      `index.routes.ts`,
-      `index.routes.js`,
-      `routes.ts`,
-      `routes.js`,
-    ];
+    // ✅ Chercher un fichier de routes DIRECTEMENT dans le dossier
+    const hasDirectRoutes = findRoutesFile(folderPath, folder) !== null;
 
-    let filePath: string | null = null;
-
-    for (const file of possibleFiles) {
-      const fullPath = path.join(modulesDir, folder, file);
-      try {
-        if (existsSync(fullPath) && statSync(fullPath).isFile()) {
-          filePath = fullPath;
-          console.log(`   📄 Fichier trouvé: ${file}`);
-          break;
-        }
-      } catch {
-        continue;
-      }
+    if (hasDirectRoutes) {
+      await loadModuleRoutes(folderPath, folder);
+      continue;
     }
 
-    if (!filePath) {
+    // ✅ Sinon, explorer les SOUS-DOSSIERS (ex: catalogue/etablissement/)
+    const subEntries = readdirSync(folderPath, { withFileTypes: true });
+    const subFolders = subEntries
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name)
+      .filter((name) => !name.startsWith("."));
+
+    if (subFolders.length === 0) {
+      console.log(`\n🔍 Traitement du module: ${folder}`);
       console.log(`   ⚠️ Aucun fichier de routes trouvé pour ${folder}`);
       continue;
     }
 
-    try {
-      const routeModule = await dynamicImport(filePath);
-      const router = routeModule.default;
+    console.log(
+      `\n📂 Module conteneur détecté: ${folder} (${subFolders.length} sous-modules)`
+    );
 
-      if (!router) {
-        console.warn(`   ⚠️ ${folder}: pas de routeur exporté`);
-        continue;
-      }
-
-      const isPublic = routeModule.publicRoute === true;
-      const requiredRoles: string[] = routeModule.roles || [];
-      const basePath: string = routeModule.basePath || `/${folder}`;
-      const disableAudit: boolean = routeModule.disableAudit === true;
-
-      console.log(`   📋 Métadonnées:`);
-      console.log(`      - Base path: ${basePath}`);
-      console.log(`      - Public: ${isPublic}`);
-      console.log(`      - Rôles: ${requiredRoles.length > 0 ? requiredRoles.join(", ") : "Aucun"}`);
-      console.log(`      - Audit: ${disableAudit ? "Désactivé" : "Activé"}`);
-
-      let finalRouter = router;
-
-      if (!isPublic) {
-        const protectedRouter = express.Router();
-        protectedRouter.use(authMiddleware);
-        console.log(`      🔒 Authentification appliquée`);
-
-        if (!disableAudit) {
-          protectedRouter.use(auditMiddleware(basePath, folder));
-          console.log(`      📝 Audit appliqué`);
-        }
-
-        if (requiredRoles.length > 0) {
-          protectedRouter.use(rbacMiddleware(requiredRoles));
-          console.log(`      👤 RBAC appliqué: [${requiredRoles.join(", ")}]`);
-        }
-
-        protectedRouter.use(router);
-        finalRouter = protectedRouter;
-      } else {
-        console.log(`      🔓 Route publique`);
-      }
-
-      const fullPath = `${API_PREFIX}${basePath}`;
-      app.use(fullPath, finalRouter);
-
-      const routeType = isPublic
-        ? "🔓 publique"
-        : `🔒 protégée${requiredRoles.length > 0 ? ` [${requiredRoles.join(", ")}]` : ""}`;
-      console.log(`   ✅ Route montée: ${fullPath} (${routeType})`);
-    } catch (error: any) {
-      console.error(`   ❌ Erreur chargement route ${folder}:`, error.message);
-      if (NODE_ENV === "development") {
-        console.error(error.stack);
-      }
+    for (const subFolder of subFolders) {
+      const subFolderPath = path.join(folderPath, subFolder);
+      await loadModuleRoutes(subFolderPath, subFolder, folder);
     }
   }
+}
+
+// ============================================
+// AFFICHAGE FINAL DES ROUTES MONTÉES
+// ============================================
+function printMountedRoutes(): void {
+  console.log("\n" + "=".repeat(70));
+  console.log("📚 ROUTES DISPONIBLES");
+  console.log("=".repeat(70));
+
+  if (mountedRoutes.length === 0) {
+    console.log("   ⚠️ Aucune route montée");
+    console.log("=".repeat(70) + "\n");
+    return;
+  }
+
+  const sorted = [...mountedRoutes].sort((a, b) => a.path.localeCompare(b.path));
+  const publicRoutes = sorted.filter((r) => r.type === "public");
+  const protectedRoutes = sorted.filter((r) => r.type === "protected");
+
+  if (publicRoutes.length > 0) {
+    console.log("\n🔓 Routes PUBLIQUES :");
+    publicRoutes.forEach((r) => {
+      console.log(`   ${r.method.padEnd(6)} ${r.path}`);
+    });
+  }
+
+  if (protectedRoutes.length > 0) {
+    console.log("\n🔒 Routes PROTÉGÉES :");
+    protectedRoutes.forEach((r) => {
+      const rolesInfo = r.roles.length > 0 ? ` [${r.roles.join(", ")}]` : "";
+      console.log(`   ${r.method.padEnd(6)} ${r.path}${rolesInfo}`);
+    });
+  }
+
+  console.log("\n" + "=".repeat(70));
+  console.log(
+    `📊 Total: ${mountedRoutes.length} préfixe(s) monté(s) ` +
+      `(${publicRoutes.length} public(s), ${protectedRoutes.length} protégé(s))`
+  );
+  console.log("=".repeat(70) + "\n");
 }
 
 // ============================================
@@ -443,7 +664,7 @@ async function bootstrap(): Promise<void> {
     process.exit(1);
   }
 
-  // 2. Auth routes EN PREMIER (les plus critiques)
+  // 2. Auth routes EN PREMIER
   await loadAuthRoutes();
 
   // 3. Autres routes
@@ -465,11 +686,11 @@ async function bootstrap(): Promise<void> {
 
   console.log("\n" + "=".repeat(70));
   console.log("✅ CHARGEMENT DES ROUTES TERMINÉ");
-  console.log("=".repeat(70) + "\n");
+  console.log("=".repeat(70));
 
   // 6. Démarrage du serveur
   httpServer.listen(PORT, () => {
-    console.log("=".repeat(70));
+    console.log("\n" + "=".repeat(70));
     console.log(`🚀 SERVEUR DÉMARRÉ AVEC SUCCÈS`);
     console.log("=".repeat(70));
     console.log(`📡 Port: ${PORT}`);
@@ -483,19 +704,9 @@ async function bootstrap(): Promise<void> {
     console.log(`   - Bulletins: ${bulletinsDir}`);
     console.log(`   - Reçus: ${recusDir}`);
     console.log("=".repeat(70));
-    console.log(`📚 Routes disponibles:`);
-    console.log(`   POST   ${API_PREFIX}/auth/register`);
-    console.log(`   POST   ${API_PREFIX}/auth/login`);
-    console.log(`   POST   ${API_PREFIX}/auth/verify-otp`);
-    console.log(`   POST   ${API_PREFIX}/auth/resend-otp`);
-    console.log(`   POST   ${API_PREFIX}/auth/refresh`);
-    console.log(`   POST   ${API_PREFIX}/auth/logout`);
-    console.log(`   POST   ${API_PREFIX}/auth/forgot-password`);
-    console.log(`   POST   ${API_PREFIX}/auth/reset-password`);
-    console.log(`   GET    ${API_PREFIX}/auth/me`);
-    console.log(`   PUT    ${API_PREFIX}/auth/me`);
-    console.log(`   POST   ${API_PREFIX}/auth/change-password`);
-    console.log("=".repeat(70));
+
+    // 7. Liste dynamique des routes montées
+    printMountedRoutes();
   });
 }
 
@@ -513,7 +724,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
     await prisma.$disconnect();
     console.log("💾 Base de données déconnectée");
   } catch (error) {
-    console.error("❌ Erreur lors de la déconnexion de la base de données:", error);
+    console.error("❌ Erreur lors de la déconnexion:", error);
   }
 
   httpServer.close(() => {
@@ -545,7 +756,4 @@ process.on("unhandledRejection", (reason) => {
 // ============================================
 bootstrap();
 
-// ============================================
-// EXPORT
-// ============================================
 export default app;

@@ -5,22 +5,44 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import type { Utilisateur, RoleUtilisateur } from '@prisma/client';
 import type { UserResponse, TokensResponse } from './auth.types';
+import type { UserScope } from '../../types/express';
 
 // ============================================
 // TYPES INTERNES
 // ============================================
 
-/** Payload du token d'accès JWT */
+/** Rôles du catalogue global */
+export type RoleGlobal = 'SUPER_ADMIN' | 'ADMIN_SYSTEME';
+
+/**
+ * Payload du token d'accès JWT.
+ * ⚠️ Doit rester SYNCHRONISÉ avec `types/express.d.ts` (AuthUserPayload).
+ */
 export interface AccessTokenPayload {
   userId: string;
-  role: RoleUtilisateur;
+  email: string;
+  role: RoleUtilisateur | RoleGlobal;
   type: 'access';
+
+  /** Scope métier : catalogue global vs tenant */
+  scope: UserScope;
+
+  /** ID de l'établissement (uniquement si scope = 'TENANT') */
+  etablissementId?: string;
+
+  /** Nom du schéma PostgreSQL du tenant (uniquement si scope = 'TENANT') */
+  schemaName?: string;
 }
 
-/** Payload du refresh token JWT */
+/**
+ * Payload du refresh token JWT.
+ */
 export interface RefreshTokenPayload {
   userId: string;
   type: 'refresh';
+  scope: UserScope;
+  etablissementId?: string;
+  schemaName?: string;
 }
 
 /** Résultat de la validation d'un mot de passe */
@@ -29,11 +51,32 @@ export interface PasswordValidationResult {
   errors: string[];
 }
 
+/**
+ * Input pour générer un access token.
+ */
+export interface GenerateAccessTokenInput {
+  userId: string;
+  email: string;
+  role: RoleUtilisateur | RoleGlobal;
+  scope: UserScope;
+  etablissementId?: string;
+  schemaName?: string;
+}
+
+/**
+ * Input pour générer un refresh token.
+ */
+export interface GenerateRefreshTokenInput {
+  userId: string;
+  scope: UserScope;
+  etablissementId?: string;
+  schemaName?: string;
+}
+
 /** Configuration JWT centralisée */
 const JWT_CONFIG = {
   accessSecret: () => process.env.JWT_SECRET || 'default_secret',
-  refreshSecret: () =>
-    process.env.JWT_REFRESH_SECRET || 'refresh_secret',
+  refreshSecret: () => process.env.JWT_REFRESH_SECRET || 'refresh_secret',
   accessExpiresIn: () =>
     (process.env.JWT_EXPIRES_IN || '7d') as jwt.SignOptions['expiresIn'],
   refreshExpiresIn: () =>
@@ -78,17 +121,11 @@ export class AuthUtils {
   // MOTS DE PASSE
   // ------------------------------------------
 
-  /**
-   * Hasher un mot de passe avec bcrypt
-   */
   static async hashPassword(password: string): Promise<string> {
     const salt = await bcrypt.genSalt(12);
     return bcrypt.hash(password, salt);
   }
 
-  /**
-   * Vérifier un mot de passe
-   */
   static async verifyPassword(
     password: string,
     hashedPassword: string
@@ -100,9 +137,6 @@ export class AuthUtils {
     }
   }
 
-  /**
-   * Vérifier si un mot de passe est assez fort
-   */
   static isStrongPassword(password: string): PasswordValidationResult {
     const errors: string[] = [];
 
@@ -133,16 +167,20 @@ export class AuthUtils {
   // ------------------------------------------
 
   /**
-   * Générer un token d'accès JWT
+   * Générer un token d'accès JWT.
+   *
+   * ⚠️ Nouvelle signature : accepte un objet au lieu de `(userId, role)`.
+   * Cela permet d'injecter `scope`, `etablissementId` et `schemaName`.
    */
-  static generateAccessToken(
-    userId: string,
-    role: RoleUtilisateur | string
-  ): string {
+  static generateAccessToken(input: GenerateAccessTokenInput): string {
     const payload: AccessTokenPayload = {
-      userId,
-      role: role as RoleUtilisateur,
+      userId: input.userId,
+      email: input.email,
+      role: input.role,
       type: 'access',
+      scope: input.scope,
+      ...(input.etablissementId && { etablissementId: input.etablissementId }),
+      ...(input.schemaName && { schemaName: input.schemaName }),
     };
 
     return jwt.sign(payload, JWT_CONFIG.accessSecret(), {
@@ -153,12 +191,17 @@ export class AuthUtils {
   }
 
   /**
-   * Générer un refresh token JWT
+   * Générer un refresh token JWT.
+   *
+   * ⚠️ Nouvelle signature : accepte un objet au lieu de `userId`.
    */
-  static generateRefreshToken(userId: string): string {
+  static generateRefreshToken(input: GenerateRefreshTokenInput): string {
     const payload: RefreshTokenPayload = {
-      userId,
+      userId: input.userId,
       type: 'refresh',
+      scope: input.scope,
+      ...(input.etablissementId && { etablissementId: input.etablissementId }),
+      ...(input.schemaName && { schemaName: input.schemaName }),
     };
 
     return jwt.sign(payload, JWT_CONFIG.refreshSecret(), {
@@ -169,15 +212,26 @@ export class AuthUtils {
   }
 
   /**
-   * Générer les deux tokens en une seule fois
+   * Générer les deux tokens en une seule fois.
+   *
+   * ⚠️ Nouvelle signature : accepte un objet.
    */
-  static generateTokenPair(
-    userId: string,
-    role: RoleUtilisateur | string
-  ): TokensResponse {
+  static generateTokenPair(input: {
+    userId: string;
+    email: string;
+    role: RoleUtilisateur | RoleGlobal;
+    scope: UserScope;
+    etablissementId?: string;
+    schemaName?: string;
+  }): TokensResponse {
     return {
-      accessToken: this.generateAccessToken(userId, role),
-      refreshToken: this.generateRefreshToken(userId),
+      accessToken: this.generateAccessToken(input),
+      refreshToken: this.generateRefreshToken({
+        userId: input.userId,
+        scope: input.scope,
+        etablissementId: input.etablissementId,
+        schemaName: input.schemaName,
+      }),
     };
   }
 
@@ -186,7 +240,7 @@ export class AuthUtils {
   // ------------------------------------------
 
   /**
-   * Vérifier et décoder un token d'accès
+   * Vérifier et décoder un token d'accès.
    * @throws JsonWebTokenError | TokenExpiredError
    */
   static verifyAccessToken(token: string): AccessTokenPayload {
@@ -199,11 +253,15 @@ export class AuthUtils {
       throw new jwt.JsonWebTokenError('Type de token invalide');
     }
 
+    if (!decoded.scope) {
+      throw new jwt.JsonWebTokenError('Scope manquant dans le token');
+    }
+
     return decoded;
   }
 
   /**
-   * Vérifier et décoder un refresh token
+   * Vérifier et décoder un refresh token.
    * @throws JsonWebTokenError | TokenExpiredError
    */
   static verifyRefreshToken(token: string): RefreshTokenPayload {
@@ -214,6 +272,10 @@ export class AuthUtils {
 
     if (decoded.type !== 'refresh') {
       throw new jwt.JsonWebTokenError('Type de token invalide');
+    }
+
+    if (!decoded.scope) {
+      throw new jwt.JsonWebTokenError('Scope manquant dans le token');
     }
 
     return decoded;
@@ -227,12 +289,7 @@ export class AuthUtils {
     return jwt.verify(token, secret) as jwt.JwtPayload;
   }
 
-  /**
-   * Vérifier un token sans lancer d'exception
-   */
-  static tryVerifyAccessToken(
-    token: string
-  ): AccessTokenPayload | null {
+  static tryVerifyAccessToken(token: string): AccessTokenPayload | null {
     try {
       return this.verifyAccessToken(token);
     } catch {
@@ -240,12 +297,7 @@ export class AuthUtils {
     }
   }
 
-  /**
-   * Vérifier un refresh token sans lancer d'exception
-   */
-  static tryVerifyRefreshToken(
-    token: string
-  ): RefreshTokenPayload | null {
+  static tryVerifyRefreshToken(token: string): RefreshTokenPayload | null {
     try {
       return this.verifyRefreshToken(token);
     } catch {
@@ -274,27 +326,18 @@ export class AuthUtils {
   // VALIDATION
   // ------------------------------------------
 
-  /**
-   * Vérifier si un email est valide
-   */
   static isValidEmail(email: string): boolean {
     if (typeof email !== 'string') return false;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email.trim());
   }
 
-  /**
-   * Vérifier si un numéro de téléphone est valide (format international simple)
-   */
   static isValidPhone(phone: string): boolean {
     if (typeof phone !== 'string') return false;
     const phoneRegex = /^\+?[0-9\s\-().]{7,20}$/;
     return phoneRegex.test(phone.trim());
   }
 
-  /**
-   * Vérifier si une chaîne est vide ou whitespace
-   */
   static isEmpty(value: unknown): boolean {
     return (
       value === null ||
@@ -308,7 +351,7 @@ export class AuthUtils {
   // ------------------------------------------
 
   /**
-   * Retirer les champs sensibles d'un utilisateur
+   * Retirer les champs sensibles d'un utilisateur (tenant).
    */
   static sanitizeUser(user: Utilisateur): UserResponse {
     return {
@@ -328,8 +371,38 @@ export class AuthUtils {
   }
 
   /**
-   * Masquer partiellement un email (pour logs)
+   * Retirer les champs sensibles d'un utilisateur GLOBAL (SUPER_ADMIN).
    */
+  static sanitizeGlobalUser(user: {
+    id: string;
+    email: string;
+    prenom: string;
+    nom: string;
+    role: string;
+    estActif: boolean;
+    emailVerifie: boolean;
+    telephone: string | null;
+    photoProfil: string | null;
+    derniereConnexion: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }): UserResponse {
+    return {
+      id: user.id,
+      email: user.email,
+      prenom: user.prenom,
+      nom: user.nom,
+      role: user.role as RoleUtilisateur,
+      estActif: user.estActif,
+      emailVerifie: user.emailVerifie,
+      telephone: user.telephone,
+      photoProfil: user.photoProfil,
+      derniereConnexion: user.derniereConnexion,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+  }
+
   static maskEmail(email: string): string {
     const [local, domain] = email.split('@');
     if (!domain) return email;
@@ -338,9 +411,6 @@ export class AuthUtils {
     return `${visible}${masked}@${domain}`;
   }
 
-  /**
-   * Masquer un numéro de téléphone
-   */
   static maskPhone(phone: string): string {
     if (phone.length <= 4) return '****';
     return phone.slice(0, 2) + '*'.repeat(phone.length - 4) + phone.slice(-2);
@@ -350,16 +420,10 @@ export class AuthUtils {
   // HACHAGE DIVERS
   // ------------------------------------------
 
-  /**
-   * Hasher une chaîne (SHA-256) — pour stockage de tokens en base par ex.
-   */
   static hashString(value: string): string {
     return crypto.createHash('sha256').update(value).digest('hex');
   }
 
-  /**
-   * Comparer deux chaînes en temps constant (protection timing attack)
-   */
   static safeCompare(a: string, b: string): boolean {
     const bufA = Buffer.from(a);
     const bufB = Buffer.from(b);
@@ -367,9 +431,6 @@ export class AuthUtils {
     return crypto.timingSafeEqual(bufA, bufB);
   }
 
-  /**
-   * Vérifier un OTP en temps constant
-   */
   static safeCompareOtp(provided: string, stored: string): boolean {
     return this.safeCompare(provided, stored);
   }
@@ -378,9 +439,6 @@ export class AuthUtils {
   // HELPERS TEMPS
   // ------------------------------------------
 
-  /**
-   * Convertir une durée "15m", "7d", "30d" en millisecondes
-   */
   static parseDurationToMs(duration: string): number {
     const match = /^(\d+)([smhd])$/.exec(duration);
     if (!match) throw new Error(`Durée invalide: ${duration}`);
@@ -398,9 +456,6 @@ export class AuthUtils {
     return value * multipliers[unit];
   }
 
-  /**
-   * Ajouter une durée à une date
-   */
   static addDuration(date: Date, duration: string): Date {
     return new Date(date.getTime() + this.parseDurationToMs(duration));
   }

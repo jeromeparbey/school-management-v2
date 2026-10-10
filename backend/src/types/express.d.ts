@@ -2,27 +2,41 @@
 
 import type { RoleUtilisateur } from '@prisma/client';
 
-/**
- * Payload décodé du JWT d'accès.
- * Correspond au payload signé dans AuthUtils.generateAccessToken()
- */
+export type RoleGlobal = 'SUPER_ADMIN' | 'ADMIN_SYSTEME';
+export type UserScope = 'GLOBAL' | 'TENANT';
+
 export interface AuthUserPayload {
   userId: string;
-  role: RoleUtilisateur;
+  email?: string;
+  role: RoleUtilisateur | RoleGlobal;
   type: 'access';
+  scope: UserScope;
+  etablissementId?: string;
+  schemaName?: string;
 }
 
 declare global {
   namespace Express {
-    /**
-     * On étend l'interface User d'Express (utilisée par req.user)
-     * pour inclure notre payload JWT personnalisé.
-     */
     interface User extends AuthUserPayload {}
 
     interface Request {
-      /** Corps brut de la requête (utile pour vérification de signature webhook) */
       rawBody?: Buffer;
+
+      /**
+       * Résultat de la validation Zod.
+       * Utilisé pour récupérer `query` et `params` validés,
+       * car req.query/req.params sont en lecture seule (Express 5).
+       */
+      validated?: {
+        body?: any;
+        query?: any;
+        params?: any;
+      };
+
+      tenant?: {
+        etablissementId: string;
+        schemaName: string;
+      };
     }
   }
 }

@@ -1,0 +1,2031 @@
+// prisma/tenant-template.prisma
+// TEMPLATE - Utilisé pour générer dynamiquement le schéma de chaque tenant
+// La variable tenant_college_stjoseph_sokode est remplacée à la volée
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../prisma/generated/tenants/tenant_college_stjoseph_sokode-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas  = ["tenant_college_stjoseph_sokode"]
+}
+
+// ══════════════════════════════════════════════════════════
+// À PARTIR D'ICI : TOUTES LES TABLES MÉTIER DU TENANT
+// (utilisateurs, élèves, notes, paiements, etc.)
+// ══════════════════════════════════════════════════════════
+
+// ============ UTILISATEURS LOCAUX AU TENANT ============
+
+model Utilisateur {
+  id                 String          @id @default(cuid())
+  email              String          @unique
+  motDePasse         String
+  prenom             String
+  nom                String
+  role               RoleUtilisateur @default(ENSEIGNANT)
+  estActif           Boolean         @default(true)
+  emailVerifie       Boolean         @default(false)
+  telephone          String?
+  photoProfil        String?
+  derniereConnexion  DateTime?
+  jetonActualisation String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  // Profils métier
+  eleve              Eleve?
+  enseignant         Enseignant?
+  surveillant        Surveillant?
+  parent             Parent?
+  admin              Admin?
+  directeur          Directeur?
+
+  // Créations / Modifications
+  elevesCrees        Eleve[]         @relation("EleveCreateur")
+  elevesModifies     Eleve[]         @relation("EleveModificateur")
+  enseignantsCrees   Enseignant[]    @relation("EnseignantCreateur")
+  enseignantsModifies Enseignant[]   @relation("EnseignantModificateur")
+
+  // Paiements
+  paiementsCrees     Paiement[]      @relation("PaiementCreateur")
+  paiementsAnnules   Paiement[]      @relation("PaiementAnnuleur")
+
+  // Approbations
+  absencesApprouvees Absence[]       @relation("AbsenceApprobateur")
+  avancesApprouvees  Avance[]        @relation("AvanceApprobateur")
+  heuresSuppApprouvees HeureSupp[]   @relation("HeureSuppApprobateur")
+  reclamationsAssignees Reclamation[] @relation("ReclamationAssignee")
+  reductionsApprouvees Reduction[]   @relation("ReductionApprobateur")
+  bulletinsValides   Bulletin[]      @relation("BulletinValidateur")
+  paiesApprouvees    Paie[]          @relation("PaieApprobateur")
+  historiquesSalairesApprouves HistoriqueSalaire[] @relation("HistoriqueSalaireApprobateur")
+
+  // Bulletins et notes
+  bulletinsGenres    Bulletin[]      @relation("BulletinGenerateur")
+  notesSaisies       Note[]          @relation("NoteSaisisseur")
+  notesModifiees     Note[]          @relation("NoteModificateur")
+  notesValidees      Note[]          @relation("NoteValidateur")
+  appreciations      Appreciation[]  @relation("AppreciationAuteur")
+
+  // Emplois du temps
+  emploisTempsCrees  EmploiTemps[]   @relation("EmploiTempsCreateur")
+
+  // Reçus
+  recusGeneres       Recu[]          @relation("RecuGenerateur")
+
+  // Messagerie
+  messagesEnvoyes    Message[]       @relation("MessageExpediteur")
+  messagesRecus      MessageDestinataire[]
+  messagesReponses   MessageReponse[]
+  communiquesCrees   Communique[]    @relation("CommuniqueCreateur")
+  communiquesVus     CommuniqueVu[]
+
+  // Chat
+  conversations      ConversationParticipant[]
+  messagesChat       ChatMessage[]   @relation("ChatMessageExpediteur")
+
+  // Documents
+  documentsCrees     Document[]      @relation("DocumentCreateur")
+
+  // Objectifs
+  objectifsAssignes  Objectif[]      @relation("ObjectifAssigneur")
+  objectifsSuivis    ObjectifSuivi[]
+
+  // Groupes TD
+  groupesTDCrees     GroupeTD[]      @relation("GroupeTDCreateur")
+  membresGroupesTD   MembreGroupeTD[]
+
+  // Surveillance et incidents
+  surveillancesGerees Surveillance[] @relation("SurveillanceUtilisateur")
+  incidentsSignales  Incident[]      @relation("IncidentSignaleur")
+  incidentsTraites   Incident[]      @relation("IncidentTraiteur")
+
+  // Bibliothèque
+  empruntsBibliotheque EmpruntLivre[] @relation("EmpruntEmprunteur")
+  empruntsGeres      EmpruntLivre[]  @relation("EmpruntGestionnaire")
+
+  // Logs
+  logsAudit          LogAudit[]
+  notifications      Notification[]
+  logsEmail          LogEmail[]
+
+  // Communication
+  communicationsEnvoyees Communication[] @relation("CommunicationExpediteur")
+  communicationsRecues   Communication[] @relation("CommunicationDestinataire")
+
+  @@index([role])
+  @@map("utilisateurs")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum RoleUtilisateur {
+  DIRECTEUR
+  SECRETAIRE
+  ENSEIGNANT
+  SURVEILLANT
+  PARENT
+  ELEVE
+  ADMIN
+  BIBLIOTHECAIRE
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+// ============ PARAMETRES DU TENANT ============
+
+model ParametreTenant {
+  id              String        @id @default(cuid())
+  cle             String        @unique
+  valeur          Json
+  categorie       String        @default("GENERAL")
+  description     String?
+  type            TypeParametre @default(STRING)
+  estSysteme      Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([categorie])
+  @@map("parametres")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum TypeParametre {
+  STRING
+  NUMBER
+  BOOLEAN
+  JSON
+  ARRAY
+  DATE
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+// ============ ADMINISTRATEURS ET DIRECTEURS ============
+
+model Admin {
+  id              String        @id @default(cuid())
+  utilisateurId   String        @unique
+  niveau          NiveauAdmin   @default(ADMIN_ETABLISSEMENT)
+  permissions     Json?
+  estActif        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  utilisateur     Utilisateur   @relation(fields: [utilisateurId], references: [id])
+
+  @@map("admins")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum NiveauAdmin {
+  ADMIN_SYSTEME
+  ADMIN_ETABLISSEMENT
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model Directeur {
+  id              String        @id @default(cuid())
+  utilisateurId   String        @unique
+  dateNomination  DateTime?
+  signature       String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  utilisateur     Utilisateur   @relation(fields: [utilisateurId], references: [id])
+
+  @@map("directeurs")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+// ============ PARENTS ============
+
+model Parent {
+  id                  String        @id @default(cuid())
+  utilisateurId       String        @unique
+  profession          String?
+  adresse             String?
+  telephoneSecondaire String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  utilisateur         Utilisateur   @relation(fields: [utilisateurId], references: [id])
+  enfants             ParentEleve[]
+  conversations       ConversationParticipant[]
+  messagesChat        ChatMessage[]
+
+  @@map("parents")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model ParentEleve {
+  id                  String   @id @default(cuid())
+  parentId            String
+  eleveId             String
+  lien                String
+  estPrincipal        Boolean  @default(false)
+  peutRecupererEleve  Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  parent              Parent   @relation(fields: [parentId], references: [id])
+  eleve               Eleve    @relation(fields: [eleveId], references: [id])
+
+  @@unique([parentId, eleveId])
+  @@map("parent_eleve")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+// ============ SURVEILLANTS ============
+
+model Surveillant {
+  id               String        @id @default(cuid())
+  utilisateurId    String        @unique
+  matricule        String        @unique
+  prenom           String
+  nom              String
+  sexe             String
+  dateNaissance    DateTime?
+  telephone        String
+  email            String?
+  adresse          String?
+  photo            String?
+  dateEmbauche     DateTime
+  typeContrat      String
+  zoneSurveillance String?
+  estActif         Boolean       @default(true)
+  estArchive       Boolean       @default(false)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  utilisateur      Utilisateur   @relation(fields: [utilisateurId], references: [id])
+  surveillances    Surveillance[]
+  incidents        Incident[]    @relation("IncidentSurveillant")
+  presences        PresenceSurveillant[]
+
+  @@map("surveillants")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+// ============ ANNEE SCOLAIRE ET NIVEAUX ============
+
+model AnneeScolaire {
+  id          String   @id @default(cuid())
+  nom         String
+  dateDebut   DateTime
+  dateFin     DateTime
+  estActive   Boolean  @default(false)
+  estArchive  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  classes         Classe[]
+  inscriptions    Inscription[]
+  plansScolarite  PlanScolarite[]
+  periodes        Periode[]
+  bulletins       Bulletin[]
+  affectations    AffectationEnseignant[]
+  assignments     AssignmentScolarite[]
+  emploisTemps    EmploiTemps[]
+  groupesTD       GroupeTD[]
+  objectifs       Objectif[]
+
+  @@map("annees_scolaires")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model Periode {
+  id              String        @id @default(cuid())
+  nom             String
+  type            TypePeriode
+  dateDebut       DateTime
+  dateFin         DateTime
+  ordre           Int
+  anneeScolaireId String
+  estActive       Boolean       @default(true)
+  estCloturee     Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  anneeScolaire   AnneeScolaire @relation(fields: [anneeScolaireId], references: [id])
+  bulletins       Bulletin[]
+  notes           Note[]
+  appreciations   Appreciation[]
+  objectifs       Objectif[]
+
+  @@map("periodes")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum TypePeriode {
+  TRIMESTRE
+  SEMESTRE
+  BULLETIN
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model Niveau {
+  id               String            @id @default(cuid())
+  nom              String
+  code             String            @unique
+  description      String?
+  ordre            Int               @default(0)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  classes          Classe[]
+  matieres         Matiere[]
+  plansScolarite   PlanScolarite[]
+  reglesEvaluation RegleEvaluation[]
+
+  @@map("niveaux")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+// ============ CLASSES ET MATIERES ============
+
+model Classe {
+  id              String        @id @default(cuid())
+  nom             String
+  code            String        @unique
+  capacite        Int?
+  salle           String?
+  anneeScolaireId String
+  niveauId        String
+  estActive       Boolean       @default(true)
+  estArchive      Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  anneeScolaire   AnneeScolaire @relation(fields: [anneeScolaireId], references: [id])
+  niveau          Niveau        @relation(fields: [niveauId], references: [id])
+  inscriptions    Inscription[]
+  affectations    AffectationEnseignant[]
+  emploisTemps    EmploiTemps[]
+  plansScolarite  PlanScolarite[]
+  bulletins       Bulletin[]
+  assignments     AssignmentScolarite[]
+  groupesTD       GroupeTD[]
+  objectifs       Objectif[]
+
+  @@map("classes")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model Matiere {
+  id               String            @id @default(cuid())
+  nom              String
+  code             String            @unique
+  niveauId         String
+  coefficient      Float             @default(1.0)
+  dureeCours       Int               @default(60)
+  description      String?
+  estActive        Boolean           @default(true)
+  estArchive       Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  niveau           Niveau            @relation(fields: [niveauId], references: [id])
+  affectations     AffectationEnseignant[]
+  emploisTemps     EmploiTemps[]
+  notes            Note[]
+  reglesEvaluation RegleEvaluation[]
+  appreciations    Appreciation[]
+  documents        Document[]
+  groupesTD        GroupeTD[]
+
+  @@map("matieres")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+// ============ ELEVES ============
+
+model Eleve {
+  id            String      @id @default(cuid())
+  matricule     String      @unique
+  prenom        String
+  nom           String
+  sexe          String
+  dateNaissance DateTime
+  lieuNaissance String?
+  nationalite   String?
+  adresse       String?
+  telephone     String?
+  email         String?
+  photo         String?
+  infoMedicale  String?
+  groupeSanguin String?
+  allergies     String?
+  statut        StatutEleve @default(ACTIF)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  utilisateurId String?     @unique
+  utilisateur   Utilisateur? @relation(fields: [utilisateurId], references: [id])
+
+  creeParId     String?
+  creePar       Utilisateur? @relation("EleveCreateur", fields: [creeParId], references: [id])
+  modifieParId  String?
+  modifiePar    Utilisateur? @relation("EleveModificateur", fields: [modifieParId], references: [id])
+
+  inscriptions        Inscription[]
+  responsables        Responsable[]
+  assignmentsScolarite AssignmentScolarite[]
+  paiements    Paiement[]
+  reductions   Reduction[]
+  recus        Recu[]
+  notes        Note[]
+  bulletins    Bulletin[]
+  appreciations Appreciation[]
+  parents      ParentEleve[]
+  presences    PresenceEleve[]
+  absences     AbsenceEleve[]
+  communications Communication[] @relation("CommunicationEleve")
+  conversations  ConversationParticipant[]
+  messagesChat   ChatMessage[] @relation("ChatMessageEleve")
+  objectifs       Objectif[]
+  objectifsSuivis ObjectifSuivi[]
+  membresGroupesTD MembreGroupeTD[]
+  incidents Incident[] @relation("IncidentEleve")
+  empruntsLivres EmpruntLivre[]
+
+  @@index([statut])
+  @@index([nom, prenom])
+  @@map("eleves")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum StatutEleve {
+  ACTIF
+  TRANSFERE
+  SORTI
+  SUSPENDU
+  ARCHIVE
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model Responsable {
+  id           String   @id @default(cuid())
+  prenom       String
+  nom          String
+  lien         String
+  telephone    String
+  email        String?
+  adresse      String?
+  profession   String?
+  estPrincipal Boolean  @default(false)
+  eleveId      String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  eleve        Eleve    @relation(fields: [eleveId], references: [id])
+
+  @@map("responsables")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model Inscription {
+  id              String        @id @default(cuid())
+  eleveId         String
+  classeId        String
+  anneeScolaireId String
+  dateInscription DateTime      @default(now())
+  estActive       Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  eleve           Eleve         @relation(fields: [eleveId], references: [id])
+  classe          Classe        @relation(fields: [classeId], references: [id])
+  anneeScolaire   AnneeScolaire @relation(fields: [anneeScolaireId], references: [id])
+
+  @@unique([eleveId, classeId, anneeScolaireId])
+  @@map("inscriptions")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+// ============ ENSEIGNANTS ============
+
+model Enseignant {
+  id             String   @id @default(cuid())
+  matricule      String   @unique
+  prenom         String
+  nom            String
+  sexe           String
+  dateNaissance  DateTime
+  telephone      String
+  email          String?  @unique
+  adresse        String?
+  photo          String?
+  dateEmbauche   DateTime
+  typeContrat    String
+  qualification  String?
+  specialite     String?
+  salaireBase    Float
+  infosBancaires Json?
+  estActif       Boolean  @default(true)
+  estArchive     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  utilisateurId String?      @unique
+  utilisateur   Utilisateur? @relation(fields: [utilisateurId], references: [id])
+
+  creeParId    String?
+  creePar      Utilisateur? @relation("EnseignantCreateur", fields: [creeParId], references: [id])
+  modifieParId String?
+  modifiePar   Utilisateur? @relation("EnseignantModificateur", fields: [modifieParId], references: [id])
+
+  affectations AffectationEnseignant[]
+  emploisTemps EmploiTemps[]
+  notes        Note[]                @relation("NoteEnseignant")
+  documents    Document[]
+  groupesTD    GroupeTD[]
+  communications Communication[]     @relation("CommunicationEnseignant")
+  conversations  ConversationParticipant[]
+  messagesChat   ChatMessage[]       @relation("ChatMessageEnseignant")
+  objectifsAssignes Objectif[]       @relation("ObjectifEnseignant")
+  presences         Presence[]
+  heuresSupp        HeureSupp[]
+  absences          Absence[]
+  avances           Avance[]
+  reclamations      Reclamation[]
+  paies             Paie[]
+  historiquesSalaire HistoriqueSalaire[]
+
+  @@index([estActif])
+  @@index([nom, prenom])
+  @@map("enseignants")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model AffectationEnseignant {
+  id              String        @id @default(cuid())
+  enseignantId    String
+  classeId        String
+  matiereId       String
+  anneeScolaireId String
+  heuresHebdo     Float?        @default(0)
+  estPrincipal    Boolean       @default(false)
+  valableDu       DateTime
+  valableAu       DateTime?
+  estActive       Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  enseignant      Enseignant    @relation(fields: [enseignantId], references: [id])
+  classe          Classe        @relation(fields: [classeId], references: [id])
+  matiere         Matiere       @relation(fields: [matiereId], references: [id])
+  anneeScolaire   AnneeScolaire @relation(fields: [anneeScolaireId], references: [id])
+
+  @@unique([enseignantId, classeId, matiereId, anneeScolaireId])
+  @@map("affectations_enseignants")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+// ============ EMPLOI DU TEMPS ============
+
+model EmploiTemps {
+  id              String        @id @default(cuid())
+  jour            JourSemaine
+  heureDebut      String
+  heureFin        String
+  classeId        String
+  enseignantId    String
+  matiereId       String
+  salle           String?
+  estRecurrent    Boolean       @default(true)
+  valableDu       DateTime
+  valableAu       DateTime?
+  estActive       Boolean       @default(true)
+  creePar         String
+  anneeScolaireId String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  classe          Classe        @relation(fields: [classeId], references: [id])
+  enseignant      Enseignant    @relation(fields: [enseignantId], references: [id])
+  matiere         Matiere       @relation(fields: [matiereId], references: [id])
+  creeParUtilisateur Utilisateur @relation("EmploiTempsCreateur", fields: [creePar], references: [id])
+  anneeScolaire   AnneeScolaire? @relation(fields: [anneeScolaireId], references: [id])
+
+  @@map("emplois_temps")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum JourSemaine {
+  LUNDI
+  MARDI
+  MERCREDI
+  JEUDI
+  VENDREDI
+  SAMEDI
+  DIMANCHE
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+// ============ PRESENCE ENSEIGNANTS ============
+
+model Presence {
+  id           String         @id @default(cuid())
+  enseignantId String
+  heureArrivee DateTime?
+  heureDepart  DateTime?
+  date         DateTime       @default(now())
+  statut       StatutPresence @default(PRESENT)
+  notes        String?
+  latitude     Float?
+  longitude    Float?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  enseignant   Enseignant     @relation(fields: [enseignantId], references: [id])
+
+  @@unique([enseignantId, date])
+  @@map("presences")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum StatutPresence {
+  PRESENT
+  ABSENT
+  RETARD
+  EXCUSE
+  CONGE
+  FORMATION
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model PresenceSurveillant {
+  id            String         @id @default(cuid())
+  surveillantId String
+  heureArrivee  DateTime?
+  heureDepart   DateTime?
+  date          DateTime       @default(now())
+  statut        StatutPresence @default(PRESENT)
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  surveillant   Surveillant    @relation(fields: [surveillantId], references: [id])
+
+  @@unique([surveillantId, date])
+  @@map("presences_surveillants")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model HeureSupp {
+  id           String        @id @default(cuid())
+  enseignantId String
+  date         DateTime
+  heureDebut   String?
+  heureFin     String?
+  heures       Float
+  motif        String?
+  statut       StatutDemande @default(BROUILLON)
+  approuvePar  String?
+  approuveLe   DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  enseignant   Enseignant    @relation(fields: [enseignantId], references: [id])
+  approbateur  Utilisateur?  @relation("HeureSuppApprobateur", fields: [approuvePar], references: [id])
+
+  @@map("heures_supp")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+// ============ PRESENCE ET ABSENCE ELEVES ============
+
+model PresenceEleve {
+  id               String               @id @default(cuid())
+  eleveId          String
+  classeId         String
+  date             DateTime             @default(now())
+  heureArrivee     DateTime?
+  statut           StatutPresenceEleve  @default(PRESENT)
+  motif            String?
+  justificatif     String?
+  justificatifType String?
+  notes            String?
+  enregistrePar    String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  eleve            Eleve                @relation(fields: [eleveId], references: [id])
+
+  @@unique([eleveId, date])
+  @@index([classeId, date])
+  @@map("presences_eleves")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum StatutPresenceEleve {
+  PRESENT
+  ABSENT
+  RETARD
+  EXCUSE
+  SORTIE_ANTICIPEE
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model AbsenceEleve {
+  id               String           @id @default(cuid())
+  eleveId          String
+  dateDebut        DateTime
+  dateFin          DateTime
+  type             TypeAbsenceEleve
+  motif            String
+  justificatif     String?
+  justificatifType String?
+  statut           StatutDemande    @default(BROUILLON)
+  approuvePar      String?
+  approuveLe       DateTime?
+  motifRejet       String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  eleve            Eleve            @relation(fields: [eleveId], references: [id])
+
+  @@map("absences_eleves")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum TypeAbsenceEleve {
+  MALADIE
+  RAISON_FAMILIALE
+  VOYAGE
+  DISPENSE
+  AUTRE
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+// ============ ABSENCES, AVANCES, RECLAMATIONS ============
+
+model Absence {
+  id           String        @id @default(cuid())
+  enseignantId String
+  type         TypeAbsence
+  dateDebut    DateTime
+  dateFin      DateTime
+  motif        String
+  pieceJointe  String?
+  statut       StatutDemande @default(BROUILLON)
+  approuvePar  String?
+  approuveLe   DateTime?
+  motifRejet   String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  enseignant   Enseignant    @relation(fields: [enseignantId], references: [id])
+  approbateur  Utilisateur?  @relation("AbsenceApprobateur", fields: [approuvePar], references: [id])
+
+  @@map("absences")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum TypeAbsence {
+  CONGES_ANNUELS
+  MALADIE
+  MATERNITE
+  PATERNITE
+  PERSONNELLE
+  NON_PAYEE
+  FORMATION
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum StatutDemande {
+  BROUILLON
+  SOUMISE
+  APPROUVEE
+  REJETEE
+  ANNULEE
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model Avance {
+  id                 String        @id @default(cuid())
+  enseignantId       String
+  montant            Float
+  motif              String
+  dateDemandee       DateTime
+  remboursementPrevu String?
+  statut             StatutDemande @default(BROUILLON)
+  approuvePar        String?
+  approuveLe         DateTime?
+  motifRejet         String?
+  integreePaie       Boolean       @default(false)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  enseignant         Enseignant    @relation(fields: [enseignantId], references: [id])
+  approbateur        Utilisateur?  @relation("AvanceApprobateur", fields: [approuvePar], references: [id])
+
+  @@map("avances")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model Reclamation {
+  id                 String            @id @default(cuid())
+  enseignantId       String
+  categorie          String
+  sujet              String
+  description        String
+  piecesJointes      String[]
+  priorite           Priorite          @default(MOYENNE)
+  statut             StatutReclamation @default(OUVERTE)
+  assigneA           String?
+  reponse            String?
+  fermeeLe           DateTime?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  enseignant         Enseignant        @relation(fields: [enseignantId], references: [id])
+  assigneUtilisateur Utilisateur?      @relation("ReclamationAssignee", fields: [assigneA], references: [id])
+
+  @@map("reclamations")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum Priorite {
+  BASSE
+  MOYENNE
+  HAUTE
+  CRITIQUE
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum StatutReclamation {
+  OUVERTE
+  EN_COURS
+  RESOLUE
+  FERMEE
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+// ============ SCOLARITE ET PAIEMENTS ============
+
+model PlanScolarite {
+  id               String          @id @default(cuid())
+  nom              String
+  description      String?
+  anneeScolaireId  String
+  niveauId         String?
+  classeId         String?
+  fraisInscription Float           @default(0)
+  fraisScolarite   Float           @default(0)
+  autresFrais      Json?
+  montantTotal     Float
+  devise           String          @default("XOF")
+  estActif         Boolean         @default(true)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  anneeScolaire    AnneeScolaire   @relation(fields: [anneeScolaireId], references: [id])
+  niveau           Niveau?         @relation(fields: [niveauId], references: [id])
+  classe           Classe?         @relation(fields: [classeId], references: [id])
+  echeances        Echeance[]
+  assignments      AssignmentScolarite[]
+
+  @@map("plans_scolarite")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model Echeance {
+  id                String              @id @default(cuid())
+  planScolariteId   String
+  nom               String
+  montant           Float
+  dateLimite        DateTime
+  ordre             Int                 @default(0)
+  estPayee          Boolean             @default(false)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  planScolarite     PlanScolarite       @relation(fields: [planScolariteId], references: [id])
+  allocationsPaiement AllocationPaiement[]
+
+  @@map("echeances")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model AssignmentScolarite {
+  id                  String           @id @default(cuid())
+  eleveId             String
+  planScolariteId     String
+  classeId            String?
+  anneeScolaireId     String
+  montantPersonnalise Float?
+  statut              StatutScolarite  @default(ACTIF)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  eleve               Eleve            @relation(fields: [eleveId], references: [id])
+  planScolarite       PlanScolarite    @relation(fields: [planScolariteId], references: [id])
+  classe              Classe?          @relation(fields: [classeId], references: [id])
+  anneeScolaire       AnneeScolaire    @relation(fields: [anneeScolaireId], references: [id])
+  paiements           Paiement[]       @relation("AssignmentPaiement")
+  reductions          Reduction[]
+
+  @@unique([eleveId, planScolariteId, anneeScolaireId])
+  @@map("assignments_scolarite")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum StatutScolarite {
+  ACTIF
+  COMPLET
+  ANNULE
+  EN_RETARD
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model Reduction {
+  id                    String              @id @default(cuid())
+  eleveId               String
+  assignmentScolariteId String
+  type                  TypeReduction
+  valeur                Float
+  motif                 String
+  approuvePar           String
+  approuveLe            DateTime
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  eleve                 Eleve               @relation(fields: [eleveId], references: [id])
+  assignmentScolarite   AssignmentScolarite @relation(fields: [assignmentScolariteId], references: [id])
+  approbateur           Utilisateur         @relation("ReductionApprobateur", fields: [approuvePar], references: [id])
+
+  @@map("reductions")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum TypeReduction {
+  FIXE
+  POURCENTAGE
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model Paiement {
+  id                String            @id @default(cuid())
+  reference         String            @unique
+  eleveId           String
+  montant           Float
+  datePaiement      DateTime          @default(now())
+  moyen             MoyenPaiement
+  referenceMoyen    String?
+  caissierId        String
+  notes             String?
+  statut            StatutPaiement    @default(COMPLET)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  annuleLe          DateTime?
+  motifAnnulation   String?
+  annulePar         String?
+  assignmentId      String?
+
+  eleve             Eleve             @relation(fields: [eleveId], references: [id])
+  caissier          Utilisateur       @relation("PaiementCreateur", fields: [caissierId], references: [id])
+  annuleParUtilisateur Utilisateur?   @relation("PaiementAnnuleur", fields: [annulePar], references: [id])
+  allocations       AllocationPaiement[]
+  recu              Recu?
+  assignment        AssignmentScolarite? @relation("AssignmentPaiement", fields: [assignmentId], references: [id])
+
+  @@index([eleveId])
+  @@index([datePaiement])
+  @@index([statut])
+  @@map("paiements")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum MoyenPaiement {
+  ESPECES
+  VIREMENT
+  MOBILE_MONEY
+  CARTE
+  CHEQUE
+  AUTRE
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum StatutPaiement {
+  COMPLET
+  ANNULE
+  REMBOURSE
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model AllocationPaiement {
+  id          String   @id @default(cuid())
+  paiementId  String
+  echeanceId  String
+  montant     Float
+  createdAt   DateTime @default(now())
+
+  paiement    Paiement @relation(fields: [paiementId], references: [id])
+  echeance    Echeance @relation(fields: [echeanceId], references: [id])
+
+  @@unique([paiementId, echeanceId])
+  @@map("allocations_paiement")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model Recu {
+  id                 String        @id @default(cuid())
+  numeroRecu         String        @unique
+  paiementId         String        @unique
+  eleveId            String
+  nomEleve           String
+  nomClasse          String
+  montant            Float
+  datePaiement       DateTime
+  moyenPaiement      MoyenPaiement
+  echeancesCouvertes Json
+  soldeApres         Float
+  generePar          String
+  cheminPDF          String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  paiement           Paiement      @relation(fields: [paiementId], references: [id])
+  eleve              Eleve         @relation(fields: [eleveId], references: [id])
+  generateur         Utilisateur   @relation("RecuGenerateur", fields: [generePar], references: [id])
+
+  @@map("recus")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+// ============ NOTES ET BULLETINS ============
+
+model RegleEvaluation {
+  id              String         @id @default(cuid())
+  nom             String
+  description     String?
+  type            TypeEvaluation
+  coefficient     Float          @default(1.0)
+  baremeMin       Float          @default(0)
+  baremeMax       Float          @default(20)
+  seuilReussite   Float          @default(10)
+  niveauId        String?
+  matiereId       String?
+  estActive       Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  niveau          Niveau?        @relation(fields: [niveauId], references: [id])
+  matiere         Matiere?       @relation(fields: [matiereId], references: [id])
+  notes           Note[]
+
+  @@map("regles_evaluation")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum TypeEvaluation {
+  DEVOIR
+  TEST
+  EXAMEN
+  TP
+  PROJET
+  PARTICIPATION
+  COMPOSITION
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model Note {
+  id                String          @id @default(cuid())
+  eleveId           String
+  matiereId         String
+  periodeId         String
+  regleEvaluationId String
+  valeur            Float
+  coefficient       Float           @default(1.0)
+  commentaire       String?
+  dateSaisie        DateTime        @default(now())
+  saisiePar         String
+  modifieLe         DateTime?
+  modifiePar        String?
+  estValide         Boolean         @default(false)
+  validePar         String?
+  valideLe          DateTime?
+  enseignantId      String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  eleve             Eleve           @relation(fields: [eleveId], references: [id])
+  matiere           Matiere         @relation(fields: [matiereId], references: [id])
+  periode           Periode         @relation(fields: [periodeId], references: [id])
+  regleEvaluation   RegleEvaluation @relation(fields: [regleEvaluationId], references: [id])
+  enseignant        Enseignant?     @relation("NoteEnseignant", fields: [enseignantId], references: [id])
+  saisisseur        Utilisateur     @relation("NoteSaisisseur", fields: [saisiePar], references: [id])
+  modificateur      Utilisateur?    @relation("NoteModificateur", fields: [modifiePar], references: [id])
+  validateur        Utilisateur?    @relation("NoteValidateur", fields: [validePar], references: [id])
+
+  @@unique([eleveId, matiereId, periodeId, regleEvaluationId])
+  @@index([eleveId, matiereId])
+  @@index([periodeId])
+  @@index([saisiePar])
+  @@index([estValide])
+  @@map("notes")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model Appreciation {
+  id        String           @id @default(cuid())
+  eleveId   String
+  periodeId String
+  matiereId String?
+  type      TypeAppreciation @default(GENERALE)
+  texte     String
+  auteurId  String
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  eleve     Eleve            @relation(fields: [eleveId], references: [id])
+  periode   Periode          @relation(fields: [periodeId], references: [id])
+  matiere   Matiere?         @relation(fields: [matiereId], references: [id])
+  auteur    Utilisateur      @relation("AppreciationAuteur", fields: [auteurId], references: [id])
+
+  @@map("appreciations")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum TypeAppreciation {
+  GENERALE
+  PAR_MATIERE
+  COMPORTEMENT
+  PROGRESSION
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model Bulletin {
+  id                   String        @id @default(cuid())
+  eleveId              String
+  classeId             String
+  periodeId            String
+  anneeScolaireId      String
+  notesDetaillees      Json
+  moyenneGenerale      Float
+  rang                 Int?
+  effectifClasse       Int?
+  appreciationGenerale String?
+  mentions             String[]
+  decision             String?
+  generePar            String
+  genereLe             DateTime      @default(now())
+  estValide            Boolean       @default(false)
+  validePar            String?
+  valideLe             DateTime?
+  cheminPDF            String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  eleve                Eleve         @relation(fields: [eleveId], references: [id])
+  classe               Classe        @relation(fields: [classeId], references: [id])
+  periode              Periode       @relation(fields: [periodeId], references: [id])
+  anneeScolaire        AnneeScolaire @relation(fields: [anneeScolaireId], references: [id])
+  generateur           Utilisateur   @relation("BulletinGenerateur", fields: [generePar], references: [id])
+  validateur           Utilisateur?  @relation("BulletinValidateur", fields: [validePar], references: [id])
+
+  @@unique([eleveId, periodeId, anneeScolaireId])
+  @@index([eleveId, periodeId])
+  @@map("bulletins")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+// ============ PAIE ET SALAIRES ============
+
+model PeriodePaie {
+  id          String   @id @default(cuid())
+  nom         String
+  dateDebut   DateTime
+  dateFin     DateTime
+  estCloturee Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  paies       Paie[]
+
+  @@map("periodes_paie")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model Paie {
+  id                String        @id @default(cuid())
+  enseignantId      String
+  periodeId         String
+  salaireBase       Float
+  heuresSupp        Float         @default(0)
+  montantHeuresSupp Float         @default(0)
+  primes            Json?
+  retenues          Json?
+  avances           Float         @default(0)
+  totalBrut         Float
+  totalNet          Float
+  statut            StatutPaie    @default(BROUILLON)
+  approuvePar       String?
+  approuveLe        DateTime?
+  payeLe            DateTime?
+  referencePaiement String?
+  notes             String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  enseignant        Enseignant    @relation(fields: [enseignantId], references: [id])
+  periode           PeriodePaie   @relation(fields: [periodeId], references: [id])
+  approbateur       Utilisateur?  @relation("PaieApprobateur", fields: [approuvePar], references: [id])
+
+  @@map("paies")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum StatutPaie {
+  BROUILLON
+  CALCULEE
+  APPROUVEE
+  PAYEE
+  ANNULEE
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model HistoriqueSalaire {
+  id             String     @id @default(cuid())
+  enseignantId   String
+  ancienSalaire  Float
+  nouveauSalaire Float
+  dateEffet      DateTime
+  motif          String
+  approuvePar    String
+  createdAt      DateTime   @default(now())
+
+  enseignant     Enseignant @relation(fields: [enseignantId], references: [id])
+  approbateur    Utilisateur @relation("HistoriqueSalaireApprobateur", fields: [approuvePar], references: [id])
+
+  @@map("historiques_salaire")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+// ============ NOTIFICATIONS ET LOGS ============
+
+model Notification {
+  id            String           @id @default(cuid())
+  utilisateurId String
+  titre         String
+  message       String
+  type          TypeNotification
+  priorite      Priorite         @default(MOYENNE)
+  lue           Boolean          @default(false)
+  lueLe         DateTime?
+  lien          String?
+  metadonnees   Json?
+  createdAt     DateTime         @default(now())
+
+  utilisateur   Utilisateur      @relation(fields: [utilisateurId], references: [id])
+
+  @@index([utilisateurId, lue])
+  @@map("notifications")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum TypeNotification {
+  PAIEMENT_RECU
+  RECU_DISPONIBLE
+  ECHEANCE_PROCHAIN
+  ECHEANCE_RETARD
+  DEMANDE_ABSENCE
+  DEMANDE_AVANCE
+  RECLAMATION
+  DEMANDE_APPROUVEE
+  DEMANDE_REJETEE
+  CHANGEMENT_EMPLOI
+  COURS_BIENTOT
+  PRESENCE_MANQUANTE
+  HEURE_SUPP_APPROUVEE
+  PAIE_CALCULEE
+  PAIE_APPROUVEE
+  PAIE_PAYEE
+  BULLETIN_DISPONIBLE
+  NOTE_SAISIE
+  ALERTE_SYSTEME
+  NOUVEAU_MESSAGE
+  NOUVEAU_COMMUNIQUE
+  NOUVEAU_DOCUMENT
+  OBJECTIF_ASSIGNE
+  INCIDENT_SIGNALE
+  EMPRUNT_LIVRE
+  RETARD_LIVRE
+  GROUPE_TD
+  ABSENCE_ELEVE
+  CONVOCATION
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model LogEmail {
+  id            String      @id @default(cuid())
+  destinataire  String
+  sujet         String
+  modele        String?
+  statut        StatutEmail @default(EN_ATTENTE)
+  erreur        String?
+  metadonnees   Json?
+  envoyeLe      DateTime    @default(now())
+  utilisateurId String?
+
+  utilisateur   Utilisateur? @relation(fields: [utilisateurId], references: [id])
+
+  @@map("logs_email")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum StatutEmail {
+  EN_ATTENTE
+  ENVOYE
+  ECHEC
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model LogAudit {
+  id             String      @id @default(cuid())
+  utilisateurId  String
+  action         String
+  entite         String
+  entiteId       String?
+  ancienneValeur Json?
+  nouvelleValeur Json?
+  description    String?
+  ipAdresse      String?
+  userAgent      String?
+  statut         StatutAudit @default(SUCCES)
+  messageErreur  String?
+  dureeExecution Int?
+  metadonnees    Json?
+  createdAt      DateTime    @default(now())
+
+  utilisateur    Utilisateur @relation(fields: [utilisateurId], references: [id])
+
+  @@index([utilisateurId])
+  @@index([entite])
+  @@index([entiteId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("logs_audit")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum StatutAudit {
+  SUCCES
+  ECHEC
+  ATTENTE
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+// ============ MESSAGERIE ============
+
+model Message {
+  id              String           @id @default(cuid())
+  expediteurId    String
+  sujet           String?
+  contenu         String
+  type            TypeMessage      @default(NORMAL)
+  priorite        Priorite         @default(MOYENNE)
+  pieceJointe     String?
+  pieceJointeType String?
+  estBrouillon    Boolean          @default(false)
+  envoyeLe        DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  expediteur      Utilisateur      @relation("MessageExpediteur", fields: [expediteurId], references: [id])
+  destinataires   MessageDestinataire[]
+  reponses        MessageReponse[]
+
+  @@index([expediteurId])
+  @@index([envoyeLe])
+  @@map("messages")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model MessageDestinataire {
+  id             String   @id @default(cuid())
+  messageId      String
+  destinataireId String
+  lu             Boolean  @default(false)
+  luLe           DateTime?
+  archive        Boolean  @default(false)
+  supprime       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  message        Message  @relation(fields: [messageId], references: [id])
+  destinataire   Utilisateur @relation(fields: [destinataireId], references: [id])
+
+  @@unique([messageId, destinataireId])
+  @@index([destinataireId, lu])
+  @@map("messages_destinataires")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model MessageReponse {
+  id          String   @id @default(cuid())
+  messageId   String
+  auteurId    String
+  contenu     String
+  pieceJointe String?
+  createdAt   DateTime @default(now())
+
+  message     Message  @relation(fields: [messageId], references: [id])
+  auteur      Utilisateur @relation(fields: [auteurId], references: [id])
+
+  @@map("messages_reponses")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum TypeMessage {
+  NORMAL
+  URGENT
+  CONVOCATION
+  INFORMATION
+  DEMANDE
+  REPONSE
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model Communique {
+  id              String            @id @default(cuid())
+  titre           String
+  contenu         String
+  type            TypeCommunique    @default(GENERAL)
+  priorite        Priorite          @default(MOYENNE)
+  destinataires   RoleUtilisateur[]
+  classesCibles   String[]
+  niveauxCibles   String[]
+  pieceJointe     String?
+  pieceJointeType String?
+  datePublication DateTime?
+  dateExpiration  DateTime?
+  estPublie       Boolean           @default(false)
+  estArchive      Boolean           @default(false)
+  creePar         String
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  createur        Utilisateur       @relation("CommuniqueCreateur", fields: [creePar], references: [id])
+  vus             CommuniqueVu[]
+
+  @@index([estPublie])
+  @@index([datePublication])
+  @@map("communiques")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model CommuniqueVu {
+  id            String     @id @default(cuid())
+  communiqueId  String
+  utilisateurId String
+  luLe          DateTime   @default(now())
+  createdAt     DateTime   @default(now())
+
+  communique    Communique @relation(fields: [communiqueId], references: [id])
+  utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id])
+
+  @@unique([communiqueId, utilisateurId])
+  @@map("communiques_vus")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum TypeCommunique {
+  GENERAL
+  IMPORTANT
+  EVENEMENT
+  REUNION
+  VACANCES
+  EXAMEN
+  ADMINISTRATIF
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+// ============ CHAT ============
+
+model Conversation {
+  id          String          @id @default(cuid())
+  titre       String?
+  type        TypeConversation @default(PRIVEE)
+  estArchivee Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  participants ConversationParticipant[]
+  messages     ChatMessage[]
+
+  @@map("conversations")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model ConversationParticipant {
+  id               String       @id @default(cuid())
+  conversationId   String
+  utilisateurId    String
+  parentId         String?
+  eleveId          String?
+  enseignantId     String?
+  role             String
+  aQuitte          Boolean      @default(false)
+  dernierMessageLu DateTime?
+  createdAt        DateTime     @default(now())
+
+  conversation     Conversation @relation(fields: [conversationId], references: [id])
+  utilisateur      Utilisateur  @relation(fields: [utilisateurId], references: [id])
+  parent           Parent?      @relation(fields: [parentId], references: [id])
+  eleve            Eleve?       @relation(fields: [eleveId], references: [id])
+  enseignant       Enseignant?  @relation(fields: [enseignantId], references: [id])
+
+  @@unique([conversationId, utilisateurId])
+  @@map("conversations_participants")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model ChatMessage {
+  id              String          @id @default(cuid())
+  conversationId  String
+  expediteurId    String
+  parentId        String?
+  eleveId         String?
+  enseignantId    String?
+  contenu         String
+  type            TypeChatMessage @default(TEXTE)
+  pieceJointe     String?
+  pieceJointeType String?
+  luPar           Json?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  conversation    Conversation    @relation(fields: [conversationId], references: [id])
+  expediteur      Utilisateur     @relation("ChatMessageExpediteur", fields: [expediteurId], references: [id])
+  parent          Parent?         @relation(fields: [parentId], references: [id])
+  eleve           Eleve?          @relation("ChatMessageEleve", fields: [eleveId], references: [id])
+  enseignant      Enseignant?     @relation("ChatMessageEnseignant", fields: [enseignantId], references: [id])
+
+  @@index([conversationId])
+  @@index([createdAt])
+  @@map("chat_messages")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum TypeConversation {
+  PRIVEE
+  GROUPE
+  CLASSE
+  MATIERE
+  ADMINISTRATION
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum TypeChatMessage {
+  TEXTE
+  IMAGE
+  FICHIER
+  AUDIO
+  VIDEO
+  SYSTEME
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+// ============ DOCUMENTS ============
+
+model Document {
+  id                String        @id @default(cuid())
+  titre             String
+  description       String?
+  type              TypeDocument
+  categorie         String?
+  cheminFichier     String
+  tailleFichier     Int?
+  typeMime          String?
+  matiereId         String?
+  classeId          String?
+  niveauId          String?
+  estPublic         Boolean       @default(false)
+  estTelechargeable Boolean       @default(true)
+  telechargements   Int           @default(0)
+  creePar           String
+  enseignantId      String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  matiere           Matiere?      @relation(fields: [matiereId], references: [id])
+  createur          Utilisateur   @relation("DocumentCreateur", fields: [creePar], references: [id])
+  enseignant        Enseignant?   @relation(fields: [enseignantId], references: [id])
+
+  @@index([type])
+  @@index([matiereId])
+  @@map("documents")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum TypeDocument {
+  COURS
+  EXERCICE
+  CORRECTION
+  EPREUVE
+  EXAMEN_PASSE
+  FICHE_REVISION
+  RESUME
+  ANNALE
+  ADMINISTRATIF
+  AUTRE
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+// ============ OBJECTIFS ============
+
+model Objectif {
+  id              String         @id @default(cuid())
+  titre           String
+  description     String?
+  type            TypeObjectif
+  eleveId         String?
+  classeId        String?
+  periodeId       String?
+  anneeScolaireId String?
+  matiereId       String?
+  assignePar      String
+  enseignantId    String?
+  dateDebut       DateTime
+  dateFin         DateTime
+  valeurCible     Float?
+  valeurActuelle  Float?
+  unite           String?
+  statut          StatutObjectif @default(ACTIF)
+  priorite        Priorite       @default(MOYENNE)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  eleve           Eleve?         @relation(fields: [eleveId], references: [id])
+  classe          Classe?        @relation(fields: [classeId], references: [id])
+  periode         Periode?       @relation(fields: [periodeId], references: [id])
+  anneeScolaire   AnneeScolaire? @relation(fields: [anneeScolaireId], references: [id])
+  assigneur       Utilisateur    @relation("ObjectifAssigneur", fields: [assignePar], references: [id])
+  enseignant      Enseignant?    @relation("ObjectifEnseignant", fields: [enseignantId], references: [id])
+  suivis          ObjectifSuivi[]
+
+  @@index([eleveId])
+  @@index([classeId])
+  @@map("objectifs")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model ObjectifSuivi {
+  id            String    @id @default(cuid())
+  objectifId    String
+  eleveId       String
+  utilisateurId String
+  valeur        Float?
+  commentaire   String?
+  createdAt     DateTime  @default(now())
+
+  objectif      Objectif  @relation(fields: [objectifId], references: [id])
+  eleve         Eleve     @relation(fields: [eleveId], references: [id])
+  utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id])
+
+  @@map("objectifs_suivis")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum TypeObjectif {
+  NOTE_MOYENNE
+  ASSIDUITE
+  COMPORTEMENT
+  PROGRESSION
+  LECTURE
+  DEVOIRS
+  PARTICIPATION
+  PERSONNALISE
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum StatutObjectif {
+  ACTIF
+  ATTEINT
+  NON_ATTEINT
+  ABANDONNE
+  EN_PAUSE
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+// ============ GROUPES TD ============
+
+model GroupeTD {
+  id              String        @id @default(cuid())
+  nom             String
+  description     String?
+  classeId        String?
+  matiereId       String?
+  anneeScolaireId String?
+  enseignantId    String
+  creePar         String
+  estPayant       Boolean       @default(false)
+  montantMensuel  Float?
+  montantTotal    Float?
+  devise          String        @default("XOF")
+  capaciteMax     Int?
+  jourSemaine     JourSemaine?
+  heureDebut      String?
+  heureFin        String?
+  salle           String?
+  dateDebut       DateTime?
+  dateFin         DateTime?
+  estActif        Boolean       @default(true)
+  estArchive      Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  classe          Classe?       @relation(fields: [classeId], references: [id])
+  matiere         Matiere?      @relation(fields: [matiereId], references: [id])
+  anneeScolaire   AnneeScolaire? @relation(fields: [anneeScolaireId], references: [id])
+  enseignant      Enseignant    @relation(fields: [enseignantId], references: [id])
+  createur        Utilisateur   @relation("GroupeTDCreateur", fields: [creePar], references: [id])
+  membres         MembreGroupeTD[]
+  paiements       PaiementGroupeTD[]
+  seances         SeanceTD[]
+
+  @@index([enseignantId])
+  @@map("groupes_td")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model MembreGroupeTD {
+  id            String         @id @default(cuid())
+  groupeTDId    String
+  eleveId       String
+  utilisateurId String?
+  dateAdhesion  DateTime       @default(now())
+  statut        StatutMembreTD @default(ACTIF)
+  montantPaye   Float          @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  groupeTD      GroupeTD       @relation(fields: [groupeTDId], references: [id])
+  eleve         Eleve          @relation(fields: [eleveId], references: [id])
+  utilisateur   Utilisateur?   @relation(fields: [utilisateurId], references: [id])
+
+  @@unique([groupeTDId, eleveId])
+  @@map("membres_groupe_td")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model PaiementGroupeTD {
+  id            String        @id @default(cuid())
+  groupeTDId    String
+  eleveId       String
+  montant       Float
+  mois          String?
+  datePaiement  DateTime      @default(now())
+  moyenPaiement MoyenPaiement
+  reference     String?
+  statut        StatutPaiement @default(COMPLET)
+  createdAt     DateTime      @default(now())
+
+  groupeTD      GroupeTD      @relation(fields: [groupeTDId], references: [id])
+
+  @@map("paiements_groupe_td")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model SeanceTD {
+  id              String   @id @default(cuid())
+  groupeTDId      String
+  date            DateTime
+  heureDebut      String
+  heureFin        String
+  salle           String?
+  theme           String?
+  description     String?
+  estAnnulee      Boolean  @default(false)
+  motifAnnulation String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  groupeTD        GroupeTD @relation(fields: [groupeTDId], references: [id])
+
+  @@map("seances_td")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum StatutMembreTD {
+  ACTIF
+  INACTIF
+  SUSPENDU
+  TERMINE
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+// ============ BIBLIOTHEQUE ============
+
+model CategorieLivre {
+  id          String   @id @default(cuid())
+  nom         String
+  code        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  livres      Livre[]
+
+  @@map("categories_livres")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model Livre {
+  id                     String         @id @default(cuid())
+  categorieId            String?
+  isbn                   String?
+  titre                  String
+  auteur                 String
+  editeur                String?
+  anneeEdition           Int?
+  langue                 String         @default("Français")
+  description            String?
+  couverture             String?
+  nombreExemplaires      Int            @default(1)
+  exemplairesDisponibles Int            @default(1)
+  emplacement            String?
+  cote                   String?
+  estActif               Boolean        @default(true)
+  estArchive             Boolean        @default(false)
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+
+  categorie              CategorieLivre? @relation(fields: [categorieId], references: [id])
+  emprunts               EmpruntLivre[]
+
+  @@index([titre])
+  @@index([isbn])
+  @@map("livres")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model EmpruntLivre {
+  id               String         @id @default(cuid())
+  livreId          String
+  eleveId          String?
+  utilisateurId    String?
+  dateEmprunt      DateTime       @default(now())
+  dateRetourPrevue DateTime
+  dateRetourReelle DateTime?
+  statut           StatutEmprunt  @default(EN_COURS)
+  penalite         Float          @default(0)
+  penalitePayee    Boolean        @default(false)
+  notes            String?
+  gerePar          String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  livre            Livre          @relation(fields: [livreId], references: [id])
+  eleve            Eleve?         @relation(fields: [eleveId], references: [id])
+  emprunteur       Utilisateur?   @relation("EmpruntEmprunteur", fields: [utilisateurId], references: [id])
+  gestionnaire     Utilisateur?   @relation("EmpruntGestionnaire", fields: [gerePar], references: [id])
+
+  @@index([livreId])
+  @@index([eleveId])
+  @@index([statut])
+  @@map("emprunts_livres")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum StatutEmprunt {
+  EN_COURS
+  RETOURNE
+  EN_RETARD
+  PERDU
+  ENDOMMAGE
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+// ============ SURVEILLANCE ET INCIDENTS ============
+
+model Surveillance {
+  id            String           @id @default(cuid())
+  surveillantId String
+  utilisateurId String
+  zone          String
+  date          DateTime
+  heureDebut    String
+  heureFin      String
+  type          TypeSurveillance @default(COUR)
+  description   String?
+  estTerminee   Boolean          @default(false)
+  notes         String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  surveillant   Surveillant      @relation(fields: [surveillantId], references: [id])
+  utilisateur   Utilisateur      @relation("SurveillanceUtilisateur", fields: [utilisateurId], references: [id])
+  incidents     Incident[]
+
+  @@index([surveillantId, date])
+  @@map("surveillances")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+model Incident {
+  id              String          @id @default(cuid())
+  surveillantId   String?
+  signalePar      String
+  traitePar       String?
+  eleveId         String?
+  surveillanceId  String?
+  type            TypeIncident
+  gravite         GraviteIncident @default(MINEUR)
+  titre           String
+  description     String
+  lieu            String?
+  dateIncident    DateTime
+  pieceJointe     String?
+  pieceJointeType String?
+  statut          StatutIncident  @default(OUVERT)
+  resolution      String?
+  dateResolution  DateTime?
+  sanction        String?
+  parentsNotifies Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  surveillant     Surveillant?    @relation("IncidentSurveillant", fields: [surveillantId], references: [id])
+  signaleur       Utilisateur     @relation("IncidentSignaleur", fields: [signalePar], references: [id])
+  traiteur        Utilisateur?    @relation("IncidentTraiteur", fields: [traitePar], references: [id])
+  eleve           Eleve?          @relation("IncidentEleve", fields: [eleveId], references: [id])
+  surveillance    Surveillance?   @relation(fields: [surveillanceId], references: [id])
+
+  @@index([statut])
+  @@index([eleveId])
+  @@map("incidents")
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum TypeSurveillance {
+  COUR
+  RECREATION
+  CANTINE
+  ENTREE
+  SORTIE
+  EXAMEN
+  ACTIVITE
+  NUIT
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum TypeIncident {
+  DISPUTE
+  VIOLENCE
+  TRICHERIE
+  RETARD_REPETE
+  ABSENCE_INJUSTIFIEE
+  DEGRADATION
+  VOL
+  INSUBORDINATION
+  HARCELEMENT
+  AUTRE
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum GraviteIncident {
+  MINEUR
+  MODERE
+  GRAVE
+  TRES_GRAVE
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+enum StatutIncident {
+  OUVERT
+  EN_COURS
+  RESOLU
+  FERME
+  ESCALADE
+  @@schema("tenant_college_stjoseph_sokode")
+}
+
+// ============ COMMUNICATION ECOLE ============
+
+model Communication {
+  id              String        @id @default(cuid())
+  eleveId         String?
+  enseignantId    String?
+  expediteurId    String
+  destinataireId  String
+  sujet           String
+  contenu         String
+  type            String        @default("NORMAL")
+  lu              Boolean       @default(false)
+  luLe            DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  eleve           Eleve?        @relation("CommunicationEleve", fields: [eleveId], references: [id])
+  enseignant      Enseignant?   @relation("CommunicationEnseignant", fields: [enseignantId], references: [id])
+  expediteur      Utilisateur   @relation("CommunicationExpediteur", fields: [expediteurId], references: [id])
+  destinataire    Utilisateur   @relation("CommunicationDestinataire", fields: [destinataireId], references: [id])
+
+  @@index([destinataireId, lu])
+  @@index([expediteurId])
+  @@map("communications")
+  @@schema("tenant_college_stjoseph_sokode")
+}

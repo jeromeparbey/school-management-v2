@@ -1,0 +1,23 @@
+{
+  "watch": ["src"],
+  "ext": "ts,json",
+  "ignore": [
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts",
+    "prisma/generated/**",
+    "prisma/tenants/**",
+    "prisma/*.prisma",
+    "node_modules/**",
+    "dist/**",
+    "uploads/**",
+    "bulletins/**",
+    "recus/**",
+    "*.log",
+    ".git/**"
+  ],
+  "exec": "tsx src/server.ts",
+  "verbose": true,
+  "delay": 1000,
+  "signal": "SIGTERM",
+  "restartable": "rs"
+}

@@ -2,35 +2,10 @@
 
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { prisma } from '../config/db';
+import { globalPrisma } from '../config/global-db';
+import { getTenantClient } from '../config/tenant-db';
 import { AuthUtils } from '../modules/auth/auth.utils';
-import type { RoleUtilisateur } from '@prisma/client';
-
-// ============================================
-// TYPES
-// ============================================
-
-/**
- * Utilisateur authentifié injecté dans req.auth.
- */
-export interface AuthUser {
-  userId: string;
-  email: string;
-  role: RoleUtilisateur;
-}
-
-// ============================================
-// EXTENSION DU TYPE Request (déclaration locale)
-// ============================================
-
-/**
- * On étend Request via une interface qui sera utilisée dans les middlewares.
- * Plus fiable que de toucher à Express.User global.
- */
-export interface AuthRequest extends Request {
-  auth?: AuthUser;
-  rawBody?: Buffer;
-}
+import type { UserScope } from '../types/express';
 
 // ============================================
 // HELPERS
@@ -52,15 +27,13 @@ function sendAuthError(
 
 function extractBearerToken(req: Request): string | null {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return null;
-  }
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
   const token = authHeader.slice(7).trim();
   return token.length > 0 ? token : null;
 }
 
 // ============================================
-// MIDDLEWARE PRINCIPAL
+// AUTH MIDDLEWARE — Multi-scope (GLOBAL / TENANT)
 // ============================================
 
 export const authMiddleware = async (
@@ -69,6 +42,7 @@ export const authMiddleware = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    // ─── 1. Extraire le token ───
     const token = extractBearerToken(req);
     if (!token) {
       return void sendAuthError(
@@ -79,7 +53,8 @@ export const authMiddleware = async (
       );
     }
 
-    let payload;
+    // ─── 2. Vérifier & décoder le JWT ───
+    let payload: any;
     try {
       payload = AuthUtils.verifyAccessToken(token);
     } catch (error) {
@@ -92,49 +67,147 @@ export const authMiddleware = async (
       throw error;
     }
 
-    const user = await prisma.utilisateur.findUnique({
-      where: { id: payload.userId },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        estActif: true,
-      },
-    });
-
-    if (!user) {
+    // ─── 3. Vérifier le scope (obligatoire) ───
+    const scope = payload.scope as UserScope | undefined;
+    if (!scope) {
       return void sendAuthError(
         res,
         401,
-        'Utilisateur non trouvé',
-        'USER_NOT_FOUND'
+        'Token invalide : scope manquant. Reconnectez-vous.',
+        'MISSING_SCOPE'
       );
     }
 
-    if (!user.estActif) {
-      return void sendAuthError(
-        res,
-        403,
-        "Compte désactivé. Contactez l'administrateur.",
-        'ACCOUNT_DISABLED'
-      );
+    // ═══════════════════════════════════════════════════════
+    // 4a. SCOPE = GLOBAL → SUPER_ADMIN / ADMIN_SYSTEME
+    // ═══════════════════════════════════════════════════════
+    if (scope === 'GLOBAL') {
+      const user = await globalPrisma.utilisateurGlobal.findUnique({
+        where: { id: payload.userId },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          estActif: true,
+        },
+      });
+
+      if (!user) {
+        return void sendAuthError(
+          res,
+          401,
+          'Utilisateur non trouvé',
+          'USER_NOT_FOUND'
+        );
+      }
+      if (!user.estActif) {
+        return void sendAuthError(
+          res,
+          403,
+          "Compte désactivé. Contactez l'administrateur.",
+          'ACCOUNT_DISABLED'
+        );
+      }
+
+      // ✅ Injection dans req.user (standard Express)
+      req.user = {
+        userId: user.id,
+        email: user.email,
+        role: user.role as any,
+        type: 'access',
+        scope: 'GLOBAL',
+      };
+
+      return next();
     }
 
-    // ✅ On utilise req.auth (propriété custom) au lieu de req.user
-    (req as AuthRequest).auth = {
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-    };
+    // ═══════════════════════════════════════════════════════
+    // 4b. SCOPE = TENANT → Utilisateur d'un établissement
+    // ═══════════════════════════════════════════════════════
+    if (scope === 'TENANT') {
+      const schemaName = payload.schemaName as string | undefined;
+      const etablissementId = payload.etablissementId as string | undefined;
 
-    next();
+      if (!schemaName) {
+        return void sendAuthError(
+          res,
+          401,
+          'Token invalide : schemaName manquant.',
+          'MISSING_SCHEMA'
+        );
+      }
+      if (!etablissementId) {
+        return void sendAuthError(
+          res,
+          401,
+          'Token invalide : etablissementId manquant.',
+          'MISSING_ETABLISSEMENT'
+        );
+      }
+
+      const tenantClient = await getTenantClient(schemaName);
+      if (!tenantClient) {
+        return void sendAuthError(
+          res,
+          500,
+          `Client Prisma introuvable pour le tenant "${schemaName}".`,
+          'TENANT_CLIENT_ERROR'
+        );
+      }
+
+      const user = await tenantClient.utilisateur.findUnique({
+        where: { id: payload.userId },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          estActif: true,
+        },
+      });
+
+      if (!user) {
+        return void sendAuthError(res, 401, 'Utilisateur non trouvé', 'USER_NOT_FOUND');
+      }
+      if (!user.estActif) {
+        return void sendAuthError(
+          res,
+          403,
+          "Compte désactivé. Contactez l'administrateur.",
+          'ACCOUNT_DISABLED'
+        );
+      }
+
+      // ✅ Injection dans req.user
+      req.user = {
+        userId: user.id,
+        email: user.email,
+        role: user.role as any,
+        type: 'access',
+        scope: 'TENANT',
+        etablissementId,
+        schemaName,
+      };
+
+      // Contexte tenant (utilisé par certains controllers)
+      (req as any).tenant = { etablissementId, schemaName };
+
+      return next();
+    }
+
+    // ─── Scope inconnu ───
+    return void sendAuthError(
+      res,
+      401,
+      `Scope inconnu : ${scope}`,
+      'UNKNOWN_SCOPE'
+    );
   } catch (error) {
     next(error);
   }
 };
 
 // ============================================
-// MIDDLEWARE OPTIONNEL
+// AUTH OPTIONNEL
 // ============================================
 
 export const optionalAuthMiddleware = async (
@@ -144,31 +217,50 @@ export const optionalAuthMiddleware = async (
 ): Promise<void> => {
   try {
     const token = extractBearerToken(req);
-    if (!token) {
-      return next();
-    }
+    if (!token) return next();
 
     const payload = AuthUtils.tryVerifyAccessToken(token);
-    if (!payload) {
-      return next();
-    }
+    if (!payload || !payload.scope) return next();
 
-    const user = await prisma.utilisateur.findUnique({
-      where: { id: payload.userId },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        estActif: true,
-      },
-    });
+    const scope = payload.scope as UserScope;
 
-    if (user && user.estActif) {
-      (req as AuthRequest).auth = {
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-      };
+    if (scope === 'GLOBAL') {
+      const user = await globalPrisma.utilisateurGlobal.findUnique({
+        where: { id: payload.userId },
+        select: { id: true, email: true, role: true, estActif: true },
+      });
+      if (user && user.estActif) {
+        req.user = {
+          userId: user.id,
+          email: user.email,
+          role: user.role as any,
+          type: 'access',
+          scope: 'GLOBAL',
+        };
+      }
+    } else if (scope === 'TENANT' && payload.schemaName && payload.etablissementId) {
+      const tenantClient = await getTenantClient(payload.schemaName);
+      if (tenantClient) {
+        const user = await tenantClient.utilisateur.findUnique({
+          where: { id: payload.userId },
+          select: { id: true, email: true, role: true, estActif: true },
+        });
+        if (user && user.estActif) {
+          req.user = {
+            userId: user.id,
+            email: user.email,
+            role: user.role as any,
+            type: 'access',
+            scope: 'TENANT',
+            etablissementId: payload.etablissementId,
+            schemaName: payload.schemaName,
+          };
+          (req as any).tenant = {
+            etablissementId: payload.etablissementId,
+            schemaName: payload.schemaName,
+          };
+        }
+      }
     }
   } catch {
     // Silent
@@ -177,84 +269,16 @@ export const optionalAuthMiddleware = async (
 };
 
 // ============================================
-// MIDDLEWARE : VÉRIFICATION EMAIL
-// ============================================
-
-export const requireEmailVerified = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const authReq = req as AuthRequest;
-    if (!authReq.auth?.userId) {
-      return void sendAuthError(res, 401, 'Non authentifié', 'UNAUTHENTICATED');
-    }
-
-    const user = await prisma.utilisateur.findUnique({
-      where: { id: authReq.auth.userId },
-      select: { emailVerifie: true },
-    });
-
-    if (!user?.emailVerifie) {
-      return void sendAuthError(
-        res,
-        403,
-        'Veuillez vérifier votre email avant de continuer.',
-        'EMAIL_NOT_VERIFIED'
-      );
-    }
-
-    next();
-  } catch (error) {
-    next(error);
-  }
-};
-
-// ============================================
-// MIDDLEWARE : VÉRIFICATION DE RÔLES (RBAC)
-// ============================================
-
-export const requireRole =
-  (...allowedRoles: RoleUtilisateur[]) =>
-  (req: Request, res: Response, next: NextFunction): void => {
-    const authReq = req as AuthRequest;
-
-    if (!authReq.auth?.userId) {
-      return void sendAuthError(res, 401, 'Non authentifié', 'UNAUTHENTICATED');
-    }
-
-    if (!allowedRoles.includes(authReq.auth.role)) {
-      return void sendAuthError(
-        res,
-        403,
-        'Accès refusé : permissions insuffisantes.',
-        'FORBIDDEN'
-      );
-    }
-
-    next();
-  };
-
-// ============================================
 // HELPERS POUR LES CONTROLLERS
 // ============================================
 
-/**
- * Récupère l'utilisateur authentifié depuis la requête.
- * Lance une erreur si non authentifié.
- */
-export function getAuthUser(req: Request): AuthUser {
-  const authReq = req as AuthRequest;
-  if (!authReq.auth) {
+export function getAuthUser(req: Request) {
+  if (!req.user) {
     throw new Error('Utilisateur non authentifié');
   }
-  return authReq.auth;
+  return req.user;
 }
 
-/**
- * Récupère l'userId de l'utilisateur authentifié (ou null).
- */
 export function getAuthUserId(req: Request): string | null {
-  return (req as AuthRequest).auth?.userId ?? null;
+  return req.user?.userId ?? null;
 }
