@@ -1,12 +1,46 @@
-// frontend/src/types/auth.types.ts
+// frontend2/src/types/auth.types.ts
 
+// ============================================
+// SCOPE (multi-tenant)
+// ============================================
+export type UserScope = 'TENANT' | 'GLOBAL';
+
+// ============================================
+// RÔLES UTILISATEUR (9 rôles)
+// ============================================
 export type RoleUtilisateur =
-  | 'DIRECTEUR'
-  | 'SECRETAIRE'
-  | 'ENSEIGNANT'
-  | 'PARENT'
-  | 'ADMIN';
+  | 'SUPER_ADMIN'      // Administrateur global multi-tenant
+  | 'ADMIN'            // Admin système de l'établissement
+  | 'DIRECTEUR'        // Directeur d'établissement
+  | 'SECRETAIRE'       // Secrétaire
+  | 'ENSEIGNANT'       // Enseignant
+  | 'SURVEILLANT'      // Surveillant
+  | 'PARENT'           // Parent d'élève
+  | 'ELEVE'            // Élève
+  | 'BIBLIOTHECAIRE';  // Bibliothécaire
 
+// ============================================
+// 🆕 ÉTABLISSEMENT (info publique)
+// ============================================
+export interface EtablissementInfo {
+  id: string;
+  nom: string;
+  code: string;
+  logo: string | null;
+  ville: string | null;
+  pays: string;
+  devise: string;
+  type: string;
+  planAbonnement: string;
+  fuseauHoraire: string;
+  formatDate: string;
+  telephone: string | null;
+  email: string | null;
+}
+
+// ============================================
+// UTILISATEUR
+// ============================================
 export interface User {
   id: string;
   email: string;
@@ -15,35 +49,34 @@ export interface User {
   role: RoleUtilisateur;
   estActif: boolean;
   emailVerifie: boolean;
-  telephone?: string | null;
-  photoProfil?: string | null;
-  derniereConnexion?: string | null;
-  createdAt: string;
-  updatedAt: string;
+  telephone: string | null;
+  photoProfil: string | null;
+  derniereConnexion: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+
+  /** Scope : 'TENANT' (établissement) ou 'GLOBAL' (super-admin) */
+  scope?: UserScope;
+
+  /** Établissement du user (uniquement pour scope TENANT) */
+  etablissement?: EtablissementInfo | null;
 }
 
+// ============================================
+// TOKENS
+// ============================================
 export interface Tokens {
   accessToken: string;
   refreshToken: string;
 }
 
-export interface AuthResponse {
-  user: User;
-  tokens: Tokens;
-}
-
-export interface ApiResponse<T> {
-  status: number;
-  message?: string;
-  data?: T;
-  timestamp: string;
-}
-
-// ============ PAYLOADS ============
-
+// ============================================
+// PAYLOADS
+// ============================================
 export interface LoginPayload {
   email: string;
   motDePasse: string;
+  etablissementId?: string;
 }
 
 export interface RegisterPayload {
@@ -53,15 +86,18 @@ export interface RegisterPayload {
   nom: string;
   role?: RoleUtilisateur;
   telephone?: string;
+  etablissementId?: string;
 }
 
 export interface VerifyOtpPayload {
-  email: string;
-  otp: string;               // ⚠️ adapter au schéma exact (codeOtp ?)
+  userId: string;
+  otp: string;
+  etablissementId?: string;
 }
 
 export interface ResendOtpPayload {
-  email: string;
+  userId: string;
+  etablissementId?: string;
 }
 
 export interface RefreshTokenPayload {
@@ -70,11 +106,13 @@ export interface RefreshTokenPayload {
 
 export interface ForgotPasswordPayload {
   email: string;
+  etablissementId?: string;
 }
 
 export interface ResetPasswordPayload {
   token: string;
-  nouveauMotDePasse: string;  // ⚠️ adapter au schéma exact
+  nouveauMotDePasse: string;
+  etablissementId?: string;
 }
 
 export interface ChangePasswordPayload {
@@ -85,6 +123,23 @@ export interface ChangePasswordPayload {
 export interface UpdateProfilePayload {
   prenom?: string;
   nom?: string;
-  telephone?: string | null;
-  photoProfil?: string | null;
+  telephone?: string;
+  photoProfil?: string;
+}
+
+// ============================================
+// RÉPONSES API
+// ============================================
+export interface ApiResponse<T = unknown> {
+  success: boolean;
+  message?: string;
+  data?: T;
+  timestamp?: string;
+}
+
+export interface AuthResponse {
+  user: User;
+  etablissement?: EtablissementInfo | null;
+  tokens: Tokens;
+  scope?: UserScope;
 }

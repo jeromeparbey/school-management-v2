@@ -4,19 +4,22 @@ import { globalPrisma } from '../../config/global-db';
 import { Prisma } from '../../../prisma/generated/global-client';
 import { AppError } from '../../utils/AppError';
 import { provisioningService } from '../../services/provisioning.service';
+import { AuthUtils } from '../auth/auth.utils';
+import { getTenantClient } from '../../config/tenant-db';
 
 export const etablissementService = {
   // ─────────────────────────────────────────────────────
-  // CREATE : délègue TOUT au ProvisioningService
+  // CREATE : provisioning + création du DIRECTEUR initial
   // ─────────────────────────────────────────────────────
   /**
-   * Le ProvisioningService :
-   *  1. génère le schemaName depuis `code`
-   *  2. crée l'entrée catalogue (EN_COURS)
-   *  3. crée le schéma PostgreSQL
-   *  4. génère + applique le schéma Prisma du tenant
-   *  5. seed initial (niveaux + paramètres)
-   *  6. passe à TERMINE (ou ECHEC)
+   * Pipeline complet :
+   *  1. Vérifier unicité du code
+   *  2. Valider + hasher le mot de passe du directeur
+   *  3. ProvisioningService → crée catalogue + schéma PG + seed
+   *  4. Mettre à jour les champs supplémentaires du catalogue
+   *  5. Créer le DIRECTEUR dans le schéma du tenant
+   *  6. Créer le profil Directeur (table directeurs)
+   *  7. Retourner l'établissement + le directeur
    */
   async create(data: {
     nom: string;
@@ -24,44 +27,153 @@ export const etablissementService = {
     ville?: string | null;
     email?: string | null;
     telephone?: string | null;
-    // ... autres champs optionnels à propager
+    directeur: {
+      email: string;
+      motDePasse: string;
+      prenom: string;
+      nom: string;
+      telephone?: string | null;
+      photoProfil?: string | null;
+    };
     [key: string]: any;
   }) {
-    // Unicité du code (le schemaName en dépend)
+    // ─── 1. Extraire le bloc directeur ───
+    const { directeur, ...etablissementData } = data;
+
+    if (!directeur) {
+      throw new AppError(
+        'Les informations du directeur sont obligatoires',
+        400
+      );
+    }
+
+    // ─── 2. Vérifier unicité du code ───
     const existe = await globalPrisma.etablissement.findUnique({
-      where: { code: data.code },
+      where: { code: etablissementData.code },
     });
     if (existe) {
       throw new AppError(
-        `Un établissement avec le code "${data.code}" existe déjà`,
+        `Un établissement avec le code "${etablissementData.code}" existe déjà`,
         409
       );
     }
 
-    // Le ProvisioningService gère l'ensemble (schemaName + PG + seed)
+    // ─── 3. Valider le mot de passe du directeur ───
+    const pwdCheck = AuthUtils.isStrongPassword(directeur.motDePasse);
+    if (!pwdCheck.valid) {
+      throw new AppError(
+        `Mot de passe directeur faible : ${pwdCheck.errors.join(', ')}`,
+        400
+      );
+    }
+
+    // ─── 4. Hasher le mot de passe ───
+    const hashedPassword = await AuthUtils.hashPassword(directeur.motDePasse);
+
+    // ─── 5. Provisioning (catalogue + schéma PG + seed) ───
     const etablissement =
       await provisioningService.createEtablissementWithSchema({
-        nom: data.nom,
-        code: data.code,
-        ville: data.ville ?? undefined,
-        email: data.email ?? undefined,
-        telephone: data.telephone ?? undefined,
+        nom: etablissementData.nom,
+        code: etablissementData.code,
+        ville: etablissementData.ville ?? undefined,
+        email: etablissementData.email ?? undefined,
+        telephone: etablissementData.telephone ?? undefined,
       });
 
-    // Mettre à jour les champs supplémentaires (non gérés par le provisioning)
+    // ─── 6. Mettre à jour les champs supplémentaires du catalogue ───
     const {
       nom, code, ville, email, telephone,
       ...champsSupplementaires
-    } = data;
+    } = etablissementData;
 
+    let etablissementFinal = etablissement;
     if (Object.keys(champsSupplementaires).length > 0) {
-      return globalPrisma.etablissement.update({
+      etablissementFinal = await globalPrisma.etablissement.update({
         where: { id: etablissement.id },
         data: champsSupplementaires,
       });
     }
 
-    return etablissement;
+    // ─── 7. Créer le DIRECTEUR dans le schéma du tenant ───
+    let directeurCree: any = null;
+    try {
+      const tenantClient = await getTenantClient(etablissementFinal.schemaName);
+      if (!tenantClient) {
+        throw new Error(
+          `Client Prisma introuvable pour "${etablissementFinal.schemaName}"`
+        );
+      }
+
+      const emailDirecteur = directeur.email.toLowerCase().trim();
+
+      // Vérifier l'unicité de l'email dans le tenant
+      const existing = await tenantClient.utilisateur.findUnique({
+        where: { email: emailDirecteur },
+      });
+      if (existing) {
+        throw new Error(
+          `Un utilisateur avec l'email "${emailDirecteur}" existe déjà dans cet établissement`
+        );
+      }
+
+      // Créer l'utilisateur DIRECTEUR (Utilisateur + Directeur en transaction)
+      const result = await tenantClient.$transaction(async (tx: any) => {
+        const utilisateur = await tx.utilisateur.create({
+          data: {
+            email: emailDirecteur,
+            motDePasse: hashedPassword,
+            prenom: directeur.prenom.trim(),
+            nom: directeur.nom.trim(),
+            role: 'DIRECTEUR',
+            telephone: directeur.telephone?.trim() ?? null,
+            photoProfil: directeur.photoProfil ?? null,
+            estActif: true,
+            emailVerifie: true,   // créé par SUPER_ADMIN → email considéré vérifié
+          },
+        });
+
+        await tx.directeur.create({
+          data: {
+            utilisateurId: utilisateur.id,
+            dateNomination: new Date(),
+          },
+        });
+
+        return utilisateur;
+      });
+
+      directeurCree = {
+        id: result.id,
+        email: result.email,
+        prenom: result.prenom,
+        nom: result.nom,
+        role: result.role,
+        telephone: result.telephone,
+        estActif: result.estActif,
+        emailVerifie: result.emailVerifie,
+        createdAt: result.createdAt,
+      };
+    } catch (err: any) {
+      // ❌ Marquer l'établissement en ECHEC pour permettre un retry
+      await globalPrisma.etablissement.update({
+        where: { id: etablissementFinal.id },
+        data: {
+          statutProvisionnement: 'ECHEC',
+          erreurProvisionnement: `Directeur : ${err.message}`,
+        },
+      });
+
+      throw new AppError(
+        `Établissement créé mais échec de création du directeur : ${err.message}`,
+        500
+      );
+    }
+
+    // ─── 8. Retourner l'établissement + le directeur ───
+    return {
+      ...etablissementFinal,
+      directeur: directeurCree,
+    };
   },
 
   // ─────────────────────────────────────────────────────
@@ -155,7 +267,7 @@ export const etablissementService = {
   },
 
   // ─────────────────────────────────────────────────────
-  // DETAIL
+  // DETAIL (avec le directeur du tenant)
   // ─────────────────────────────────────────────────────
   async findById(id: string) {
     const etablissement = await globalPrisma.etablissement.findUnique({
@@ -180,7 +292,44 @@ export const etablissementService = {
     if (!etablissement) {
       throw new AppError('Établissement introuvable', 404);
     }
-    return etablissement;
+
+    // 🔥 Récupérer le directeur depuis le schéma du tenant
+    let directeur = null;
+    if (etablissement.statutProvisionnement === 'TERMINE') {
+      try {
+        const tenantClient = await getTenantClient(etablissement.schemaName);
+        if (tenantClient) {
+          directeur = await tenantClient.utilisateur.findFirst({
+            where: { role: 'DIRECTEUR' },
+            select: {
+              id: true,
+              email: true,
+              prenom: true,
+              nom: true,
+              telephone: true,
+              photoProfil: true,
+              estActif: true,
+              derniereConnexion: true,
+              createdAt: true,
+              directeur: {
+                select: {
+                  id: true,
+                  dateNomination: true,
+                  signature: true,
+                },
+              },
+            },
+          });
+        }
+      } catch (err) {
+        console.warn(
+          `⚠️ Impossible de charger le directeur de ${etablissement.schemaName}:`,
+          (err as Error).message
+        );
+      }
+    }
+
+    return { ...etablissement, directeur };
   },
 
   // ─────────────────────────────────────────────────────
@@ -222,11 +371,11 @@ export const etablissementService = {
   /**
    * ⚠️ Refuse si :
    *  - des utilisateurs globaux sont liés
-   *  - des abonnements/factures existent (à toi de choisir la politique)
+   *  - des abonnements/factures existent
    * ⚠️ Le schéma PostgreSQL n'est PAS supprimé (DROP SCHEMA manuel admin).
    */
   async hardDelete(id: string) {
-    const etablissement = await this.findById(id);
+    await this.findById(id);
 
     const [users, abos, factures] = await globalPrisma.$transaction([
       globalPrisma.utilisateurGlobal.count({
@@ -262,7 +411,7 @@ export const etablissementService = {
   },
 
   // ─────────────────────────────────────────────────────
-  // RE-PROVISIONNER (si 1er provisioning a échoué)
+  // RE-PROVISIONNER
   // ─────────────────────────────────────────────────────
   async reprovisionner(id: string) {
     const etablissement = await this.findById(id);
@@ -295,7 +444,7 @@ export const etablissementService = {
   },
 
   // ─────────────────────────────────────────────────────
-  // STATS (dashboard SUPER_ADMIN)
+  // STATS
   // ─────────────────────────────────────────────────────
   async stats() {
     const [total, actifs, parPlan, parType, parProvisionnement] =

@@ -16,6 +16,7 @@ import type {
 } from './auth.types';
 import { AppError } from '../../utils/AppError';
 import { EmailService } from '../../services/email.service';
+import { globalPrisma } from '../../config/global-db';
 
 // ============================================
 // INITIALISATION DES STORES GLOBAUX
@@ -35,14 +36,49 @@ if (!globalThis.resetTokenStore) {
 /**
  * Contexte obligatoire pour toute opération liée à un tenant.
  * Transporte le schéma Prisma ET l'ID du catalogue (Etablissement.id).
- *
- * - `schemaName` : utilisé par le repository pour cibler le bon schéma PG
- * - `etablissementId` : injecté dans le JWT (scope TENANT) pour permettre
- *   au authMiddleware de retrouver l'établissement sans requête supplémentaire.
  */
 export interface AuthContext {
   schemaName: string;
   etablissementId: string;
+}
+
+/**
+ * Contexte optionnel pour le login : un SUPER_ADMIN n'a pas de tenant.
+ */
+export interface OptionalAuthContext {
+  schemaName?: string;
+  etablissementId?: string;
+}
+
+/**
+ * DTO public d'un établissement (exposé au frontend).
+ */
+export interface EtablissementDTO {
+  id: string;
+  nom: string;
+  code: string;
+  logo: string | null;
+  ville: string | null;
+  pays: string;
+  devise: string;
+  type: string;
+  planAbonnement: string;
+  fuseauHoraire: string;
+  formatDate: string;
+  telephone: string | null;
+  email: string | null;
+}
+
+/**
+ * Résultat de login unifié.
+ * - Pour un utilisateur tenant : user + etablissement + tokens
+ * - Pour un SUPER_ADMIN : user (global) + null + tokens (scope GLOBAL)
+ */
+export interface UnifiedLoginResult {
+  user: UserResponse;
+  etablissement: EtablissementDTO | null;
+  tokens: TokensResponse;
+  scope: 'TENANT' | 'GLOBAL';
 }
 
 // ============================================
@@ -99,26 +135,61 @@ export class AuthService {
     this.emailService = new EmailService();
   }
 
-  // ------------------------------------------
+  // ──────────────────────────────────────────
+  // HELPERS PRIVÉS
+  // ──────────────────────────────────────────
+
+  /**
+   * Charge un établissement depuis le catalogue global.
+   * Retourne `null` si non trouvé (ne throw jamais).
+   */
+  private async loadEtablissement(
+    etablissementId: string
+  ): Promise<EtablissementDTO | null> {
+    try {
+      const etab = await globalPrisma.etablissement.findUnique({
+        where: { id: etablissementId },
+        select: {
+          id: true,
+          nom: true,
+          code: true,
+          logo: true,
+          ville: true,
+          pays: true,
+          devise: true,
+          type: true,
+          planAbonnement: true,
+          fuseauHoraire: true,
+          formatDate: true,
+          telephone: true,
+          email: true,
+        },
+      });
+      return etab as EtablissementDTO | null;
+    } catch {
+      return null;
+    }
+  }
+
+  // ──────────────────────────────────────────
   // INSCRIPTION GÉNÉRIQUE
-  // ------------------------------------------
+  // ──────────────────────────────────────────
 
   async register(
     ctx: AuthContext,
     data: RegisterRequest
   ): Promise<{
     user: UserResponse;
+    etablissement: EtablissementDTO | null;
     tokens: TokensResponse;
   }> {
-    const { schemaName } = ctx;
+    const { schemaName, etablissementId } = ctx;
     const email = data.email.toLowerCase().trim();
 
-    // Vérifier l'unicité
     if (await this.repository.emailExists(schemaName, email)) {
       throw new AppError('Un utilisateur avec cet email existe déjà', 409);
     }
 
-    // Valider le mot de passe
     const passwordValidation = AuthUtils.isStrongPassword(data.motDePasse);
     if (!passwordValidation.valid) {
       throw new AppError(
@@ -127,10 +198,8 @@ export class AuthService {
       );
     }
 
-    // Hasher
     const hashedPassword = await AuthUtils.hashPassword(data.motDePasse);
 
-    // Créer
     const user = await this.repository.create(schemaName, {
       email,
       motDePasse: hashedPassword,
@@ -140,7 +209,6 @@ export class AuthService {
       telephone: data.telephone,
     });
 
-    // OTP
     const otp = AuthUtils.generateOtp();
     this.storeOtp(user.id, otp);
 
@@ -150,38 +218,36 @@ export class AuthService {
       console.error('⚠️ Échec envoi OTP:', err);
     }
 
-    // Tokens
-    const tokens = this.generateTokens(
-      user.id,
-      user.email,
-      user.role,
-      ctx
-    );
+    const tokens = this.generateTokens(user.id, user.email, user.role, ctx);
     await this.repository.updateRefreshToken(
       schemaName,
       user.id,
       tokens.refreshToken
     );
 
+    const etablissement = await this.loadEtablissement(etablissementId);
+
     return {
       user: AuthUtils.sanitizeUser(user as any),
+      etablissement,
       tokens,
     };
   }
 
-  // ------------------------------------------
+  // ──────────────────────────────────────────
   // INSCRIPTION — ÉLÈVE
-  // ------------------------------------------
+  // ──────────────────────────────────────────
 
   async registerEleve(
     ctx: AuthContext,
     data: RegisterEleveRequest
   ): Promise<{
     user: UserResponse;
+    etablissement: EtablissementDTO | null;
     tokens: TokensResponse;
     matricule: string;
   }> {
-    const { schemaName } = ctx;
+    const { schemaName, etablissementId } = ctx;
     const email = data.email.toLowerCase().trim();
 
     if (await this.repository.emailExists(schemaName, email)) {
@@ -223,38 +289,37 @@ export class AuthService {
       console.error('⚠️ Échec envoi OTP:', err);
     }
 
-    const tokens = this.generateTokens(
-      user.id,
-      user.email,
-      user.role,
-      ctx
-    );
+    const tokens = this.generateTokens(user.id, user.email, user.role, ctx);
     await this.repository.updateRefreshToken(
       schemaName,
       user.id,
       tokens.refreshToken
     );
 
+    const etablissement = await this.loadEtablissement(etablissementId);
+
     return {
       user: AuthUtils.sanitizeUser(user as any),
+      etablissement,
       tokens,
       matricule: eleve.matricule,
     };
   }
 
-  // ------------------------------------------
+  // ──────────────────────────────────────────
   // INSCRIPTION — SURVEILLANT
-  // ------------------------------------------
+  // ──────────────────────────────────────────
 
   async registerSurveillant(
     ctx: AuthContext,
     data: RegisterSurveillantRequest
   ): Promise<{
     user: UserResponse;
+    etablissement: EtablissementDTO | null;
     tokens: TokensResponse;
     matricule: string;
   }> {
-    const { schemaName } = ctx;
+    const { schemaName, etablissementId } = ctx;
     const email = data.email.toLowerCase().trim();
 
     if (await this.repository.emailExists(schemaName, email)) {
@@ -297,38 +362,109 @@ export class AuthService {
       console.error('⚠️ Échec envoi OTP:', err);
     }
 
-    const tokens = this.generateTokens(
-      user.id,
-      user.email,
-      user.role,
-      ctx
-    );
+    const tokens = this.generateTokens(user.id, user.email, user.role, ctx);
     await this.repository.updateRefreshToken(
       schemaName,
       user.id,
       tokens.refreshToken
     );
 
+    const etablissement = await this.loadEtablissement(etablissementId);
+
     return {
       user: AuthUtils.sanitizeUser(user as any),
+      etablissement,
       tokens,
       matricule: surveillant.matricule,
     };
   }
 
-  // ------------------------------------------
-  // CONNEXION GÉNÉRIQUE
-  // ------------------------------------------
+  // ══════════════════════════════════════════
+  // 🎯 CONNEXION UNIFIÉE (TOUS RÔLES)
+  // ══════════════════════════════════════════
 
+  /**
+   * Login unifié : gère SUPER_ADMIN (catalogue global) ET
+   * tous les autres rôles (tenant) sur la même route.
+   *
+   * Stratégie :
+   * 1. Cherche d'abord dans le catalogue global (UtilisateurGlobal avec role SUPER_ADMIN)
+   *    → si trouvé et mot de passe OK, on retourne un token scope 'GLOBAL'
+   * 2. Sinon, cherche dans le tenant (ctx obligatoire dans ce cas)
+   *    → si trouvé et mot de passe OK, on retourne un token scope 'TENANT'
+   * 3. Sinon → 401 générique (ne pas révéler si l'email existe)
+   *
+   * @param ctx Contexte tenant — OPTIONNEL (null si SUPER_ADMIN seul)
+   * @param data { email, motDePasse }
+   */
   async login(
-    ctx: AuthContext,
+    ctx: AuthContext | null,
     data: LoginRequest
-  ): Promise<{
-    user: UserResponse;
-    tokens: TokensResponse;
-  }> {
-    const { schemaName } = ctx;
-    const user = await this.repository.findByEmail(schemaName, data.email);
+  ): Promise<UnifiedLoginResult> {
+    const email = data.email.toLowerCase().trim();
+
+    // ─────────────────────────────────────
+    // ÉTAPE 1 : Tentative SUPER_ADMIN (catalogue global)
+    // ─────────────────────────────────────
+    const superAdmin = await this.findSuperAdminInCatalog(email);
+
+    if (superAdmin) {
+      const isValid = await AuthUtils.verifyPassword(
+        data.motDePasse,
+        superAdmin.motDePasse
+      );
+
+      if (!isValid) {
+        throw new AppError('Email ou mot de passe incorrect', 401);
+      }
+
+      if (!superAdmin.estActif) {
+        throw new AppError('Compte super-admin désactivé', 403);
+      }
+
+      // Mise à jour de la dernière connexion (best-effort)
+      try {
+        await globalPrisma.utilisateurGlobal.update({
+          where: { id: superAdmin.id },
+          data: { derniereConnexion: new Date() },
+        });
+      } catch (err) {
+        console.error('⚠️ Échec mise à jour derniereConnexion:', err);
+      }
+
+      const tokens = this.generateSuperAdminTokens(
+        superAdmin.id,
+        superAdmin.email
+      );
+
+      // Persister le refresh token dans le catalogue global
+      try {
+        await globalPrisma.utilisateurGlobal.update({
+          where: { id: superAdmin.id },
+          data: { jetonActualisation: tokens.refreshToken },
+        });
+      } catch (err) {
+        console.error('⚠️ Échec persistance refresh token SA:', err);
+      }
+
+      return {
+        user: this.sanitizeSuperAdmin(superAdmin),
+        etablissement: null,
+        tokens,
+        scope: 'GLOBAL',
+      };
+    }
+
+    // ─────────────────────────────────────
+    // ÉTAPE 2 : Tentative utilisateur tenant
+    // ─────────────────────────────────────
+    if (!ctx?.schemaName) {
+      // Pas de contexte tenant fourni et pas de SUPER_ADMIN trouvé
+      throw new AppError('Email ou mot de passe incorrect', 401);
+    }
+
+    const { schemaName, etablissementId } = ctx;
+    const user = await this.repository.findByEmail(schemaName, email);
 
     if (!user) {
       throw new AppError('Email ou mot de passe incorrect', 401);
@@ -351,33 +487,33 @@ export class AuthService {
 
     await this.repository.updateLastLogin(schemaName, user.id);
 
-    const tokens = this.generateTokens(
-      user.id,
-      user.email,
-      user.role,
-      ctx
-    );
+    const tokens = this.generateTokens(user.id, user.email, user.role, ctx);
     await this.repository.updateRefreshToken(
       schemaName,
       user.id,
       tokens.refreshToken
     );
 
+    const etablissement = await this.loadEtablissement(etablissementId);
+
     return {
       user: AuthUtils.sanitizeUser(user as any),
+      etablissement,
       tokens,
+      scope: 'TENANT',
     };
   }
 
-  // ------------------------------------------
+  // ──────────────────────────────────────────
   // CONNEXION — ÉLÈVE
-  // ------------------------------------------
+  // ──────────────────────────────────────────
 
   async loginEleve(
     ctx: AuthContext,
     data: LoginRequest
   ): Promise<{
     user: UserResponse;
+    etablissement: EtablissementDTO | null;
     tokens: TokensResponse;
     eleve: {
       id: string;
@@ -385,7 +521,7 @@ export class AuthService {
       statut: string;
     };
   }> {
-    const { schemaName } = ctx;
+    const { schemaName, etablissementId } = ctx;
     const user = await this.repository.findByEmail(schemaName, data.email);
 
     if (!user) {
@@ -421,20 +557,18 @@ export class AuthService {
 
     await this.repository.updateLastLogin(schemaName, user.id);
 
-    const tokens = this.generateTokens(
-      user.id,
-      user.email,
-      user.role,
-      ctx
-    );
+    const tokens = this.generateTokens(user.id, user.email, user.role, ctx);
     await this.repository.updateRefreshToken(
       schemaName,
       user.id,
       tokens.refreshToken
     );
 
+    const etablissement = await this.loadEtablissement(etablissementId);
+
     return {
       user: AuthUtils.sanitizeUser(user as any),
+      etablissement,
       tokens,
       eleve: {
         id: userWithEleve.eleve.id,
@@ -444,15 +578,16 @@ export class AuthService {
     };
   }
 
-  // ------------------------------------------
+  // ──────────────────────────────────────────
   // CONNEXION — SURVEILLANT
-  // ------------------------------------------
+  // ──────────────────────────────────────────
 
   async loginSurveillant(
     ctx: AuthContext,
     data: LoginRequest
   ): Promise<{
     user: UserResponse;
+    etablissement: EtablissementDTO | null;
     tokens: TokensResponse;
     surveillant: {
       id: string;
@@ -460,7 +595,7 @@ export class AuthService {
       zoneSurveillance: string | null;
     };
   }> {
-    const { schemaName } = ctx;
+    const { schemaName, etablissementId } = ctx;
     const user = await this.repository.findByEmail(schemaName, data.email);
 
     if (!user) {
@@ -496,20 +631,18 @@ export class AuthService {
 
     await this.repository.updateLastLogin(schemaName, user.id);
 
-    const tokens = this.generateTokens(
-      user.id,
-      user.email,
-      user.role,
-      ctx
-    );
+    const tokens = this.generateTokens(user.id, user.email, user.role, ctx);
     await this.repository.updateRefreshToken(
       schemaName,
       user.id,
       tokens.refreshToken
     );
 
+    const etablissement = await this.loadEtablissement(etablissementId);
+
     return {
       user: AuthUtils.sanitizeUser(user as any),
+      etablissement,
       tokens,
       surveillant: {
         id: userWithSurv.surveillant.id,
@@ -519,9 +652,9 @@ export class AuthService {
     };
   }
 
-  // ------------------------------------------
+  // ──────────────────────────────────────────
   // OTP
-  // ------------------------------------------
+  // ──────────────────────────────────────────
 
   async verifyOtp(
     ctx: AuthContext,
@@ -576,19 +709,16 @@ export class AuthService {
     await this.emailService.sendOtpEmail(user.email, otp, user.prenom);
   }
 
-  // ------------------------------------------
+  // ──────────────────────────────────────────
   // TOKENS
-  // ------------------------------------------
+  // ──────────────────────────────────────────
 
   async refreshTokens(
-    ctx: AuthContext,
+    ctx: AuthContext | null,
     refreshToken: string
   ): Promise<TokensResponse> {
-    const { schemaName } = ctx;
-
-    let decoded: { userId?: string };
+    let decoded: { userId?: string; scope?: string };
     try {
-      // ⚠️ On utilise verifyRefreshToken (vérifie signature + type)
       decoded = AuthUtils.verifyRefreshToken(refreshToken);
     } catch {
       throw new AppError('Refresh token invalide ou expiré', 401);
@@ -598,8 +728,47 @@ export class AuthService {
       throw new AppError('Refresh token invalide', 401);
     }
 
+    // 🎯 Cas SUPER_ADMIN : le refresh token est stocké dans le catalogue global
+    if (decoded.scope === 'GLOBAL') {
+      const superAdmin = await globalPrisma.utilisateurGlobal.findFirst({
+        where: {
+          id: decoded.userId,
+          jetonActualisation: refreshToken,
+          role: 'SUPER_ADMIN',
+        },
+      });
+
+      if (!superAdmin) {
+        throw new AppError('Refresh token révoqué', 401);
+      }
+
+      if (!superAdmin.estActif) {
+        throw new AppError('Compte super-admin désactivé', 403);
+      }
+
+      const tokens = this.generateSuperAdminTokens(
+        superAdmin.id,
+        superAdmin.email
+      );
+
+      await globalPrisma.utilisateurGlobal.update({
+        where: { id: superAdmin.id },
+        data: { jetonActualisation: tokens.refreshToken },
+      });
+
+      return tokens;
+    }
+
+    // 🎯 Cas tenant classique
+    if (!ctx?.schemaName) {
+      throw new AppError(
+        'Contexte tenant requis pour rafraîchir ce token',
+        400
+      );
+    }
+
     const user = await this.repository.findByRefreshToken(
-      schemaName,
+      ctx.schemaName,
       refreshToken
     );
     if (!user) {
@@ -610,10 +779,10 @@ export class AuthService {
       user.id,
       user.email,
       user.role,
-      ctx
+      ctx as AuthContext
     );
     await this.repository.updateRefreshToken(
-      schemaName,
+      ctx.schemaName,
       user.id,
       tokens.refreshToken
     );
@@ -621,19 +790,35 @@ export class AuthService {
     return tokens;
   }
 
-  async logout(ctx: AuthContext, userId: string): Promise<void> {
-    await this.repository.updateRefreshToken(ctx.schemaName, userId, null);
+  async logout(ctx: AuthContext | null, userId: string): Promise<void> {
+    // On ne sait pas si c'est un SUPER_ADMIN ou un user tenant
+    // → on tente les deux (best-effort)
+    if (ctx?.schemaName) {
+      try {
+        await this.repository.updateRefreshToken(ctx.schemaName, userId, null);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    try {
+      await globalPrisma.utilisateurGlobal.update({
+        where: { id: userId },
+        data: { jetonActualisation: null },
+      });
+    } catch {
+      /* pas un super-admin, ou inexistant — ignore */
+    }
   }
 
-  // ------------------------------------------
+  // ──────────────────────────────────────────
   // MOT DE PASSE
-  // ------------------------------------------
+  // ──────────────────────────────────────────
 
   async forgotPassword(ctx: AuthContext, email: string): Promise<void> {
     const { schemaName } = ctx;
     const user = await this.repository.findByEmail(schemaName, email);
 
-    // Sécurité : ne pas révéler l'existence de l'email
     if (!user) return;
 
     const resetToken = AuthUtils.generateResetToken();
@@ -741,19 +926,42 @@ export class AuthService {
     }
   }
 
-  // ------------------------------------------
+  // ──────────────────────────────────────────
   // PROFIL
-  // ------------------------------------------
+  // ──────────────────────────────────────────
 
   async getCurrentUser(
     ctx: AuthContext,
     userId: string
-  ): Promise<UserResponse> {
+  ): Promise<{
+    user: UserResponse;
+    etablissement: EtablissementDTO | null;
+  }> {
+    // 🎯 D'abord tenter comme SUPER_ADMIN (UtilisateurGlobal)
+    const superAdmin = await globalPrisma.utilisateurGlobal.findFirst({
+      where: {
+        id: userId,
+        role: 'SUPER_ADMIN',
+      },
+    });
+
+    if (superAdmin) {
+      return {
+        user: this.sanitizeSuperAdmin(superAdmin),
+        etablissement: null,
+      };
+    }
+
+    // Sinon, utilisateur tenant classique
     const user = await this.repository.getUserInfo(ctx.schemaName, userId);
     if (!user) {
       throw new AppError('Utilisateur non trouvé', 404);
     }
-    return user as unknown as UserResponse;
+    const etablissement = await this.loadEtablissement(ctx.etablissementId);
+    return {
+      user: user as unknown as UserResponse,
+      etablissement,
+    };
   }
 
   async updateProfile(
@@ -774,9 +982,9 @@ export class AuthService {
     return user as unknown as UserResponse;
   }
 
-  // ------------------------------------------
+  // ──────────────────────────────────────────
   // PROFIL ÉLÈVE / SURVEILLANT
-  // ------------------------------------------
+  // ──────────────────────────────────────────
 
   async getEleveProfile(ctx: AuthContext, userId: string) {
     const userWithEleve = await this.repository.findEleveByUserId(
@@ -800,20 +1008,76 @@ export class AuthService {
     return userWithSurv.surveillant;
   }
 
-  // ------------------------------------------
-  // UTILITAIRE : trouver l'établissement d'un email
-  // ------------------------------------------
+  // ──────────────────────────────────────────
+  // UTILITAIRE
+  // ──────────────────────────────────────────
 
-  /**
-   * Vérifie si un email existe dans un schéma donné (utile pour le controller)
-   */
   async findUserInSchema(schemaName: string, email: string): Promise<boolean> {
     return this.repository.emailExists(schemaName, email);
   }
 
-  // ------------------------------------------
+  /**
+   * Cherche un SUPER_ADMIN dans le catalogue global.
+   * ⚠️ Le modèle s'appelle "UtilisateurGlobal", filtré sur role SUPER_ADMIN.
+   * Retourne null si non trouvé.
+   */
+  private async findSuperAdminInCatalog(email: string): Promise<{
+    id: string;
+    email: string;
+    motDePasse: string;
+    prenom: string;
+    nom: string;
+    role: string;
+    estActif: boolean;
+    emailVerifie: boolean;
+    telephone: string | null;
+    photoProfil: string | null;
+    derniereConnexion: Date | null;
+    etablissementId: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  } | null> {
+    try {
+      const sa = await globalPrisma.utilisateurGlobal.findFirst({
+        where: {
+          email,
+          role: 'SUPER_ADMIN',
+        },
+      });
+
+      if (!sa) return null;
+
+      return {
+        id: sa.id,
+        email: sa.email,
+        motDePasse: sa.motDePasse,
+        prenom: sa.prenom,
+        nom: sa.nom,
+        role: sa.role,
+        estActif: sa.estActif,
+        emailVerifie: sa.emailVerifie,
+        telephone: sa.telephone,
+        photoProfil: sa.photoProfil,
+        derniereConnexion: sa.derniereConnexion,
+        etablissementId: sa.etablissementId,
+        createdAt: sa.createdAt,
+        updatedAt: sa.updatedAt,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Nettoie les données d'un UtilisateurGlobal (SUPER_ADMIN) avant envoi.
+   */
+ private sanitizeSuperAdmin(sa: any): UserResponse {
+  return AuthUtils.sanitizeGlobalUser(sa);
+}
+
+  // ──────────────────────────────────────────
   // STORES OTP (privés)
-  // ------------------------------------------
+  // ──────────────────────────────────────────
 
   private storeOtp(userId: string, otp: string, attempts = 0): void {
     globalThis.otpStore.set(userId, {
@@ -831,9 +1095,9 @@ export class AuthService {
     globalThis.otpStore.delete(userId);
   }
 
-  // ------------------------------------------
+  // ──────────────────────────────────────────
   // STORES RESET TOKEN (privés)
-  // ------------------------------------------
+  // ──────────────────────────────────────────
 
   private storeResetToken(
     userId: string,
@@ -856,17 +1120,12 @@ export class AuthService {
     globalThis.resetTokenStore.delete(token);
   }
 
-  // ------------------------------------------
+  // ──────────────────────────────────────────
   // TOKENS JWT
-  // ------------------------------------------
+  // ──────────────────────────────────────────
 
   /**
-   * Génère une paire de tokens pour un utilisateur TENANT.
-   *
-   * ⚠️ Injecte automatiquement :
-   *  - scope: 'TENANT'
-   *  - etablissementId (depuis ctx)
-   *  - schemaName (depuis ctx)
+   * Génère les tokens pour un utilisateur tenant classique.
    */
   private generateTokens(
     userId: string,
@@ -888,6 +1147,27 @@ export class AuthService {
         scope: 'TENANT',
         etablissementId: ctx.etablissementId,
         schemaName: ctx.schemaName,
+      }),
+    };
+  }
+
+  /**
+   * Génère les tokens pour un SUPER_ADMIN (scope GLOBAL, pas de tenant).
+   */
+  private generateSuperAdminTokens(
+    userId: string,
+    email: string
+  ): TokensResponse {
+    return {
+      accessToken: AuthUtils.generateAccessToken({
+        userId,
+        email,
+        role: 'SUPER_ADMIN' as any,
+        scope: 'GLOBAL',
+      }),
+      refreshToken: AuthUtils.generateRefreshToken({
+        userId,
+        scope: 'GLOBAL',
       }),
     };
   }

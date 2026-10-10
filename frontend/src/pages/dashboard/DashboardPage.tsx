@@ -1,11 +1,10 @@
-// src/pages/dashboard/DashboardPage.tsx
+// frontend2/src/pages/dashboard/DashboardPage.tsx
 
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../hooks/AuthContext';
 import {
-  // Navigation / Actions rapides
   UserGroupIcon,
   AcademicCapIcon,
   CurrencyDollarIcon,
@@ -25,6 +24,9 @@ import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
   ChartBarIcon,
+  Cog6ToothIcon,
+  MapPinIcon,
+  PencilSquareIcon,
 } from '@heroicons/react/24/outline';
 
 import {
@@ -80,13 +82,12 @@ interface QuickAction {
 // COMPOSANT PRINCIPAL
 // ============================================
 const DashboardPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, etablissement } = useAuth();
 
   // ============================================
   // DONNÉES STATIQUES (à brancher sur API)
   // ============================================
 
-  // --- KPIs Directeur ---
   const stats: StatCard[] = [
     {
       title: 'Total Élèves',
@@ -130,7 +131,6 @@ const DashboardPage: React.FC = () => {
     },
   ];
 
-  // --- Évolution revenus/dépenses (12 mois) ---
   const revenueData = [
     { mois: 'Jan', revenus: 8200, depenses: 5400 },
     { mois: 'Fév', revenus: 9100, depenses: 5600 },
@@ -146,7 +146,6 @@ const DashboardPage: React.FC = () => {
     { mois: 'Déc', revenus: 12450, depenses: 6200 },
   ];
 
-  // --- Taux de recouvrement par mois ---
   const recoveryData = [
     { mois: 'Sep', taux: 78 },
     { mois: 'Oct', taux: 82 },
@@ -154,21 +153,18 @@ const DashboardPage: React.FC = () => {
     { mois: 'Déc', taux: 91 },
   ];
 
-  // --- Répartition paiements (camembert) ---
   const paymentSplit = [
     { name: 'Frais de scolarité', value: 8450, color: '#3B82F6' },
     { name: 'Frais inscription', value: 2100, color: '#8B5CF6' },
     { name: 'Autres frais', value: 1900, color: '#10B981' },
   ];
 
-  // --- Effectifs par niveau ---
   const effectifsNiveaux = [
     { niveau: 'Primaire', eleves: 420 },
     { niveau: 'Collège', eleves: 510 },
     { niveau: 'Lycée', eleves: 354 },
   ];
 
-  // --- Performance par classe ---
   const classePerformance = [
     { name: '6ème A', value: 92, color: 'bg-blue-500' },
     { name: '5ème B', value: 85, color: 'bg-emerald-500' },
@@ -177,7 +173,6 @@ const DashboardPage: React.FC = () => {
     { name: '2nde A', value: 81, color: 'bg-indigo-500' },
   ];
 
-  // --- Derniers paiements ---
   const derniersPaiements = [
     { id: 'PAY-2841', eleve: 'Marie Dubois', classe: '6ème A', montant: 250000, moyen: 'Mobile Money', date: 'Il y a 15 min' },
     { id: 'PAY-2840', eleve: 'Jean Martin', classe: '3ème D', montant: 180000, moyen: 'Espèces', date: 'Il y a 1h' },
@@ -185,7 +180,6 @@ const DashboardPage: React.FC = () => {
     { id: 'PAY-2838', eleve: 'Paul Kouassi', classe: '2nde A', montant: 300000, moyen: 'Chèque', date: 'Il y a 5h' },
   ];
 
-  // --- Alertes Directeur ---
   const alertes = [
     { id: 1, type: 'warning', title: '3 échéances en retard', desc: 'Élèves sans paiement depuis 15 jours', href: '/dashboard/echeances' },
     { id: 2, type: 'danger', title: '2 absences non justifiées', desc: 'Enseignants - à valider', href: '/dashboard/absences' },
@@ -193,7 +187,6 @@ const DashboardPage: React.FC = () => {
     { id: 4, type: 'success', title: 'Objectif recouvrement 91%', desc: 'Dépassé de +6% ce mois', href: '/dashboard/statistiques' },
   ];
 
-  // --- Activités récentes ---
   const recentActivities: Activity[] = [
     { id: 1, type: 'student', title: 'Nouvel élève inscrit', description: 'Marie Dubois - Classe de 6ème A', time: 'Il y a 15 minutes', icon: UserGroupIcon, color: 'text-blue-600' },
     { id: 2, type: 'payment', title: 'Paiement reçu', description: 'Frais de scolarité - Famille Martin', time: 'Il y a 2 heures', icon: CreditCardIcon, color: 'text-emerald-600' },
@@ -202,7 +195,6 @@ const DashboardPage: React.FC = () => {
     { id: 5, type: 'class', title: 'Emploi du temps mis à jour', description: 'Classe de Terminale S - Nouveau planning', time: 'Il y a 1 jour', icon: CalendarIcon, color: 'text-indigo-600' },
   ];
 
-  // --- Actions rapides ---
   const quickActions: QuickAction[] = [
     { title: 'Ajouter un élève', icon: UserGroupIcon, color: 'text-white', bgColor: 'bg-gradient-to-br from-blue-500 to-blue-600', href: '/dashboard/eleves/nouveau' },
     { title: 'Enregistrer paiement', icon: CreditCardIcon, color: 'text-white', bgColor: 'bg-gradient-to-br from-emerald-500 to-emerald-600', href: '/dashboard/paiements/nouveau' },
@@ -210,7 +202,6 @@ const DashboardPage: React.FC = () => {
     { title: 'Gérer les présences', icon: ClockIcon, color: 'text-white', bgColor: 'bg-gradient-to-br from-orange-500 to-orange-600', href: '/dashboard/presences' },
   ];
 
-  // --- Événements à venir ---
   const upcomingEvents = [
     { title: 'Réunion des enseignants', date: "Aujourd'hui, 15:00", type: 'Meeting', color: 'bg-blue-500' },
     { title: 'Conseil de classe', date: 'Demain, 10:00', type: 'Academic', color: 'bg-purple-500' },
@@ -228,35 +219,140 @@ const DashboardPage: React.FC = () => {
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl p-6 text-white shadow-lg shadow-blue-500/20"
+        className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl p-6 text-white shadow-lg shadow-blue-500/20 relative overflow-hidden"
       >
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-bold">
-              Bonjour {user?.prenom} 👋
-            </h2>
-            <p className="text-sm text-blue-100 mt-1">
-              Voici un aperçu complet de votre établissement •{' '}
-              {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-            </p>
+        {/* Décorations */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          {/* Bloc gauche : Logo école + info user */}
+          <div className="flex items-center gap-4">
+            {/* Logo de l'école */}
+            {etablissement?.logo ? (
+              <img
+                src={etablissement.logo}
+                alt={etablissement.nom}
+                className="w-16 h-16 md:w-20 md:h-20 rounded-2xl object-cover border-2 border-white/30 shadow-lg"
+              />
+            ) : (
+              <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-white/20 backdrop-blur border-2 border-white/30 flex items-center justify-center text-white font-bold text-2xl md:text-3xl shadow-lg">
+                {etablissement?.nom.charAt(0).toUpperCase() ?? 'E'}
+              </div>
+            )}
+
+            <div className="min-w-0">
+              {/* Titre : rôle + nom utilisateur */}
+              <h2 className="text-xl md:text-2xl font-bold">
+                Bonjour {user?.prenom} 👋
+              </h2>
+
+              {/* 🔥 Sous-titre : Directeur de [Nom école] */}
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-white/15 backdrop-blur rounded-full text-xs font-medium">
+                  <CheckCircleIcon className="w-3.5 h-3.5" />
+                  Directeur
+                </span>
+                {etablissement && (
+                  <span className="text-sm text-blue-100">
+                    de{' '}
+                    <strong className="font-semibold text-white">
+                      {etablissement.nom}
+                    </strong>
+                  </span>
+                )}
+              </div>
+
+              {/* 🔥 Localisation école */}
+              {etablissement && (
+                <div className="flex items-center gap-3 mt-2 text-xs text-blue-100 flex-wrap">
+                  {etablissement.ville && (
+                    <span className="flex items-center gap-1">
+                      <MapPinIcon className="w-3.5 h-3.5" />
+                      {etablissement.ville}, {etablissement.pays}
+                    </span>
+                  )}
+                  <span className="flex items-center gap-1">
+                    <BuildingOfficeIcon className="w-3.5 h-3.5" />
+                    <span className="font-mono">
+                      {etablissement.code}
+                    </span>
+                  </span>
+                  <span className="hidden md:flex items-center gap-1">
+                    <CalendarIcon className="w-3.5 h-3.5" />
+                    {new Date().toLocaleDateString('fr-FR', {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                    })}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-3">
+
+          {/* 🔥 Bloc droit : Actions */}
+          <div className="flex flex-wrap items-center gap-2 lg:flex-shrink-0">
+            <Link
+              to="/dashboard/mon-etablissement"
+              className="px-4 py-2.5 bg-white text-blue-600 hover:bg-blue-50 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-lg shadow-blue-900/20 hover:shadow-xl hover:-translate-y-0.5"
+            >
+              <PencilSquareIcon className="w-4 h-4" />
+              Voir mon établissement
+            </Link>
             <Link
               to="/dashboard/statistiques"
               className="px-4 py-2 bg-white/15 hover:bg-white/25 backdrop-blur rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
             >
               <ChartBarIcon className="w-4 h-4" />
-              Voir les statistiques
+              <span className="hidden sm:inline">Statistiques</span>
             </Link>
             <Link
-              to="/dashboard/rapports"
-              className="px-4 py-2 bg-white text-blue-600 hover:bg-blue-50 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+              to="/dashboard/parametres"
+              className="p-2.5 bg-white/15 hover:bg-white/25 backdrop-blur rounded-lg transition-colors"
+              title="Paramètres"
             >
-              <DocumentTextIcon className="w-4 h-4" />
-              Générer un rapport
+              <Cog6ToothIcon className="w-5 h-5" />
             </Link>
           </div>
         </div>
+
+        {/* 🔥 Carte info école (bandeau bas) */}
+        {etablissement && (
+          <div className="relative z-10 mt-4 pt-4 border-t border-white/20 grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-blue-200 font-semibold">
+                Type
+              </p>
+              <p className="text-sm font-semibold mt-0.5">
+                {etablissement.type}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-blue-200 font-semibold">
+                Plan
+              </p>
+              <p className="text-sm font-semibold mt-0.5">
+                {etablissement.planAbonnement}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-blue-200 font-semibold">
+                Devise
+              </p>
+              <p className="text-sm font-semibold mt-0.5">
+                {etablissement.devise}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-blue-200 font-semibold">
+                Contact
+              </p>
+              <p className="text-sm font-semibold mt-0.5 truncate">
+                {etablissement.telephone ?? etablissement.email ?? '—'}
+              </p>
+            </div>
+          </div>
+        )}
       </motion.div>
 
       {/* ============================================
@@ -275,20 +371,32 @@ const DashboardPage: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">{stat.title}</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {stat.value}
+                </p>
                 <div className="flex items-center gap-1 mt-2">
                   {stat.trend === 'up' ? (
                     <ArrowTrendingUpIcon className="w-4 h-4 text-emerald-500" />
                   ) : (
                     <ArrowTrendingDownIcon className="w-4 h-4 text-red-500" />
                   )}
-                  <span className={`text-xs font-medium ${stat.trend === 'up' ? 'text-emerald-600' : 'text-red-600'}`}>
+                  <span
+                    className={`text-xs font-medium ${
+                      stat.trend === 'up'
+                        ? 'text-emerald-600'
+                        : 'text-red-600'
+                    }`}
+                  >
                     {stat.change}
                   </span>
-                  <span className="text-xs text-gray-400">vs mois dernier</span>
+                  <span className="text-xs text-gray-400">
+                    vs mois dernier
+                  </span>
                 </div>
                 {stat.hint && (
-                  <p className="text-[10px] text-gray-400 mt-1 italic">{stat.hint}</p>
+                  <p className="text-[10px] text-gray-400 mt-1 italic">
+                    {stat.hint}
+                  </p>
                 )}
               </div>
               <div className={`p-3 rounded-xl ${stat.bgColor}`}>
@@ -311,7 +419,9 @@ const DashboardPage: React.FC = () => {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h3 className="font-bold text-gray-900">Évolution financière</h3>
-            <p className="text-xs text-gray-500 mt-0.5">Revenus vs Dépenses sur 12 mois</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Revenus vs Dépenses sur 12 mois
+            </p>
           </div>
           <div className="flex items-center gap-3 text-xs">
             <span className="flex items-center gap-1">
@@ -326,7 +436,10 @@ const DashboardPage: React.FC = () => {
         </div>
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={revenueData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+            <AreaChart
+              data={revenueData}
+              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+            >
               <defs>
                 <linearGradient id="colorRevenus" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
@@ -337,15 +450,44 @@ const DashboardPage: React.FC = () => {
                   <stop offset="95%" stopColor="#F87171" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
-              <XAxis dataKey="mois" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94A3B8' }} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94A3B8' }} />
-              <Tooltip
-                contentStyle={{ borderRadius: 12, border: '1px solid #E2E8F0', fontSize: 12 }}
-                 formatter={(v) => `€${Number(v).toLocaleString('fr-FR')}`}
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="#F1F5F9"
+                vertical={false}
               />
-              <Area type="monotone" dataKey="revenus" stroke="#3B82F6" strokeWidth={2.5} fill="url(#colorRevenus)" />
-              <Area type="monotone" dataKey="depenses" stroke="#F87171" strokeWidth={2.5} fill="url(#colorDepenses)" />
+              <XAxis
+                dataKey="mois"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 12, fill: '#94A3B8' }}
+              />
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 12, fill: '#94A3B8' }}
+              />
+              <Tooltip
+                contentStyle={{
+                  borderRadius: 12,
+                  border: '1px solid #E2E8F0',
+                  fontSize: 12,
+                }}
+                formatter={(v) => `€${Number(v).toLocaleString('fr-FR')}`}
+              />
+              <Area
+                type="monotone"
+                dataKey="revenus"
+                stroke="#3B82F6"
+                strokeWidth={2.5}
+                fill="url(#colorRevenus)"
+              />
+              <Area
+                type="monotone"
+                dataKey="depenses"
+                stroke="#F87171"
+                strokeWidth={2.5}
+                fill="url(#colorDepenses)"
+              />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -355,7 +497,6 @@ const DashboardPage: React.FC = () => {
           GRAPHIQUES LIGNE 2 : Recouvrement + Camembert
           ============================================ */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Taux de recouvrement (ligne) */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -365,7 +506,9 @@ const DashboardPage: React.FC = () => {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="font-bold text-gray-900">Taux de recouvrement</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Objectif : 90% • Actuel : 91%</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Objectif : 90% • Actuel : 91%
+              </p>
             </div>
             <span className="text-xs px-2 py-1 bg-emerald-50 text-emerald-600 rounded-full font-bold">
               +6% vs objectif
@@ -374,17 +517,44 @@ const DashboardPage: React.FC = () => {
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={recoveryData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
-                <XAxis dataKey="mois" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94A3B8' }} />
-                <YAxis domain={[60, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94A3B8' }} />
-                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #E2E8F0', fontSize: 12 }} formatter={(v) => `${Number(v).toFixed(1)}%`} />
-                <Line type="monotone" dataKey="taux" stroke="#8B5CF6" strokeWidth={3} dot={{ r: 5, fill: '#8B5CF6' }} activeDot={{ r: 7 }} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#F1F5F9"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="mois"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: '#94A3B8' }}
+                />
+                <YAxis
+                  domain={[60, 100]}
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: '#94A3B8' }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: 12,
+                    border: '1px solid #E2E8F0',
+                    fontSize: 12,
+                  }}
+                  formatter={(v) => `${Number(v).toFixed(1)}%`}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="taux"
+                  stroke="#8B5CF6"
+                  strokeWidth={3}
+                  dot={{ r: 5, fill: '#8B5CF6' }}
+                  activeDot={{ r: 7 }}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </motion.div>
 
-        {/* Camembert paiements */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -411,19 +581,33 @@ const DashboardPage: React.FC = () => {
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #E2E8F0', fontSize: 12 }}formatter={(v) => `€${Number(v).toLocaleString('fr-FR')}`}
- />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: 12,
+                    border: '1px solid #E2E8F0',
+                    fontSize: 12,
+                  }}
+                  formatter={(v) => `€${Number(v).toLocaleString('fr-FR')}`}
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>
           <div className="space-y-2 mt-4">
             {paymentSplit.map((item) => (
-              <div key={item.name} className="flex items-center justify-between text-xs">
+              <div
+                key={item.name}
+                className="flex items-center justify-between text-xs"
+              >
                 <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                  <span
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: item.color }}
+                  />
                   <span className="text-gray-700">{item.name}</span>
                 </div>
-                <span className="font-medium text-gray-900">€{item.value.toLocaleString('fr-FR')}</span>
+                <span className="font-medium text-gray-900">
+                  €{item.value.toLocaleString('fr-FR')}
+                </span>
               </div>
             ))}
           </div>
@@ -438,7 +622,6 @@ const DashboardPage: React.FC = () => {
           GRAPHIQUES LIGNE 3 : Effectifs + Top classes
           ============================================ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Effectifs par niveau (barres) */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -448,24 +631,44 @@ const DashboardPage: React.FC = () => {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="font-bold text-gray-900">Effectifs par niveau</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Total : 1,284 élèves</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Total : 1,284 élèves
+              </p>
             </div>
             <BuildingOfficeIcon className="w-5 h-5 text-gray-400" />
           </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={effectifsNiveaux}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
-                <XAxis dataKey="niveau" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94A3B8' }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94A3B8' }} />
-                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #E2E8F0', fontSize: 12 }} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#F1F5F9"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="niveau"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: '#94A3B8' }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: '#94A3B8' }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: 12,
+                    border: '1px solid #E2E8F0',
+                    fontSize: 12,
+                  }}
+                />
                 <Bar dataKey="eleves" fill="#3B82F6" radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </motion.div>
 
-        {/* Performance par classe (barres horizontales) */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -477,7 +680,10 @@ const DashboardPage: React.FC = () => {
               <h3 className="font-bold text-gray-900">Performance par classe</h3>
               <p className="text-xs text-gray-500 mt-0.5">Moyennes générales</p>
             </div>
-            <Link to="/dashboard/classes" className="text-sm text-blue-600 font-medium hover:underline">
+            <Link
+              to="/dashboard/classes"
+              className="text-sm text-blue-600 font-medium hover:underline"
+            >
               Détails
             </Link>
           </div>
@@ -527,12 +733,39 @@ const DashboardPage: React.FC = () => {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {alertes.map((alerte, index) => {
-            const colors = {
-              warning: { bg: 'bg-orange-50', text: 'text-orange-700', icon: 'text-orange-500', border: 'border-orange-100' },
-              danger: { bg: 'bg-red-50', text: 'text-red-700', icon: 'text-red-500', border: 'border-red-100' },
-              info: { bg: 'bg-blue-50', text: 'text-blue-700', icon: 'text-blue-500', border: 'border-blue-100' },
-              success: { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: 'text-emerald-500', border: 'border-emerald-100' },
-            }[alerte.type] || { bg: 'bg-gray-50', text: 'text-gray-700', icon: 'text-gray-500', border: 'border-gray-100' };
+            const colors =
+              {
+                warning: {
+                  bg: 'bg-orange-50',
+                  text: 'text-orange-700',
+                  icon: 'text-orange-500',
+                  border: 'border-orange-100',
+                },
+                danger: {
+                  bg: 'bg-red-50',
+                  text: 'text-red-700',
+                  icon: 'text-red-500',
+                  border: 'border-red-100',
+                },
+                info: {
+                  bg: 'bg-blue-50',
+                  text: 'text-blue-700',
+                  icon: 'text-blue-500',
+                  border: 'border-blue-100',
+                },
+                success: {
+                  bg: 'bg-emerald-50',
+                  text: 'text-emerald-700',
+                  icon: 'text-emerald-500',
+                  border: 'border-emerald-100',
+                },
+              }[alerte.type] ||
+              {
+                bg: 'bg-gray-50',
+                text: 'text-gray-700',
+                icon: 'text-gray-500',
+                border: 'border-gray-100',
+              };
 
             return (
               <motion.div
@@ -545,16 +778,28 @@ const DashboardPage: React.FC = () => {
                   to={alerte.href}
                   className={`flex items-center gap-3 p-3 rounded-xl border ${colors.border} ${colors.bg} hover:shadow-sm transition-all group`}
                 >
-                  <div className={`w-2 h-10 rounded-full ${
-                    alerte.type === 'warning' ? 'bg-orange-400' :
-                    alerte.type === 'danger' ? 'bg-red-400' :
-                    alerte.type === 'info' ? 'bg-blue-400' : 'bg-emerald-400'
-                  }`} />
+                  <div
+                    className={`w-2 h-10 rounded-full ${
+                      alerte.type === 'warning'
+                        ? 'bg-orange-400'
+                        : alerte.type === 'danger'
+                        ? 'bg-red-400'
+                        : alerte.type === 'info'
+                        ? 'bg-blue-400'
+                        : 'bg-emerald-400'
+                    }`}
+                  />
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-semibold ${colors.text}`}>{alerte.title}</p>
-                    <p className="text-xs text-gray-600 truncate">{alerte.desc}</p>
+                    <p className={`text-sm font-semibold ${colors.text}`}>
+                      {alerte.title}
+                    </p>
+                    <p className="text-xs text-gray-600 truncate">
+                      {alerte.desc}
+                    </p>
                   </div>
-                  <ArrowRightIcon className={`w-4 h-4 ${colors.icon} opacity-0 group-hover:opacity-100 transition-opacity`} />
+                  <ArrowRightIcon
+                    className={`w-4 h-4 ${colors.icon} opacity-0 group-hover:opacity-100 transition-opacity`}
+                  />
                 </Link>
               </motion.div>
             );
@@ -572,8 +817,7 @@ const DashboardPage: React.FC = () => {
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {quickActions.map((action, index) => (
-            <motion.div
-              key={action.title}
+            <motion.div              key={action.title}
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: index * 0.1 }}
@@ -585,7 +829,9 @@ const DashboardPage: React.FC = () => {
                 className={`${action.bgColor} rounded-2xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 block`}
               >
                 <action.icon className={`w-7 h-7 ${action.color} mb-2`} />
-                <p className={`text-sm font-semibold ${action.color} truncate`}>
+                <p
+                  className={`text-sm font-semibold ${action.color} truncate`}
+                >
                   {action.title}
                 </p>
               </Link>
@@ -598,7 +844,6 @@ const DashboardPage: React.FC = () => {
           ACTIVITÉS + DERNIERS PAIEMENTS + ÉVÉNEMENTS
           ============================================ */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Activités récentes */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -611,7 +856,6 @@ const DashboardPage: React.FC = () => {
               Voir tout
             </button>
           </div>
-
           <div className="space-y-4">
             {recentActivities.map((activity, index) => (
               <motion.div
@@ -621,12 +865,18 @@ const DashboardPage: React.FC = () => {
                 transition={{ delay: 0.7 + index * 0.05 }}
                 className="flex items-start gap-4 p-3 hover:bg-gray-50 rounded-xl transition-colors group"
               >
-                <div className={`p-2 rounded-xl bg-gray-100 ${activity.color}`}>
+                <div
+                  className={`p-2 rounded-xl bg-gray-100 ${activity.color}`}
+                >
                   <activity.icon className="w-5 h-5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900">{activity.title}</p>
-                  <p className="text-sm text-gray-600 truncate">{activity.description}</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {activity.title}
+                  </p>
+                  <p className="text-sm text-gray-600 truncate">
+                    {activity.description}
+                  </p>
                   <p className="text-xs text-gray-400 mt-1">{activity.time}</p>
                 </div>
                 <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-400 hover:text-gray-600">
@@ -637,7 +887,6 @@ const DashboardPage: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Événements à venir */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -650,7 +899,6 @@ const DashboardPage: React.FC = () => {
               3 événements
             </span>
           </div>
-
           <div className="space-y-4">
             {upcomingEvents.map((event, index) => (
               <motion.div
@@ -660,9 +908,13 @@ const DashboardPage: React.FC = () => {
                 transition={{ delay: 0.8 + index * 0.1 }}
                 className="flex items-start gap-3 p-3 border border-gray-100 rounded-xl hover:bg-gray-50 transition-colors"
               >
-                <div className={`w-2 h-12 ${event.color} rounded-full flex-shrink-0`} />
+                <div
+                  className={`w-2 h-12 ${event.color} rounded-full flex-shrink-0`}
+                />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900">{event.title}</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {event.title}
+                  </p>
                   <p className="text-xs text-gray-500 mt-0.5">{event.date}</p>
                   <span className="inline-block mt-1.5 px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">
                     {event.type}
@@ -671,8 +923,6 @@ const DashboardPage: React.FC = () => {
               </motion.div>
             ))}
           </div>
-
-          {/* Citation du jour */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -683,7 +933,8 @@ const DashboardPage: React.FC = () => {
               <SparklesIcon className="w-5 h-5 text-blue-500 mt-0.5" />
               <div>
                 <p className="text-sm font-medium text-gray-900">
-                  "L'éducation est l'arme la plus puissante pour changer le monde."
+                  "L'éducation est l'arme la plus puissante pour changer le
+                  monde."
                 </p>
                 <p className="text-xs text-gray-500 mt-1">— Nelson Mandela</p>
               </div>
@@ -704,9 +955,14 @@ const DashboardPage: React.FC = () => {
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <BanknotesIcon className="w-5 h-5 text-emerald-600" />
-            <h3 className="font-bold text-gray-900">Derniers paiements reçus</h3>
+            <h3 className="font-bold text-gray-900">
+              Derniers paiements reçus
+            </h3>
           </div>
-          <Link to="/dashboard/paiements" className="text-sm text-blue-600 font-medium hover:underline">
+          <Link
+            to="/dashboard/paiements"
+            className="text-sm text-blue-600 font-medium hover:underline"
+          >
             Voir tous les paiements
           </Link>
         </div>
@@ -714,20 +970,38 @@ const DashboardPage: React.FC = () => {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Référence</th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Élève</th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Classe</th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Moyen</th>
-                <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Montant</th>
-                <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Référence
+                </th>
+                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Élève
+                </th>
+                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Classe
+                </th>
+                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Moyen
+                </th>
+                <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Montant
+                </th>
+                <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Date
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {derniersPaiements.map((p) => (
                 <tr key={p.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 text-sm font-mono text-gray-600">{p.id}</td>
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{p.eleve}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{p.classe}</td>
+                  <td className="px-6 py-4 text-sm font-mono text-gray-600">
+                    {p.id}
+                  </td>
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                    {p.eleve}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {p.classe}
+                  </td>
                   <td className="px-6 py-4">
                     <span className="inline-block px-2 py-1 text-xs font-medium bg-blue-50 text-blue-600 rounded-full">
                       {p.moyen}
@@ -736,7 +1010,9 @@ const DashboardPage: React.FC = () => {
                   <td className="px-6 py-4 text-sm font-bold text-emerald-600 text-right">
                     {p.montant.toLocaleString('fr-FR')} FCFA
                   </td>
-                  <td className="px-6 py-4 text-xs text-gray-400 text-right">{p.date}</td>
+                  <td className="px-6 py-4 text-xs text-gray-400 text-right">
+                    {p.date}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -745,14 +1021,42 @@ const DashboardPage: React.FC = () => {
       </motion.div>
 
       {/* ============================================
-          RACCOURCIS DIRECTEUR (modules sensibles)
+          RACCOURCIS DIRECTEUR
           ============================================ */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { title: 'Paie du personnel', desc: '8 bulletins à valider', icon: BanknotesIcon, color: 'text-blue-600', bg: 'bg-blue-50', href: '/dashboard/paie' },
-          { title: 'Réductions', desc: '3 demandes en attente', icon: ReceiptPercentIcon, color: 'text-purple-600', bg: 'bg-purple-50', href: '/dashboard/reductions' },
-          { title: 'Audit & Logs', desc: 'Consulter les actions', icon: CheckCircleIcon, color: 'text-emerald-600', bg: 'bg-emerald-50', href: '/dashboard/audit' },
-          { title: 'Paramètres', desc: 'Établissement & système', icon: ChartBarIcon, color: 'text-orange-600', bg: 'bg-orange-50', href: '/dashboard/parametres' },
+          {
+            title: 'Mon établissement',
+            desc: 'Infos & configuration',
+            icon: BuildingOfficeIcon,
+            color: 'text-blue-600',
+            bg: 'bg-blue-50',
+            href: '/dashboard/mon-etablissement',
+          },
+          {
+            title: 'Paie du personnel',
+            desc: '8 bulletins à valider',
+            icon: BanknotesIcon,
+            color: 'text-purple-600',
+            bg: 'bg-purple-50',
+            href: '/dashboard/paie',
+          },
+          {
+            title: 'Réductions',
+            desc: '3 demandes en attente',
+            icon: ReceiptPercentIcon,
+            color: 'text-emerald-600',
+            bg: 'bg-emerald-50',
+            href: '/dashboard/reductions',
+          },
+          {
+            title: 'Paramètres',
+            desc: 'Système & préférences',
+            icon: ChartBarIcon,
+            color: 'text-orange-600',
+            bg: 'bg-orange-50',
+            href: '/dashboard/parametres',
+          },
         ].map((item, index) => (
           <motion.div
             key={item.title}

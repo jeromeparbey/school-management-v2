@@ -27,6 +27,7 @@ import RoleDashboard from './layouts/RoleDashboard';
 // ============================================
 // PAGES DASHBOARD — DIRECTEUR (nouvelles) ✅
 // ============================================
+import MonEtablissementPage from './pages/dashboard/directeur/mon-etablissement/MonEtablissementPage';
 import StatistiquesPage from './pages/dashboard/directeur/statistiques/StatistiquesPage';
 import ElevesPage from './pages/dashboard/directeur/eleves/ElevesPage';
 import ClassesPage from './pages/dashboard/directeur/classes/ClassesPage';
@@ -114,6 +115,89 @@ import PaiePage from './pages/dashboard/directeur/paie/PaiePage';
 // (Rien à importer ici : SecretaireDashboardPage est utilisé dans RoleDashboard)
 
 // ============================================
+// 🆕 PAGES DASHBOARD — SUPER_ADMIN
+// ============================================
+// ✅ SEUL LE DASHBOARD PRINCIPAL EXISTE POUR L'INSTANT
+import SuperAdminDashboardPage from './pages/dashboard/super-admin/SuperAdminDashboardPage';
+
+// ⏳ À créer — Décommenter au fur et à mesure
+import SuperAdminEtablissementsPage from './pages/dashboard/super-admin/EtablissementsPage';
+import SuperAdminEtablissementNouveauPage from './pages/dashboard/super-admin/EtablissementNouveauPage';
+import SuperAdminEtablissementDetailPage from './pages/dashboard/super-admin/EtablissementDetailPage';
+// import SuperAdminProvisioningPage from './pages/dashboard/super-admin/ProvisioningPage';
+// import SuperAdminAbonnementsPage from './pages/dashboard/super-admin/AbonnementsPage';
+// import SuperAdminFacturesPage from './pages/dashboard/super-admin/FacturesPage';
+// import SuperAdminUtilisateursGlobauxPage from './pages/dashboard/super-admin/UtilisateursGlobauxPage';
+// import SuperAdminRolesGlobauxPage from './pages/dashboard/super-admin/RolesGlobauxPage';
+// import SuperAdminStatistiquesGlobalesPage from './pages/dashboard/super-admin/StatistiquesGlobalesPage';
+// import SuperAdminStatsServeurPage from './pages/dashboard/super-admin/StatsServeurPage';
+// import SuperAdminSauvegardesPage from './pages/dashboard/super-admin/SauvegardesPage';
+// import SuperAdminSchemasPage from './pages/dashboard/super-admin/SchemasPage';
+// import SuperAdminConfigPage from './pages/dashboard/super-admin/ConfigPage';
+
+// ============================================
+// 🆕 PAGES DASHBOARD — ELEVE
+// ============================================
+// ⏳ À créer — Décommenter au fur et à mesure
+// import EleveMesNotesPage from './pages/dashboard/eleve/MesNotesPage';
+// import EleveMesBulletinsPage from './pages/dashboard/eleve/MesBulletinsPage';
+// import EleveMonEmploiTempsPage from './pages/dashboard/eleve/MonEmploiTempsPage';
+// import EleveMesMatieresPage from './pages/dashboard/eleve/MesMatieresPage';
+// import EleveMesProfesseursPage from './pages/dashboard/eleve/MesProfesseursPage';
+// import EleveMesObjectifsPage from './pages/dashboard/eleve/MesObjectifsPage';
+// import EleveMesGroupesTDPage from './pages/dashboard/eleve/MesGroupesTDPage';
+// import EleveMesDocumentsPage from './pages/dashboard/eleve/MesDocumentsPage';
+// import EleveMesEpreuvesPage from './pages/dashboard/eleve/MesEpreuvesPage';
+// import EleveMesCorrectionsPage from './pages/dashboard/eleve/MesCorrectionsPage';
+// import EleveMesPresencesPage from './pages/dashboard/eleve/MesPresencesPage';
+// import EleveMesAbsencesPage from './pages/dashboard/eleve/MesAbsencesPage';
+// import EleveMesAppreciationsPage from './pages/dashboard/eleve/MesAppreciationsPage';
+// import EleveBibliothequePage from './pages/dashboard/eleve/BibliothequePage';
+// import EleveMesEmpruntsPage from './pages/dashboard/eleve/MesEmpruntsPage';
+// import EleveMonProfilPage from './pages/dashboard/eleve/MonProfilPage';
+// import EleveSupportPage from './pages/dashboard/eleve/SupportPage';
+// import EleveFaqPage from './pages/dashboard/eleve/FaqPage';
+
+// ============================================
+// 🆕 PAGES DASHBOARD — SURVEILLANT
+// ============================================
+// ⏳ À créer — Décommenter au fur et à mesure
+// import SurveillantMesZonesPage from './pages/dashboard/surveillant/MesZonesPage';
+// import SurveillantSurveillancesPage from './pages/dashboard/surveillant/SurveillancesPage';
+// import SurveillantMonPlanningPage from './pages/dashboard/surveillant/MonPlanningPage';
+// import SurveillantSignalerIncidentPage from './pages/dashboard/surveillant/SignalerIncidentPage';
+// import SurveillantMesIncidentsPage from './pages/dashboard/surveillant/MesIncidentsPage';
+// import SurveillantIncidentsTraitesPage from './pages/dashboard/surveillant/IncidentsTraitesPage';
+// import SurveillantRechercheElevePage from './pages/dashboard/surveillant/RechercheElevePage';
+// import SurveillantPresencesElevesPage from './pages/dashboard/surveillant/PresencesElevesPage';
+// import SurveillantAbsencesElevesPage from './pages/dashboard/surveillant/AbsencesElevesPage';
+// import SurveillantMesStatistiquesPage from './pages/dashboard/surveillant/MesStatistiquesPage';
+
+// ============================================
+// 🆕 PAGES DASHBOARD — BIBLIOTHECAIRE
+// ============================================
+// ⏳ À créer — Décommenter au fur et à mesure
+// import BibliothecaireLivresPage from './pages/dashboard/bibliothecaire/LivresPage';
+// import BibliothecaireLivreNouveauPage from './pages/dashboard/bibliothecaire/LivreNouveauPage';
+// import BibliothecaireCategoriesPage from './pages/dashboard/bibliothecaire/CategoriesPage';
+// import BibliothecaireAuteursPage from './pages/dashboard/bibliothecaire/AuteursPage';
+// import BibliothecaireEmpruntsPage from './pages/dashboard/bibliothecaire/EmpruntsPage';
+// import BibliothecaireEmpruntNouveauPage from './pages/dashboard/bibliothecaire/EmpruntNouveauPage';
+// import BibliothecaireRetoursPage from './pages/dashboard/bibliothecaire/RetoursPage';
+// import BibliothecaireEmpruntsRetardPage from './pages/dashboard/bibliothecaire/EmpruntsRetardPage';
+// import BibliothecairePenalitesPage from './pages/dashboard/bibliothecaire/PenalitesPage';
+
+// ============================================
+// 🆕 PAGES PARTAGÉES (Messages, Communiqués, Chat, Notifications)
+// ============================================
+// ⏳ À créer — Décommenter au fur et à mesure
+// import MessagesPage from './pages/dashboard/shared/MessagesPage';
+// import CommuniquesPage from './pages/dashboard/shared/CommuniquesPage';
+// import ChatPage from './pages/dashboard/shared/ChatPage';
+// import NotificationsPage from './pages/dashboard/shared/NotificationsPage';
+// import MonProfilPage from './pages/dashboard/shared/MonProfilPage';
+
+// ============================================
 // COMPOSANT PROTECTED ROUTE
 // ============================================
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -132,6 +216,34 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+// ============================================
+// 🆕 COMPOSANT SUPER_ADMIN ROUTE
+// ============================================
+const SuperAdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, isInitializing, isSuperAdmin } = useAuth();
+
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-red-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 font-medium">Chargement...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!isSuperAdmin) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;
@@ -250,6 +362,7 @@ function App() {
                 DIRECTEUR — SCOLARITÉ : EMPLOI DU TEMPS
                 ============================================ */}
             {/* <Route path="emploi-temps" element={<EmploiTempsPage />} /> */}
+             <Route path="mon-etablissement" element={<MonEtablissementPage />} />
 
             {/* ============================================
                 DIRECTEUR — PERSONNEL : ENSEIGNANTS ✅
@@ -321,6 +434,213 @@ function App() {
             {/* <Route path="emails" element={<LogsEmailPage />} /> */}
             {/* <Route path="profil" element={<ProfilPage />} /> */}
             {/* <Route path="aide" element={<ProfilPage />} /> */}
+
+            {/* ════════════════════════════════════════════
+                🆕 SUPER_ADMIN — CATALOGUE MULTI-TENANT
+                ⏳ À DÉCOMMENTER AU FUR ET À MESURE
+                ════════════════════════════════════════════ */}
+
+            {/* Statistiques globales */}
+            {/* <Route
+              path="statistiques-globales"
+              element={
+                <SuperAdminRoute>
+                  <SuperAdminStatistiquesGlobalesPage />
+                </SuperAdminRoute>
+              }
+            /> */}
+
+            {/* Établissements */}
+            <Route
+              path="etablissements"
+              element={
+                <SuperAdminRoute>
+                  <SuperAdminEtablissementsPage />
+                </SuperAdminRoute>
+              }
+            />
+            <Route
+              path="etablissements/nouveau"
+              element={
+                <SuperAdminRoute>
+                  <SuperAdminEtablissementNouveauPage />
+                </SuperAdminRoute>
+              }
+            />
+             <Route
+                path="etablissements/:id"
+                element={
+                  <SuperAdminRoute>
+                    <SuperAdminEtablissementDetailPage />
+                  </SuperAdminRoute>
+                }
+              />
+            {/* Provisioning */}
+            {/* <Route
+              path="provisioning"
+              element={
+                <SuperAdminRoute>
+                  <SuperAdminProvisioningPage />
+                </SuperAdminRoute>
+              }
+            /> */}
+
+            {/* Abonnements & Factures */}
+            {/* <Route
+              path="abonnements"
+              element={
+                <SuperAdminRoute>
+                  <SuperAdminAbonnementsPage />
+                </SuperAdminRoute>
+              }
+            /> */}
+            {/* <Route
+              path="factures"
+              element={
+                <SuperAdminRoute>
+                  <SuperAdminFacturesPage />
+                </SuperAdminRoute>
+              }
+            /> */}
+
+            {/* Utilisateurs & rôles globaux */}
+            {/* <Route
+              path="utilisateurs-globaux"
+              element={
+                <SuperAdminRoute>
+                  <SuperAdminUtilisateursGlobauxPage />
+                </SuperAdminRoute>
+              }
+            /> */}
+            {/* <Route
+              path="roles-globaux"
+              element={
+                <SuperAdminRoute>
+                  <SuperAdminRolesGlobauxPage />
+                </SuperAdminRoute>
+              }
+            /> */}
+
+            {/* Monitoring & système */}
+            {/* <Route
+              path="stats-serveur"
+              element={
+                <SuperAdminRoute>
+                  <SuperAdminStatsServeurPage />
+                </SuperAdminRoute>
+              }
+            /> */}
+            {/* <Route
+              path="sauvegardes"
+              element={
+                <SuperAdminRoute>
+                  <SuperAdminSauvegardesPage />
+                </SuperAdminRoute>
+              }
+            /> */}
+            {/* <Route
+              path="schemas"
+              element={
+                <SuperAdminRoute>
+                  <SuperAdminSchemasPage />
+                </SuperAdminRoute>
+              }
+            /> */}
+            {/* <Route
+              path="config"
+              element={
+                <SuperAdminRoute>
+                  <SuperAdminConfigPage />
+                </SuperAdminRoute>
+              }
+            /> */}
+
+            {/* ════════════════════════════════════════════
+                🆕 ELEVE — VUES PERSONNELLES
+                ⏳ À DÉCOMMENTER AU FUR ET À MESURE
+                ════════════════════════════════════════════ */}
+
+            {/* Profil */}
+            {/* <Route path="mon-profil" element={<EleveMonProfilPage />} /> */}
+
+            {/* Scolarité */}
+            {/* <Route path="mes-notes" element={<EleveMesNotesPage />} /> */}
+            {/* <Route path="mes-bulletins" element={<EleveMesBulletinsPage />} /> */}
+            {/* <Route path="mon-emploi-temps" element={<EleveMonEmploiTempsPage />} /> */}
+            {/* <Route path="mes-matieres" element={<EleveMesMatieresPage />} /> */}
+            {/* <Route path="mes-professeurs" element={<EleveMesProfesseursPage />} /> */}
+
+            {/* Activités */}
+            {/* <Route path="mes-objectifs" element={<EleveMesObjectifsPage />} /> */}
+            {/* <Route path="mes-groupes-td" element={<EleveMesGroupesTDPage />} /> */}
+            {/* <Route path="mes-documents" element={<EleveMesDocumentsPage />} /> */}
+            {/* <Route path="mes-epreuves" element={<EleveMesEpreuvesPage />} /> */}
+            {/* <Route path="mes-corrections" element={<EleveMesCorrectionsPage />} /> */}
+
+            {/* Présences */}
+            {/* <Route path="mes-presences" element={<EleveMesPresencesPage />} /> */}
+            {/* <Route path="mes-absences" element={<EleveMesAbsencesPage />} /> */}
+            {/* <Route path="mes-appreciations" element={<EleveMesAppreciationsPage />} /> */}
+
+            {/* Bibliothèque */}
+            {/* <Route path="bibliotheque" element={<EleveBibliothequePage />} /> */}
+            {/* <Route path="mes-emprunts" element={<EleveMesEmpruntsPage />} /> */}
+
+            {/* Aide */}
+            {/* <Route path="support" element={<EleveSupportPage />} /> */}
+            {/* <Route path="faq" element={<EleveFaqPage />} /> */}
+
+            {/* ════════════════════════════════════════════
+                🆕 SURVEILLANT — VUES PERSONNELLES
+                ⏳ À DÉCOMMENTER AU FUR ET À MESURE
+                ════════════════════════════════════════════ */}
+
+            {/* Statistiques */}
+            {/* <Route path="mes-statistiques" element={<SurveillantMesStatistiquesPage />} /> */}
+
+            {/* Surveillance */}
+            {/* <Route path="mes-zones" element={<SurveillantMesZonesPage />} /> */}
+            {/* <Route path="surveillances" element={<SurveillantSurveillancesPage />} /> */}
+            {/* <Route path="mon-planning" element={<SurveillantMonPlanningPage />} /> */}
+
+            {/* Incidents */}
+            {/* <Route path="incidents/signaler" element={<SurveillantSignalerIncidentPage />} /> */}
+            {/* <Route path="mes-incidents" element={<SurveillantMesIncidentsPage />} /> */}
+            {/* <Route path="incidents/traites" element={<SurveillantIncidentsTraitesPage />} /> */}
+
+            {/* Élèves */}
+            {/* <Route path="eleves/recherche" element={<SurveillantRechercheElevePage />} /> */}
+            {/* <Route path="presences-eleves" element={<SurveillantPresencesElevesPage />} /> */}
+            {/* <Route path="absences-eleves" element={<SurveillantAbsencesElevesPage />} /> */}
+
+            {/* ════════════════════════════════════════════
+                🆕 BIBLIOTHECAIRE — GESTION BIBLIOTHÈQUE
+                ⏳ À DÉCOMMENTER AU FUR ET À MESURE
+                ════════════════════════════════════════════ */}
+
+            {/* Livres */}
+            {/* <Route path="livres" element={<BibliothecaireLivresPage />} /> */}
+            {/* <Route path="livres/nouveau" element={<BibliothecaireLivreNouveauPage />} /> */}
+            {/* <Route path="categories-livres" element={<BibliothecaireCategoriesPage />} /> */}
+            {/* <Route path="auteurs" element={<BibliothecaireAuteursPage />} /> */}
+
+            {/* Emprunts */}
+            {/* <Route path="emprunts" element={<BibliothecaireEmpruntsPage />} /> */}
+            {/* <Route path="emprunts/nouveau" element={<BibliothecaireEmpruntNouveauPage />} /> */}
+            {/* <Route path="emprunts/retard" element={<BibliothecaireEmpruntsRetardPage />} /> */}
+            {/* <Route path="retours" element={<BibliothecaireRetoursPage />} /> */}
+            {/* <Route path="penalites" element={<BibliothecairePenalitesPage />} /> */}
+
+            {/* ════════════════════════════════════════════
+                🆕 ROUTES PARTAGÉES (tous rôles)
+                ⏳ À DÉCOMMENTER AU FUR ET À MESURE
+                ════════════════════════════════════════════ */}
+
+            {/* <Route path="messages" element={<MessagesPage />} /> */}
+            {/* <Route path="communiques" element={<CommuniquesPage />} /> */}
+            {/* <Route path="chat" element={<ChatPage />} /> */}
+            {/* <Route path="notifications" element={<NotificationsPage />} /> */}
+            {/* <Route path="profil" element={<MonProfilPage />} /> */}
 
             {/* ============================================
                 404 DANS LE DASHBOARD

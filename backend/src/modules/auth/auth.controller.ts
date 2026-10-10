@@ -66,7 +66,6 @@ interface RegisterSurveillantBody {
 // ============================================
 
 const ROLES_VALIDES: RoleUtilisateur[] = [
-  'SUPER_ADMIN',
   'DIRECTEUR',
   'SECRETAIRE',
   'ENSEIGNANT',
@@ -79,7 +78,6 @@ const ROLES_VALIDES: RoleUtilisateur[] = [
 
 /** Rôles qui ne peuvent PAS être créés via /register public */
 const ROLES_RESTREINTS: RoleUtilisateur[] = [
-  'SUPER_ADMIN',
   'ADMIN',
   'ELEVE',
   'SURVEILLANT',
@@ -132,20 +130,18 @@ function isValidDate(value: string): boolean {
 
 /**
  * ⚠️ FONCTION CLÉ : Résout un contexte d'authentification tenant.
+ * ⚠️ Retourne `null` si aucun tenant n'est trouvé (cas SUPER_ADMIN).
  *
- * - Retourne `{ schemaName, etablissementId }`
  * - Le `schemaName` est utilisé par le repository (ciblage du schéma PG)
- * - L'`etablissementId` est injecté dans le JWT (scope TENANT) pour que
- *   le `authMiddleware` puisse retrouver l'établissement sans requête supplémentaire.
+ * - L'`etablissementId` est injecté dans le JWT (scope TENANT)
  *
- * Sans `etablissementId` : cherche dans tous les schémas des établissements actifs.
- * Avec `etablissementId` : va directement chercher ce schéma.
+ * @returns AuthContext | null
  */
-async function resolveAuthContext(
+async function resolveOptionalAuthContext(
   email: string,
   etablissementId?: string
-): Promise<AuthContext> {
-  // Cas 1 : l'établissementId est fourni
+): Promise<AuthContext | null> {
+  // Cas 1 : l'établissementId est fourni explicitement
   if (etablissementId) {
     const etab = await globalPrisma.etablissement.findUnique({
       where: { id: etablissementId },
@@ -153,7 +149,9 @@ async function resolveAuthContext(
     });
 
     if (!etab || !etab.estActif) {
-      throw new AppError('Établissement introuvable ou inactif', 404);
+      // Établissement fourni mais inexistant → on retourne null
+      // (le service login tentera quand même SUPER_ADMIN)
+      return null;
     }
 
     return { schemaName: etab.schemaName, etablissementId: etab.id };
@@ -184,13 +182,14 @@ async function resolveAuthContext(
     }
   }
 
-  // Aucun établissement trouvé pour cet email
-  throw new AppError('Email ou mot de passe incorrect', 401);
+  // Aucun établissement trouvé → null (laisse le service gérer)
+  return null;
 }
 
 /**
  * Résout un contexte tenant uniquement à partir d'un `etablissementId`.
  * Utilisé pour les routes qui ont l'ID mais pas l'email (verifyOtp, etc.).
+ * ⚠️ Throw si l'établissement n'existe pas (obligatoire dans ces cas).
  */
 async function resolveAuthContextById(
   etablissementId: string
@@ -257,11 +256,8 @@ export class AuthController {
         throw new AppError("L'identifiant de l'établissement est requis", 400);
       }
 
-      // Résoudre le contexte
-      const ctx = await resolveAuthContext(
-        body.email.trim().toLowerCase(),
-        body.etablissementId
-      );
+      // Résoudre le contexte (OBLIGATOIRE pour l'inscription)
+      const ctx = await resolveAuthContextById(body.etablissementId);
 
       const result = await this.authService.register(ctx, {
         email: body.email.trim().toLowerCase(),
@@ -327,10 +323,7 @@ export class AuthController {
         throw new AppError('Groupe sanguin invalide', 400);
       }
 
-      const ctx = await resolveAuthContext(
-        body.email.trim().toLowerCase(),
-        body.etablissementId
-      );
+      const ctx = await resolveAuthContextById(body.etablissementId);
 
       const result = await this.authService.registerEleve(ctx, {
         email: body.email.trim().toLowerCase(),
@@ -403,10 +396,7 @@ export class AuthController {
         throw new AppError("L'identifiant de l'établissement est requis", 400);
       }
 
-      const ctx = await resolveAuthContext(
-        body.email.trim().toLowerCase(),
-        body.etablissementId
-      );
+      const ctx = await resolveAuthContextById(body.etablissementId);
 
       const result = await this.authService.registerSurveillant(ctx, {
         email: body.email.trim().toLowerCase(),
@@ -433,10 +423,20 @@ export class AuthController {
     }
   };
 
-  // ------------------------------------------
-  // CONNEXION GÉNÉRIQUE (tenant)
-  // ------------------------------------------
+  // ══════════════════════════════════════════
+  // 🎯 CONNEXION UNIFIÉE (TOUS RÔLES)
+  // ══════════════════════════════════════════
 
+  /**
+   * POST /auth/login
+   * Connexion unifiée : SUPER_ADMIN + tous rôles tenant.
+   *
+   * Stratégie :
+   * 1. Tente de résoudre un contexte tenant (via email ou etablissementId)
+   *    → peut retourner `null` si aucun tenant n'est trouvé
+   * 2. Appelle authService.login(ctx | null, data)
+   *    → le service essaie SUPER_ADMIN (catalogue) PUIS tenant
+   */
   login = async (
     req: Request<{}, {}, LoginRequest & { etablissementId?: string }>,
     res: Response,
@@ -452,83 +452,24 @@ export class AuthController {
         throw new AppError('Mot de passe requis', 400);
       }
 
-      const ctx = await resolveAuthContext(
-        body.email.trim().toLowerCase(),
-        body.etablissementId
-      );
+      const email = body.email.trim().toLowerCase();
 
+      // 🎯 Résoudre le contexte tenant si possible (optionnel)
+      const ctx = await resolveOptionalAuthContext(email, body.etablissementId);
+
+      // 🎯 Appel du service unifié (ctx peut être null)
       const result = await this.authService.login(ctx, {
-        email: body.email.trim().toLowerCase(),
+        email,
         motDePasse: body.motDePasse,
       });
 
-      sendSuccess(res, result, 'Connexion réussie');
-    } catch (error) {
-      next(error);
-    }
-  };
+      // Message selon le scope
+      const message =
+        result.scope === 'GLOBAL'
+          ? 'Connexion super-admin réussie'
+          : 'Connexion réussie';
 
-  // ------------------------------------------
-  // CONNEXION — SUPER-ADMIN (catalogue global)
-  // ------------------------------------------
-
-  loginSuperAdmin = async (
-    req: Request<{}, {}, LoginRequest>,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> => {
-    try {
-      const body = requireBody(req.body);
-      if (!body.email || !body.motDePasse) {
-        throw new AppError('Email et mot de passe requis', 400);
-      }
-
-      // Chercher dans le catalogue global
-      const user = await globalPrisma.utilisateurGlobal.findUnique({
-        where: { email: body.email.trim().toLowerCase() },
-      });
-
-      if (!user) throw new AppError('Email ou mot de passe incorrect', 401);
-      if (!user.estActif) throw new AppError('Compte désactivé', 403);
-
-      const isValid = await AuthUtils.verifyPassword(
-        body.motDePasse,
-        user.motDePasse
-      );
-      if (!isValid) throw new AppError('Email ou mot de passe incorrect', 401);
-
-      // ═══════════════════════════════════════════════════════
-      // 🔥 INJECTION DU SCOPE 'GLOBAL' — CRITIQUE
-      // ═══════════════════════════════════════════════════════
-      const tokens = {
-        accessToken: AuthUtils.generateAccessToken({
-          userId: user.id,
-          email: user.email,
-          role: user.role,
-          scope: 'GLOBAL',
-        }),
-        refreshToken: AuthUtils.generateRefreshToken({
-          userId: user.id,
-          scope: 'GLOBAL',
-        }),
-      };
-
-      await globalPrisma.utilisateurGlobal.update({
-        where: { id: user.id },
-        data: {
-          jetonActualisation: tokens.refreshToken,
-          derniereConnexion: new Date(),
-        },
-      });
-
-      sendSuccess(
-        res,
-        {
-          user: AuthUtils.sanitizeGlobalUser(user),
-          tokens,
-        },
-        'Connexion super-admin réussie'
-      );
+      sendSuccess(res, result, message);
     } catch (error) {
       next(error);
     }
@@ -553,13 +494,16 @@ export class AuthController {
         throw new AppError('Mot de passe requis', 400);
       }
 
-      const ctx = await resolveAuthContext(
-        body.email.trim().toLowerCase(),
-        body.etablissementId
-      );
+      const email = body.email.trim().toLowerCase();
+
+      // ⚠️ Contexte tenant OBLIGATOIRE pour loginEleve
+      const ctx = await resolveOptionalAuthContext(email, body.etablissementId);
+      if (!ctx) {
+        throw new AppError('Email ou mot de passe incorrect', 401);
+      }
 
       const result = await this.authService.loginEleve(ctx, {
-        email: body.email.trim().toLowerCase(),
+        email,
         motDePasse: body.motDePasse,
       });
 
@@ -588,13 +532,16 @@ export class AuthController {
         throw new AppError('Mot de passe requis', 400);
       }
 
-      const ctx = await resolveAuthContext(
-        body.email.trim().toLowerCase(),
-        body.etablissementId
-      );
+      const email = body.email.trim().toLowerCase();
+
+      // ⚠️ Contexte tenant OBLIGATOIRE pour loginSurveillant
+      const ctx = await resolveOptionalAuthContext(email, body.etablissementId);
+      if (!ctx) {
+        throw new AppError('Email ou mot de passe incorrect', 401);
+      }
 
       const result = await this.authService.loginSurveillant(ctx, {
-        email: body.email.trim().toLowerCase(),
+        email,
         motDePasse: body.motDePasse,
       });
 
@@ -663,10 +610,14 @@ export class AuthController {
     }
   };
 
-  // ------------------------------------------
-  // TOKENS
-  // ------------------------------------------
+  // ══════════════════════════════════════════
+  // 🎯 REFRESH TOKEN UNIFIÉ (TENANT + GLOBAL)
+  // ══════════════════════════════════════════
 
+  /**
+   * POST /auth/refresh
+   * Rafraîchit les tokens pour TENANT et GLOBAL.
+   */
   refreshToken = async (
     req: Request<{}, {}, RefreshTokenRequest & { etablissementId?: string }>,
     res: Response,
@@ -683,23 +634,21 @@ export class AuthController {
         throw new AppError('Refresh token requis', 400);
       }
 
-      // Décoder pour récupérer userId + scope + schemaName
+      // Décoder pour récupérer scope + schemaName
       const payload = AuthUtils.tryVerifyRefreshToken(refreshToken);
       if (!payload?.userId) {
-        throw new AppError('Refresh token invalide', 401);
+        throw new AppError('Refresh token invalide ou expiré', 401);
       }
 
-      // ⚠️ Si le refresh token est de scope GLOBAL, on refuse ici
-      // (les super-admins doivent utiliser une route dédiée, ou on gère plus tard)
+      // 🎯 Cas GLOBAL : pas besoin de ctx tenant
       if (payload.scope === 'GLOBAL') {
-        throw new AppError(
-          'Utilisez la route dédiée pour rafraîchir les tokens super-admin.',
-          400
-        );
+        const tokens = await this.authService.refreshTokens(null, refreshToken);
+        sendSuccess(res, tokens, 'Tokens rafraîchis avec succès');
+        return;
       }
 
-      // Résoudre le contexte tenant
-      let ctx: AuthContext;
+      // 🎯 Cas TENANT : résoudre le contexte
+      let ctx: AuthContext | null = null;
 
       if (body.etablissementId) {
         ctx = await resolveAuthContextById(body.etablissementId);
@@ -709,7 +658,9 @@ export class AuthController {
           schemaName: payload.schemaName,
           etablissementId: payload.etablissementId,
         };
-      } else {
+      }
+
+      if (!ctx) {
         throw new AppError(
           'Impossible de résoudre le contexte du refresh token.',
           401
@@ -728,6 +679,10 @@ export class AuthController {
   // DÉCONNEXION
   // ------------------------------------------
 
+  /**
+   * POST /auth/logout
+   * Déconnexion unifiée : TENANT + GLOBAL.
+   */
   logout = async (
     req: Request,
     res: Response,
@@ -737,50 +692,50 @@ export class AuthController {
       let userId = req.user?.userId;
       let ctx: AuthContext | null = null;
 
-      // Construire le contexte depuis req.user (si authMiddleware est passé)
-      if (req.user?.scope === 'TENANT' && req.user.schemaName && req.user.etablissementId) {
+      // 🎯 Construire le contexte depuis req.user (si authMiddleware est passé)
+      if (
+        req.user?.scope === 'TENANT' &&
+        req.user.schemaName &&
+        req.user.etablissementId
+      ) {
         ctx = {
           schemaName: req.user.schemaName,
           etablissementId: req.user.etablissementId,
         };
-      } else if (req.user?.scope === 'GLOBAL') {
-        // Logout super-admin : révoquer le refresh token en catalogue
-        if (userId) {
-          await globalPrisma.utilisateurGlobal.update({
-            where: { id: userId },
-            data: { jetonActualisation: null },
-          });
-        }
-        res.clearCookie?.('refreshToken');
-        sendSuccess(res, undefined, 'Déconnexion réussie');
-        return;
+      }
+      // 🎯 Cas GLOBAL : on appelle logout avec ctx=null
+      // (le service tentera la mise à jour dans utilisateurGlobal)
+      else if (req.user?.scope === 'GLOBAL') {
+        ctx = null;
       }
 
-      // Si on a un refresh token, on essaie de résoudre le contexte
-      if (!ctx) {
+      // Si on a un refresh token, on essaie de résoudre le contexte (fallback)
+      if (!userId || (!ctx && req.user?.scope !== 'GLOBAL')) {
         const refreshToken =
           (req.body?.refreshToken as string | undefined) ||
           (req.cookies?.refreshToken as string | undefined);
 
         if (refreshToken) {
           const payload = AuthUtils.tryVerifyRefreshToken(refreshToken);
-          if (
-            payload?.userId &&
-            payload.scope === 'TENANT' &&
-            payload.schemaName &&
-            payload.etablissementId
-          ) {
-            userId = payload.userId;
-            ctx = {
-              schemaName: payload.schemaName,
-              etablissementId: payload.etablissementId,
-            };
+          if (payload?.userId) {
+            userId = userId ?? payload.userId;
+
+            if (
+              payload.scope === 'TENANT' &&
+              payload.schemaName &&
+              payload.etablissementId
+            ) {
+              ctx = {
+                schemaName: payload.schemaName,
+                etablissementId: payload.etablissementId,
+              };
+            }
           }
         }
       }
 
-      // Logout tenant
-      if (userId && ctx) {
+      // Logout unifié (le service gère les 2 cas)
+      if (userId) {
         await this.authService.logout(ctx, userId);
       }
 
@@ -807,12 +762,19 @@ export class AuthController {
         throw new AppError('Email invalide', 400);
       }
 
-      const ctx = await resolveAuthContext(
-        body.email.trim().toLowerCase(),
-        body.etablissementId
-      );
+      const email = body.email.trim().toLowerCase();
 
-      await this.authService.forgotPassword(ctx, body.email.trim().toLowerCase());
+      // Contexte tenant obligatoire pour forgot-password
+      const ctx = await resolveOptionalAuthContext(email, body.etablissementId);
+
+      // ⚠️ On répond TOUJOURS succès (anti-énumération d'emails)
+      if (ctx) {
+        try {
+          await this.authService.forgotPassword(ctx, email);
+        } catch (err) {
+          console.error('⚠️ Erreur forgotPassword:', err);
+        }
+      }
 
       sendSuccess(
         res,
@@ -860,6 +822,15 @@ export class AuthController {
       const userId = requireUserId(req);
       const schemaName = req.user?.schemaName;
       const etablissementId = req.user?.etablissementId;
+      const scope = req.user?.scope;
+
+      // ⚠️ Le changement de mot de passe SUPER_ADMIN n'est pas supporté ici
+      if (scope === 'GLOBAL') {
+        throw new AppError(
+          'Le changement de mot de passe super-admin doit être fait via une route dédiée.',
+          400
+        );
+      }
 
       if (!schemaName || !etablissementId) {
         throw new AppError('Établissement non identifié', 400);
@@ -894,10 +865,15 @@ export class AuthController {
     }
   };
 
-  // ------------------------------------------
-  // PROFIL
-  // ------------------------------------------
+  // ══════════════════════════════════════════
+  // 🎯 PROFIL UNIFIÉ (TENANT + GLOBAL)
+  // ══════════════════════════════════════════
 
+  /**
+   * GET /auth/me
+   * Retourne le profil de l'utilisateur connecté.
+   * Gère les deux scopes : TENANT et GLOBAL.
+   */
   getCurrentUser = async (
     req: Request,
     res: Response,
@@ -905,6 +881,21 @@ export class AuthController {
   ): Promise<void> => {
     try {
       const userId = requireUserId(req);
+      const scope = req.user?.scope;
+
+      // 🎯 Cas GLOBAL (SUPER_ADMIN) : pas de contexte tenant
+      if (scope === 'GLOBAL') {
+        // Utiliser un ctx bidon (non utilisé par le service pour GLOBAL)
+        const dummyCtx: AuthContext = {
+          schemaName: '__global__',
+          etablissementId: '__global__',
+        };
+        const result = await this.authService.getCurrentUser(dummyCtx, userId);
+        sendSuccess(res, result);
+        return;
+      }
+
+      // 🎯 Cas TENANT
       const schemaName = req.user?.schemaName;
       const etablissementId = req.user?.etablissementId;
 
@@ -928,6 +919,16 @@ export class AuthController {
   ): Promise<void> => {
     try {
       const userId = requireUserId(req);
+      const scope = req.user?.scope;
+
+      // ⚠️ Mise à jour profil SUPER_ADMIN → route dédiée
+      if (scope === 'GLOBAL') {
+        throw new AppError(
+          'La mise à jour du profil super-admin doit être faite via une route dédiée.',
+          400
+        );
+      }
+
       const schemaName = req.user?.schemaName;
       const etablissementId = req.user?.etablissementId;
 

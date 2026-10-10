@@ -1,4 +1,5 @@
-// frontend/src/api/auth.api.ts
+// frontend2/src/api/auth.api.ts
+
 import axios, { type AxiosInstance } from 'axios';
 import {
   type AuthResponse,
@@ -18,14 +19,16 @@ import {
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? '/api/v1';
 
-// Instance axios avec intercepteur pour access token
+// ============================================
+// INSTANCE AXIOS
+// ============================================
 export const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
-  withCredentials: true, // nécessaire si refresh token en cookie httpOnly
+  withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Ajout automatique du Bearer token
+// ─── Ajout automatique du Bearer token ───
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('accessToken');
   if (token && config.headers) {
@@ -34,7 +37,9 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// Gestion du 401 → tentative de refresh automatique
+// ============================================
+// GESTION DU 401 → REFRESH AUTOMATIQUE
+// ============================================
 let isRefreshing = false;
 let pendingQueue: Array<(token: string) => void> = [];
 
@@ -89,7 +94,6 @@ apiClient.interceptors.response.use(
 // ============================================
 // SERVICE AUTH — 1 fonction = 1 route backend
 // ============================================
-
 export const authApi = {
   /** POST /auth/register */
   register: (payload: RegisterPayload) =>
@@ -97,7 +101,7 @@ export const authApi = {
       .post<ApiResponse<AuthResponse>>('/auth/register', payload)
       .then((r) => r.data),
 
-  /** POST /auth/login */
+  /** POST /auth/login — 🎯 Retourne user + etablissement + tokens + scope */
   login: (payload: LoginPayload) =>
     apiClient
       .post<ApiResponse<AuthResponse>>('/auth/login', payload)
@@ -137,9 +141,14 @@ export const authApi = {
   logout: () =>
     apiClient.post<ApiResponse<null>>('/auth/logout').then((r) => r.data),
 
-  /** GET /auth/me — 🔒 */
+  /**
+   * GET /auth/me — 🔒
+   * 🎯 Retourne soit { user, etablissement } soit user direct.
+   */
   me: () =>
-    apiClient.get<ApiResponse<User>>('/auth/me').then((r) => r.data),
+    apiClient
+      .get<ApiResponse<User | { user: User; etablissement: any }>>('/auth/me')
+      .then((r) => r.data),
 
   /** PUT /auth/me — 🔒 */
   updateProfile: (payload: UpdateProfilePayload) =>

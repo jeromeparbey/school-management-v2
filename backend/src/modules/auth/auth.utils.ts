@@ -11,7 +11,10 @@ import type { UserScope } from '../../types/express';
 // TYPES INTERNES
 // ============================================
 
-/** Rôles du catalogue global */
+/**
+ * Rôles du catalogue global.
+ * ⚠️ Ces rôles n'existent PAS dans le schéma tenant.
+ */
 export type RoleGlobal = 'SUPER_ADMIN' | 'ADMIN_SYSTEME';
 
 /**
@@ -71,6 +74,25 @@ export interface GenerateRefreshTokenInput {
   scope: UserScope;
   etablissementId?: string;
   schemaName?: string;
+}
+
+/**
+ * Forme minimale d'un utilisateur global (UtilisateurGlobal côté Prisma).
+ * Utilisé par `sanitizeGlobalUser` pour éviter d'importer le client global ici.
+ */
+export interface GlobalUserLike {
+  id: string;
+  email: string;
+  prenom: string;
+  nom: string;
+  role: string;
+  estActif: boolean;
+  emailVerifie: boolean;
+  telephone: string | null;
+  photoProfil: string | null;
+  derniereConnexion: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 /** Configuration JWT centralisée */
@@ -169,8 +191,8 @@ export class AuthUtils {
   /**
    * Générer un token d'accès JWT.
    *
-   * ⚠️ Nouvelle signature : accepte un objet au lieu de `(userId, role)`.
-   * Cela permet d'injecter `scope`, `etablissementId` et `schemaName`.
+   * ⚠️ Signature : accepte un objet (userId, email, role, scope, ...).
+   * Permet d'injecter `scope`, `etablissementId` et `schemaName`.
    */
   static generateAccessToken(input: GenerateAccessTokenInput): string {
     const payload: AccessTokenPayload = {
@@ -193,7 +215,7 @@ export class AuthUtils {
   /**
    * Générer un refresh token JWT.
    *
-   * ⚠️ Nouvelle signature : accepte un objet au lieu de `userId`.
+   * ⚠️ Signature : accepte un objet (userId, scope, ...).
    */
   static generateRefreshToken(input: GenerateRefreshTokenInput): string {
     const payload: RefreshTokenPayload = {
@@ -213,8 +235,6 @@ export class AuthUtils {
 
   /**
    * Générer les deux tokens en une seule fois.
-   *
-   * ⚠️ Nouvelle signature : accepte un objet.
    */
   static generateTokenPair(input: {
     userId: string;
@@ -274,8 +294,9 @@ export class AuthUtils {
       throw new jwt.JsonWebTokenError('Type de token invalide');
     }
 
+    // 🔄 Rétrocompatibilité : si scope absent (anciens tokens), on assume TENANT
     if (!decoded.scope) {
-      throw new jwt.JsonWebTokenError('Scope manquant dans le token');
+      decoded.scope = 'TENANT';
     }
 
     return decoded;
@@ -323,6 +344,38 @@ export class AuthUtils {
   }
 
   // ------------------------------------------
+  // HELPERS SCOPE
+  // ------------------------------------------
+
+  /**
+   * Extrait le scope depuis un payload de token (access ou refresh).
+   * Retourne 'TENANT' par défaut pour rétrocompatibilité.
+   */
+  static extractScopeFromPayload(
+    payload: AccessTokenPayload | RefreshTokenPayload
+  ): UserScope {
+    return payload.scope ?? 'TENANT';
+  }
+
+  /**
+   * Vérifie si un payload est de scope GLOBAL (SUPER_ADMIN).
+   */
+  static isGlobalScope(
+    payload: AccessTokenPayload | RefreshTokenPayload
+  ): boolean {
+    return this.extractScopeFromPayload(payload) === 'GLOBAL';
+  }
+
+  /**
+   * Vérifie si un payload est de scope TENANT.
+   */
+  static isTenantScope(
+    payload: AccessTokenPayload | RefreshTokenPayload
+  ): boolean {
+    return this.extractScopeFromPayload(payload) === 'TENANT';
+  }
+
+  // ------------------------------------------
   // VALIDATION
   // ------------------------------------------
 
@@ -351,7 +404,7 @@ export class AuthUtils {
   // ------------------------------------------
 
   /**
-   * Retirer les champs sensibles d'un utilisateur (tenant).
+   * Retirer les champs sensibles d'un utilisateur TENANT.
    */
   static sanitizeUser(user: Utilisateur): UserResponse {
     return {
@@ -371,33 +424,22 @@ export class AuthUtils {
   }
 
   /**
-   * Retirer les champs sensibles d'un utilisateur GLOBAL (SUPER_ADMIN).
+   * Retirer les champs sensibles d'un UtilisateurGlobal (SUPER_ADMIN).
+   *
+   * ⚠️ Utilise le type `GlobalUserLike` pour ne pas dépendre du client global ici.
    */
-  static sanitizeGlobalUser(user: {
-    id: string;
-    email: string;
-    prenom: string;
-    nom: string;
-    role: string;
-    estActif: boolean;
-    emailVerifie: boolean;
-    telephone: string | null;
-    photoProfil: string | null;
-    derniereConnexion: Date | null;
-    createdAt: Date;
-    updatedAt: Date;
-  }): UserResponse {
+  static sanitizeGlobalUser(user: GlobalUserLike): UserResponse {
     return {
       id: user.id,
       email: user.email,
       prenom: user.prenom,
       nom: user.nom,
-      role: user.role as RoleUtilisateur,
+      role: 'SUPER_ADMIN' as RoleUtilisateur, // forcé : c'est un SUPER_ADMIN
       estActif: user.estActif,
-      emailVerifie: user.emailVerifie,
-      telephone: user.telephone,
-      photoProfil: user.photoProfil,
-      derniereConnexion: user.derniereConnexion,
+      emailVerifie: user.emailVerifie ?? true,
+      telephone: user.telephone ?? null,
+      photoProfil: user.photoProfil ?? null,
+      derniereConnexion: user.derniereConnexion ?? null,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };

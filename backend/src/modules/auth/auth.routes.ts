@@ -35,10 +35,13 @@ const rateLimitHandler = (message: string) => ({
   timestamp: new Date().toISOString(),
 });
 
-/** Connexion : 5 tentatives / 15 min (les succès ne comptent pas) */
+/**
+ * Connexion UNIFIÉE (SUPER_ADMIN + tous rôles tenant) : 8 tentatives / 15 min.
+ * ⚠️ On augmente à 8 car la même route sert tous les rôles.
+ */
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: 8,
   message: rateLimitHandler(
     'Trop de tentatives de connexion. Réessayez dans 15 minutes.'
   ),
@@ -163,7 +166,7 @@ const resetPasswordLimiter = rateLimit({
 
 /**
  * @route   POST /api/v1/auth/register
- * @desc    Inscription d'un nouvel utilisateur
+ * @desc    Inscription d'un nouvel utilisateur (tenant)
  * @access  Public
  */
 router.post(
@@ -203,22 +206,18 @@ router.post(
 // ============================================
 
 /**
- * @route   POST /api/v1/auth/login/super-admin
- * @desc    Connexion d'un SUPER_ADMIN (catalogue global)
- * @access  Public
- * ⚠️ DOIT être placée AVANT /login (sinon Express matche /login en premier)
- */
-router.post(
-  '/login/super-admin',
-  loginLimiter,
-  validateRequest(loginSchema),
-  authController.loginSuperAdmin
-);
-
-/**
  * @route   POST /api/v1/auth/login
- * @desc    Connexion d'un utilisateur (rôle détecté automatiquement)
+ * @desc    Connexion UNIFIÉE (SUPER_ADMIN + tous rôles tenant)
  * @access  Public
+ *
+ * 🎯 Cette route gère :
+ *  - SUPER_ADMIN  → scope GLOBAL (catalogue global, pas de tenant)
+ *  - DIRECTEUR, SECRETAIRE, ENSEIGNANT, PARENT, BIBLIOTHECAIRE, ADMIN
+ *    → scope TENANT (détection auto du tenant par email)
+ *  - ELEVE / SURVEILLANT → peuvent aussi passer par ici (ou par routes dédiées)
+ *
+ * ⚠️ L'ancienne route /login/super-admin a été SUPPRIMÉE.
+ *    Le SUPER_ADMIN se connecte maintenant via /login.
  */
 router.post(
   '/login',
@@ -229,8 +228,9 @@ router.post(
 
 /**
  * @route   POST /api/v1/auth/login/eleve
- * @desc    Connexion d'un élève
+ * @desc    Connexion dédiée élève (optionnelle, pour UX/clarté)
  * @access  Public
+ * @deprecated Utilisez /login — conservée pour compatibilité frontend
  */
 router.post(
   '/login/eleve',
@@ -241,8 +241,9 @@ router.post(
 
 /**
  * @route   POST /api/v1/auth/login/surveillant
- * @desc    Connexion d'un surveillant
+ * @desc    Connexion dédiée surveillant (optionnelle)
  * @access  Public
+ * @deprecated Utilisez /login — conservée pour compatibilité frontend
  */
 router.post(
   '/login/surveillant',
@@ -281,7 +282,7 @@ router.post(
 
 /**
  * @route   POST /api/v1/auth/refresh
- * @desc    Rafraîchir les tokens d'accès
+ * @desc    Rafraîchir les tokens d'accès (TENANT + GLOBAL)
  * @access  Public
  */
 router.post(
@@ -325,7 +326,7 @@ router.post(
 
 /**
  * @route   POST /api/v1/auth/logout
- * @desc    Déconnexion
+ * @desc    Déconnexion (TENANT + GLOBAL)
  * @access  Public
  */
 router.post('/logout', authController.logout);
@@ -336,14 +337,14 @@ router.post('/logout', authController.logout);
 
 /**
  * @route   GET /api/v1/auth/me
- * @desc    Obtenir les informations de l'utilisateur connecté
+ * @desc    Obtenir les informations de l'utilisateur connecté (TENANT + GLOBAL)
  * @access  Private
  */
 router.get('/me', authMiddleware, authController.getCurrentUser);
 
 /**
  * @route   PUT /api/v1/auth/me
- * @desc    Mettre à jour le profil
+ * @desc    Mettre à jour le profil (TENANT uniquement)
  * @access  Private
  */
 router.put(
@@ -355,7 +356,7 @@ router.put(
 
 /**
  * @route   POST /api/v1/auth/change-password
- * @desc    Changer le mot de passe
+ * @desc    Changer le mot de passe (TENANT uniquement)
  * @access  Private
  */
 router.post(
