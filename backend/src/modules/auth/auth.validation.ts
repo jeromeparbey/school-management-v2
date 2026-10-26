@@ -166,6 +166,20 @@ export const registerSurveillantSchema = z.object({
     .min(1, "L'identifiant de l'établissement est requis"),
 });
 
+// ⭐ AJOUT — à mettre à côté des autres schémas OTP
+export const verifyResetOtpSchema = z.object({
+  email: z
+    .string({ error: 'Email requis' })
+    .trim()
+    .toLowerCase()
+    .email('Email invalide'),
+  otp: z
+    .string({ error: 'Code OTP requis' })
+    .regex(/^\d{6}$/, 'Le code OTP doit contenir exactement 6 chiffres'),
+  etablissementId: z
+    .string({ error: "L'identifiant de l'établissement est requis" })
+    .min(1, "L'identifiant de l'établissement est requis"),
+});
 /** POST /login/eleve */
 export const loginEleveSchema = z.object({
   email: emailSchema,

@@ -11,6 +11,9 @@ import {
   type ResendOtpPayload,
   type RefreshTokenPayload,
   type ForgotPasswordPayload,
+  type ForgotPasswordResponse,       // ⭐ AJOUT
+  type VerifyResetOtpPayload,        // ⭐ AJOUT
+  type VerifyResetOtpResponse,       // ⭐ AJOUT
   type ResetPasswordPayload,
   type ChangePasswordPayload,
   type UpdateProfilePayload,
@@ -125,10 +128,29 @@ export const authApi = {
       .post<ApiResponse<{ tokens: Tokens }>>('/auth/refresh', payload)
       .then((r) => r.data),
 
-  /** POST /auth/forgot-password */
+  /**
+   * POST /auth/forgot-password
+   * ⭐ retourne { email, etablissementId }
+   */
   forgotPassword: (payload: ForgotPasswordPayload) =>
     apiClient
-      .post<ApiResponse<null>>('/auth/forgot-password', payload)
+      .post<ApiResponse<ForgotPasswordResponse>>(
+        '/auth/forgot-password',
+        payload
+      )
+      .then((r) => r.data),
+
+  /**
+   * ⭐ NOUVELLE ROUTE
+   * POST /auth/verify-reset-otp
+   * Vérifie l'OTP de reset password et retourne { resetToken, etablissementId }
+   */
+  verifyResetOtp: (payload: VerifyResetOtpPayload) =>
+    apiClient
+      .post<ApiResponse<VerifyResetOtpResponse>>(
+        '/auth/verify-reset-otp',
+        payload
+      )
       .then((r) => r.data),
 
   /** POST /auth/reset-password */

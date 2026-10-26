@@ -21,6 +21,7 @@ import type { RoleUtilisateur } from '@prisma/client';
 // ============================================
 
 interface ApiSuccess<T = unknown> {
+  success: boolean;
   status: number;
   message?: string;
   data?: T;
@@ -61,6 +62,13 @@ interface RegisterSurveillantBody {
   zoneSurveillance?: string;
 }
 
+// ⭐ AJOUT : type pour verifyResetOtp
+interface VerifyResetOtpBody {
+  email: string;
+  otp: string;
+  etablissementId: string;
+}
+
 // ============================================
 // HELPERS INTERNES
 // ============================================
@@ -96,6 +104,7 @@ function sendSuccess<T>(
   status = 200
 ): Response {
   const payload: ApiSuccess<T> = {
+    success: status < 400,
     status,
     ...(message && { message }),
     ...(data !== undefined && { data }),
@@ -131,17 +140,11 @@ function isValidDate(value: string): boolean {
 /**
  * ⚠️ FONCTION CLÉ : Résout un contexte d'authentification tenant.
  * ⚠️ Retourne `null` si aucun tenant n'est trouvé (cas SUPER_ADMIN).
- *
- * - Le `schemaName` est utilisé par le repository (ciblage du schéma PG)
- * - L'`etablissementId` est injecté dans le JWT (scope TENANT)
- *
- * @returns AuthContext | null
  */
 async function resolveOptionalAuthContext(
   email: string,
   etablissementId?: string
 ): Promise<AuthContext | null> {
-  // Cas 1 : l'établissementId est fourni explicitement
   if (etablissementId) {
     const etab = await globalPrisma.etablissement.findUnique({
       where: { id: etablissementId },
@@ -149,15 +152,12 @@ async function resolveOptionalAuthContext(
     });
 
     if (!etab || !etab.estActif) {
-      // Établissement fourni mais inexistant → on retourne null
-      // (le service login tentera quand même SUPER_ADMIN)
       return null;
     }
 
     return { schemaName: etab.schemaName, etablissementId: etab.id };
   }
 
-  // Cas 2 : chercher dans tous les établissements actifs
   const etablissements = await globalPrisma.etablissement.findMany({
     where: { estActif: true },
     select: { id: true, schemaName: true },
@@ -173,7 +173,6 @@ async function resolveOptionalAuthContext(
         return { schemaName: etab.schemaName, etablissementId: etab.id };
       }
     } catch (error) {
-      // Si le schéma n'existe pas ou est cassé, on passe au suivant
       console.warn(
         `⚠️ Impossible de vérifier ${etab.schemaName}:`,
         (error as Error).message
@@ -182,14 +181,11 @@ async function resolveOptionalAuthContext(
     }
   }
 
-  // Aucun établissement trouvé → null (laisse le service gérer)
   return null;
 }
 
 /**
  * Résout un contexte tenant uniquement à partir d'un `etablissementId`.
- * Utilisé pour les routes qui ont l'ID mais pas l'email (verifyOtp, etc.).
- * ⚠️ Throw si l'établissement n'existe pas (obligatoire dans ces cas).
  */
 async function resolveAuthContextById(
   etablissementId: string
@@ -227,7 +223,6 @@ export class AuthController {
     try {
       const body = requireBody(req.body);
 
-      // Validation
       if (!body.email || !AuthUtils.isValidEmail(body.email)) {
         throw new AppError('Email invalide', 400);
       }
@@ -256,7 +251,6 @@ export class AuthController {
         throw new AppError("L'identifiant de l'établissement est requis", 400);
       }
 
-      // Résoudre le contexte (OBLIGATOIRE pour l'inscription)
       const ctx = await resolveAuthContextById(body.etablissementId);
 
       const result = await this.authService.register(ctx, {
@@ -291,7 +285,6 @@ export class AuthController {
     try {
       const body = requireBody(req.body);
 
-      // Validations
       if (!body.email || !AuthUtils.isValidEmail(body.email)) {
         throw new AppError('Email invalide', 400);
       }
@@ -364,7 +357,6 @@ export class AuthController {
     try {
       const body = requireBody(req.body);
 
-      // Validations
       if (!body.email || !AuthUtils.isValidEmail(body.email)) {
         throw new AppError('Email invalide', 400);
       }
@@ -427,16 +419,6 @@ export class AuthController {
   // 🎯 CONNEXION UNIFIÉE (TOUS RÔLES)
   // ══════════════════════════════════════════
 
-  /**
-   * POST /auth/login
-   * Connexion unifiée : SUPER_ADMIN + tous rôles tenant.
-   *
-   * Stratégie :
-   * 1. Tente de résoudre un contexte tenant (via email ou etablissementId)
-   *    → peut retourner `null` si aucun tenant n'est trouvé
-   * 2. Appelle authService.login(ctx | null, data)
-   *    → le service essaie SUPER_ADMIN (catalogue) PUIS tenant
-   */
   login = async (
     req: Request<{}, {}, LoginRequest & { etablissementId?: string }>,
     res: Response,
@@ -454,16 +436,13 @@ export class AuthController {
 
       const email = body.email.trim().toLowerCase();
 
-      // 🎯 Résoudre le contexte tenant si possible (optionnel)
       const ctx = await resolveOptionalAuthContext(email, body.etablissementId);
 
-      // 🎯 Appel du service unifié (ctx peut être null)
       const result = await this.authService.login(ctx, {
         email,
         motDePasse: body.motDePasse,
       });
 
-      // Message selon le scope
       const message =
         result.scope === 'GLOBAL'
           ? 'Connexion super-admin réussie'
@@ -496,7 +475,6 @@ export class AuthController {
 
       const email = body.email.trim().toLowerCase();
 
-      // ⚠️ Contexte tenant OBLIGATOIRE pour loginEleve
       const ctx = await resolveOptionalAuthContext(email, body.etablissementId);
       if (!ctx) {
         throw new AppError('Email ou mot de passe incorrect', 401);
@@ -534,7 +512,6 @@ export class AuthController {
 
       const email = body.email.trim().toLowerCase();
 
-      // ⚠️ Contexte tenant OBLIGATOIRE pour loginSurveillant
       const ctx = await resolveOptionalAuthContext(email, body.etablissementId);
       if (!ctx) {
         throw new AppError('Email ou mot de passe incorrect', 401);
@@ -552,7 +529,7 @@ export class AuthController {
   };
 
   // ------------------------------------------
-  // OTP
+  // OTP (vérification email inscription)
   // ------------------------------------------
 
   verifyOtp = async (
@@ -614,10 +591,6 @@ export class AuthController {
   // 🎯 REFRESH TOKEN UNIFIÉ (TENANT + GLOBAL)
   // ══════════════════════════════════════════
 
-  /**
-   * POST /auth/refresh
-   * Rafraîchit les tokens pour TENANT et GLOBAL.
-   */
   refreshToken = async (
     req: Request<{}, {}, RefreshTokenRequest & { etablissementId?: string }>,
     res: Response,
@@ -634,26 +607,22 @@ export class AuthController {
         throw new AppError('Refresh token requis', 400);
       }
 
-      // Décoder pour récupérer scope + schemaName
       const payload = AuthUtils.tryVerifyRefreshToken(refreshToken);
       if (!payload?.userId) {
         throw new AppError('Refresh token invalide ou expiré', 401);
       }
 
-      // 🎯 Cas GLOBAL : pas besoin de ctx tenant
       if (payload.scope === 'GLOBAL') {
         const tokens = await this.authService.refreshTokens(null, refreshToken);
         sendSuccess(res, tokens, 'Tokens rafraîchis avec succès');
         return;
       }
 
-      // 🎯 Cas TENANT : résoudre le contexte
       let ctx: AuthContext | null = null;
 
       if (body.etablissementId) {
         ctx = await resolveAuthContextById(body.etablissementId);
       } else if (payload.schemaName && payload.etablissementId) {
-        // 🔥 Le refresh token contient déjà schemaName + etablissementId
         ctx = {
           schemaName: payload.schemaName,
           etablissementId: payload.etablissementId,
@@ -679,10 +648,6 @@ export class AuthController {
   // DÉCONNEXION
   // ------------------------------------------
 
-  /**
-   * POST /auth/logout
-   * Déconnexion unifiée : TENANT + GLOBAL.
-   */
   logout = async (
     req: Request,
     res: Response,
@@ -692,7 +657,6 @@ export class AuthController {
       let userId = req.user?.userId;
       let ctx: AuthContext | null = null;
 
-      // 🎯 Construire le contexte depuis req.user (si authMiddleware est passé)
       if (
         req.user?.scope === 'TENANT' &&
         req.user.schemaName &&
@@ -702,14 +666,10 @@ export class AuthController {
           schemaName: req.user.schemaName,
           etablissementId: req.user.etablissementId,
         };
-      }
-      // 🎯 Cas GLOBAL : on appelle logout avec ctx=null
-      // (le service tentera la mise à jour dans utilisateurGlobal)
-      else if (req.user?.scope === 'GLOBAL') {
+      } else if (req.user?.scope === 'GLOBAL') {
         ctx = null;
       }
 
-      // Si on a un refresh token, on essaie de résoudre le contexte (fallback)
       if (!userId || (!ctx && req.user?.scope !== 'GLOBAL')) {
         const refreshToken =
           (req.body?.refreshToken as string | undefined) ||
@@ -734,7 +694,6 @@ export class AuthController {
         }
       }
 
-      // Logout unifié (le service gère les 2 cas)
       if (userId) {
         await this.authService.logout(ctx, userId);
       }
@@ -750,6 +709,12 @@ export class AuthController {
   // MOT DE PASSE
   // ------------------------------------------
 
+  /**
+   * ⭐ MODIFIÉ — Envoie un OTP à 6 chiffres (au lieu d'un lien).
+   *
+   * Retourne `{ email, etablissementId }` pour que le frontend sache
+   * vers quelle page de vérification rediriger.
+   */
   forgotPassword = async (
     req: Request<{}, {}, ForgotPasswordRequest & { etablissementId?: string }>,
     res: Response,
@@ -764,13 +729,20 @@ export class AuthController {
 
       const email = body.email.trim().toLowerCase();
 
-      // Contexte tenant obligatoire pour forgot-password
       const ctx = await resolveOptionalAuthContext(email, body.etablissementId);
 
-      // ⚠️ On répond TOUJOURS succès (anti-énumération d'emails)
+      let data: { email: string; etablissementId: string | null } = {
+        email,
+        etablissementId: ctx?.etablissementId ?? null,
+      };
+
       if (ctx) {
         try {
-          await this.authService.forgotPassword(ctx, email);
+          const result = await this.authService.forgotPassword(ctx, email);
+          data = {
+            email: result.email,
+            etablissementId: result.etablissementId,
+          };
         } catch (err) {
           console.error('⚠️ Erreur forgotPassword:', err);
         }
@@ -778,8 +750,52 @@ export class AuthController {
 
       sendSuccess(
         res,
-        undefined,
-        'Si un compte existe avec cet email, un lien de réinitialisation a été envoyé.'
+        data,
+        'Si un compte existe avec cet email, un code de vérification a été envoyé.'
+      );
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * ⭐ AJOUT — Vérifie l'OTP de reset password.
+   * Si valide → retourne un `resetToken` que le frontend utilisera
+   * sur `/reset-password`.
+   */
+  verifyResetOtp = async (
+    req: Request<{}, {}, VerifyResetOtpBody>,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const body = requireBody(req.body);
+
+      if (!body.email || !AuthUtils.isValidEmail(body.email)) {
+        throw new AppError('Email invalide', 400);
+      }
+      if (!body.otp || !/^\d{6}$/.test(body.otp)) {
+        throw new AppError('Code OTP invalide (6 chiffres attendus)', 400);
+      }
+      if (!body.etablissementId) {
+        throw new AppError("L'identifiant de l'établissement est requis", 400);
+      }
+
+      const ctx = await resolveAuthContextById(body.etablissementId);
+
+      const result = await this.authService.verifyResetOtp(
+        ctx,
+        body.email.trim().toLowerCase(),
+        body.otp
+      );
+
+      sendSuccess(
+        res,
+        {
+          resetToken: result.resetToken,
+          etablissementId: result.etablissementId,
+        },
+        'Code vérifié. Vous pouvez maintenant choisir un nouveau mot de passe.'
       );
     } catch (error) {
       next(error);
@@ -824,7 +840,6 @@ export class AuthController {
       const etablissementId = req.user?.etablissementId;
       const scope = req.user?.scope;
 
-      // ⚠️ Le changement de mot de passe SUPER_ADMIN n'est pas supporté ici
       if (scope === 'GLOBAL') {
         throw new AppError(
           'Le changement de mot de passe super-admin doit être fait via une route dédiée.',
@@ -869,11 +884,6 @@ export class AuthController {
   // 🎯 PROFIL UNIFIÉ (TENANT + GLOBAL)
   // ══════════════════════════════════════════
 
-  /**
-   * GET /auth/me
-   * Retourne le profil de l'utilisateur connecté.
-   * Gère les deux scopes : TENANT et GLOBAL.
-   */
   getCurrentUser = async (
     req: Request,
     res: Response,
@@ -883,9 +893,7 @@ export class AuthController {
       const userId = requireUserId(req);
       const scope = req.user?.scope;
 
-      // 🎯 Cas GLOBAL (SUPER_ADMIN) : pas de contexte tenant
       if (scope === 'GLOBAL') {
-        // Utiliser un ctx bidon (non utilisé par le service pour GLOBAL)
         const dummyCtx: AuthContext = {
           schemaName: '__global__',
           etablissementId: '__global__',
@@ -895,7 +903,6 @@ export class AuthController {
         return;
       }
 
-      // 🎯 Cas TENANT
       const schemaName = req.user?.schemaName;
       const etablissementId = req.user?.etablissementId;
 
@@ -921,7 +928,6 @@ export class AuthController {
       const userId = requireUserId(req);
       const scope = req.user?.scope;
 
-      // ⚠️ Mise à jour profil SUPER_ADMIN → route dédiée
       if (scope === 'GLOBAL') {
         throw new AppError(
           'La mise à jour du profil super-admin doit être faite via une route dédiée.',

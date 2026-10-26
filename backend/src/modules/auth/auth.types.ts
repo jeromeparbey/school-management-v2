@@ -94,6 +94,7 @@ declare global {
   var otpStore: Map<string, IOtpStore>;
   // eslint-disable-next-line no-var
   var resetTokenStore: Map<string, IResetTokenStore>;
+   var resetOtpStore: Map<string, IOtpStore>;
 }
 
 export {};

@@ -109,6 +109,13 @@ export interface ForgotPasswordPayload {
   etablissementId?: string;
 }
 
+// ⭐ AJOUT — OTP reset password
+export interface VerifyResetOtpPayload {
+  email: string;
+  otp: string;
+  etablissementId: string;
+}
+
 export interface ResetPasswordPayload {
   token: string;
   nouveauMotDePasse: string;
@@ -142,4 +149,15 @@ export interface AuthResponse {
   etablissement?: EtablissementInfo | null;
   tokens: Tokens;
   scope?: UserScope;
+}
+
+// ⭐ AJOUT — retours des endpoints reset password
+export interface ForgotPasswordResponse {
+  email: string;
+  etablissementId: string | null;
+}
+
+export interface VerifyResetOtpResponse {
+  resetToken: string;
+  etablissementId: string;
 }

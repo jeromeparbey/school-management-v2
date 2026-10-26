@@ -13,7 +13,6 @@ import RegisterPage from './pages/auth/RegisterPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import VerifyOtpPage from './pages/auth/VerifyOtpPage';
-
 // ============================================
 // LAYOUT PROTÉGÉ
 // ============================================
@@ -31,13 +30,28 @@ import MonEtablissementPage from './pages/dashboard/directeur/mon-etablissement/
 import StatistiquesPage from './pages/dashboard/directeur/statistiques/StatistiquesPage';
 import ElevesPage from './pages/dashboard/directeur/eleves/ElevesPage';
 import ClassesPage from './pages/dashboard/directeur/classes/ClassesPage';
+// ============================================
+// DIRECTEUR — SCOLARITÉ : CLASSES
+// ============================================
+
+// En haut, à côté des autres imports
+import NiveauxPage from './pages/dashboard/directeur/niveaux/NiveauxPage';
+import NiveauNouvellePage from './pages/dashboard/directeur/niveaux/NiveauNouvellePage';
+import NiveauDetailPage from './pages/dashboard/directeur/niveaux/NiveauDetailPage';
+import NiveauEditerPage from './pages/dashboard/directeur/niveaux/NiveauEditerPage';
+import ClasseNouvellePage from './pages/dashboard/directeur/classes/ClasseNouvellePage';
+import ClasseEditerPage from './pages/dashboard/directeur/classes/ClasseEditerPage';
+import ClasseDetailPage from './pages/dashboard/directeur/classes/ClasseDetailPage';
 import MatieresPage from './pages/dashboard/directeur/matieres/MatieresPage';
 import NotesPage from './pages/dashboard/directeur/notes/NotesPage';
 import BulletinsPage from './pages/dashboard/directeur/notes/BulletinsPage';
 import EnseignantsPage from './pages/dashboard/directeur/enseignants/EnseignantsPage';
-import PaiementsPage from './pages/dashboard/directeur/paiements/PaiementsPage';
 import PaiePage from './pages/dashboard/directeur/paie/PaiePage';
-
+import UtilisateurDetailPage from './pages/dashboard/directeur/utilisateurs/UtilisateurDetailPage';
+import UtilisateursPage from './pages/dashboard/directeur/utilisateurs/UtilisateursPage';
+import UtilisateurNouveauPage from './pages/dashboard/directeur/utilisateurs/UtilisateurNouveauPage';
+import UtilisateurEditerPage from './pages/dashboard/directeur/utilisateurs/UtilisateurEditerPage';
+import MonProfilPage from './pages/dashboard/shared/MonProfilPage';
 // ============================================
 // PAGES DASHBOARD — À VENIR (Directeur)
 // ============================================
@@ -118,8 +132,39 @@ import PaiePage from './pages/dashboard/directeur/paie/PaiePage';
 // 🆕 PAGES DASHBOARD — SUPER_ADMIN
 // ============================================
 // ✅ SEUL LE DASHBOARD PRINCIPAL EXISTE POUR L'INSTANT
+import PeriodesPage from './pages/dashboard/directeur/periodes/PeriodesPage';
+import PeriodeNouvellePage from './pages/dashboard/directeur/periodes/PeriodeNouvellePage';
+import PeriodeDetailPage from './pages/dashboard/directeur/periodes/PeriodeDetailPage';
+import PeriodeEditerPage from './pages/dashboard/directeur/periodes/PeriodeEditerPage';
+import PlansScolaritePage from './pages/dashboard/directeur/plans-scolarite/PlansScolaritePage';
+import PlanScolariteNouvellePage from './pages/dashboard/directeur/plans-scolarite/PlanScolariteNouvellePage';
+import PlanScolariteDetailPage from './pages/dashboard/directeur/plans-scolarite/PlanScolariteDetailPage';
+import PlanScolariteEditerPage from './pages/dashboard/directeur/plans-scolarite/PlanScolariteEditerPage';
+import EcheancesPage from './pages/dashboard/directeur/echeances/EcheancesPage';
+import EcheanceNouvellePage from './pages/dashboard/directeur/echeances/EcheanceNouvellePage';
+import EcheanceEditerPage from './pages/dashboard/directeur/echeances/EcheanceEditerPage';
+import EcheanceDetailPage from './pages/dashboard/directeur/echeances/EcheanceDetailPage';
 import SuperAdminDashboardPage from './pages/dashboard/super-admin/SuperAdminDashboardPage';
+import EleveNouvellePage from './pages/dashboard/directeur/eleves/EleveNouvellePage';
+import EleveDetailPage from './pages/dashboard/directeur/eleves/EleveDetailPage';
+import EleveEditerPage from './pages/dashboard/directeur/eleves/EleveEditerPage';
+import EnseignantNouvellePage from './pages/dashboard/directeur/enseignants/EnseignantNouvellePage';
+import EnseignantDetailPage from './pages/dashboard/directeur/enseignants/EnseignantDetailPage';
+import EnseignantEditerPage from './pages/dashboard/directeur/enseignants/EnseignantEditerPage';
 
+import PaiementsListPage from './pages/dashboard/directeur/paiements/PaiementsListPage';
+import PaiementNouveauPage from './pages/dashboard/directeur/paiements/PaiementNouveauPage';
+import PaiementDetailPage from './pages/dashboard/directeur/paiements/PaiementDetailPage';
+// 🆕 Inscriptions
+import InscriptionsListPage from './pages/dashboard/directeur/inscriptions/InscriptionsListPage';
+import InscriptionNouvellePage from './pages/dashboard/directeur/inscriptions/InscriptionNouvellePage';
+import InscriptionDetailPage from './pages/dashboard/directeur/inscriptions/InscriptionDetailPage';
+import InscriptionEditerPage from './pages/dashboard/directeur/inscriptions/InscriptionEditerPage';
+// En haut, à côté des autres imports
+import AnneesScolairesPage from './pages/dashboard/directeur/annees-scolaires/AnneesScolairesPage';
+import AnneeScolaireNouvellePage from './pages/dashboard/directeur/annees-scolaires/AnneeScolaireNouvellePage';
+import AnneeScolaireDetailPage from './pages/dashboard/directeur/annees-scolaires/AnneeScolaireDetailPage';
+import AnneeScolaireEditerPage from './pages/dashboard/directeur/annees-scolaires/AnneeScolaireEditerPage';
 // ⏳ À créer — Décommenter au fur et à mesure
 import SuperAdminEtablissementsPage from './pages/dashboard/super-admin/EtablissementsPage';
 import SuperAdminEtablissementNouveauPage from './pages/dashboard/super-admin/EtablissementNouveauPage';
@@ -301,7 +346,10 @@ function App() {
             path="/verify-otp"
             element={<PublicRoute><VerifyOtpPage /></PublicRoute>}
           />
-
+          <Route
+            path="/verify-reset-otp"
+            element={<PublicRoute><VerifyOtpPage /></PublicRoute>}
+          />
           <Route
             path="/forgot-password"
             element={<PublicRoute><ForgotPasswordPage /></PublicRoute>}
@@ -336,15 +384,45 @@ function App() {
                 DIRECTEUR — SCOLARITÉ : ÉLÈVES ✅
                 ============================================ */}
             <Route path="eleves" element={<ElevesPage />} />
+            <Route path="eleves/nouveau" element={<EleveNouvellePage />} />
+<Route path="eleves/:id/editer" element={<EleveEditerPage />} />
+<Route path="eleves/:id" element={<EleveDetailPage />} />
+
+<Route path="periodes" element={<PeriodesPage />} />
+<Route path="periodes/nouveau" element={<PeriodeNouvellePage />} />
+<Route path="periodes/:id/editer" element={<PeriodeEditerPage />} />
+<Route path="periodes/:id" element={<PeriodeDetailPage />} />
             {/* <Route path="eleves/nouveau" element={<NouvelElevePage />} /> */}
             {/* <Route path="eleves/:id" element={<EleveDetailPage />} /> */}
             {/* <Route path="eleves/inscriptions" element={<InscriptionsPage />} /> */}
             {/* <Route path="eleves/responsables" element={<ResponsablesPage />} /> */}
+            <Route path="niveaux" element={<NiveauxPage />} />
+<Route path="niveaux/nouveau" element={<NiveauNouvellePage />} />
+<Route path="niveaux/:id/editer" element={<NiveauEditerPage />} />
+<Route path="niveaux/:id" element={<NiveauDetailPage />} />
+
+<Route path="echeances" element={<EcheancesPage />} />
+<Route path="echeances/nouveau" element={<EcheanceNouvellePage />} />
+<Route path="echeances/:id/editer" element={<EcheanceEditerPage />} />
+<Route path="echeances/:id" element={<EcheanceDetailPage />} />
+            {/* ============================================
 
             {/* ============================================
+    DIRECTEUR — SCOLARITÉ : INSCRIPTIONS ✅
+    ⚠️ ORDRE CRITIQUE : "nouvelle" AVANT ":id"
+    ============================================ */}
+<Route path="eleves/inscriptions" element={<InscriptionsListPage />} />
+<Route path="inscriptions/nouvelle" element={<InscriptionNouvellePage />} />
+<Route path="inscriptions/:id/editer" element={<InscriptionEditerPage />} />
+<Route path="inscriptions/:id" element={<InscriptionDetailPage />} />
                 DIRECTEUR — SCOLARITÉ : CLASSES & MATIÈRES ✅
-                ============================================ */}
+                ============================================ */
             <Route path="classes" element={<ClassesPage />} />
+            <Route path="classes" element={<ClassesPage />} />
+<Route path="classes/nouveau" element={<ClasseNouvellePage />} />
+<Route path="classes/:id/editer" element={<ClasseEditerPage />} />
+<Route path="classes/:id" element={<ClasseDetailPage />} />
+
             <Route path="matieres" element={<MatieresPage />} />
             {/* <Route path="niveaux" element={<NiveauxPage />} /> */}
 
@@ -358,6 +436,18 @@ function App() {
             {/* <Route path="notes/appreciations" element={<AppreciationsPage />} /> */}
             {/* <Route path="appreciations" element={<AppreciationsPage />} /> */}
 
+            <Route path="plans-scolarite" element={<PlansScolaritePage />} />
+<Route path="plans-scolarite/nouveau" element={<PlanScolariteNouvellePage />} />
+<Route path="plans-scolarite/:id/editer" element={<PlanScolariteEditerPage />} />
+<Route path="plans-scolarite/:id" element={<PlanScolariteDetailPage />} />
+           {/* ═══════════════════════════════════════════
+    DIRECTEUR — ANNÉES SCOLAIRES ✅
+    ⚠️ ORDRE CRITIQUE : routes fixes AVANT :id
+    ═══════════════════════════════════════════ */}
+<Route path="annees" element={<AnneesScolairesPage />} />
+<Route path="annees-scolaires/nouveau" element={<AnneeScolaireNouvellePage />} />
+<Route path="annees-scolaires/:id/editer" element={<AnneeScolaireEditerPage />} />
+<Route path="annees-scolaires/:id" element={<AnneeScolaireDetailPage />} />
             {/* ============================================
                 DIRECTEUR — SCOLARITÉ : EMPLOI DU TEMPS
                 ============================================ */}
@@ -368,6 +458,9 @@ function App() {
                 DIRECTEUR — PERSONNEL : ENSEIGNANTS ✅
                 ============================================ */}
             <Route path="enseignants" element={<EnseignantsPage />} />
+            <Route path="enseignants/nouveau" element={<EnseignantNouvellePage />} />
+<Route path="enseignants/:id/editer" element={<EnseignantEditerPage />} />
+<Route path="enseignants/:id" element={<EnseignantDetailPage />} />
             {/* <Route path="enseignants/affectations" element={<AffectationsPage />} /> */}
 
             {/* ============================================
@@ -383,8 +476,9 @@ function App() {
             {/* ============================================
                 DIRECTEUR — FINANCES : PAIEMENTS & PAIE ✅
                 ============================================ */}
-            <Route path="paiements" element={<PaiementsPage />} />
-            {/* <Route path="paiements/nouveau" element={<NouveauPaiementPage />} /> */}
+<Route path="paiements" element={<PaiementsListPage />} />
+<Route path="paiements/nouveau" element={<PaiementNouveauPage />} />
+<Route path="paiements/:id" element={<PaiementDetailPage />} />            {/* <Route path="paiements/nouveau" element={<NouveauPaiementPage />} /> */}
             {/* <Route path="recus" element={<RecusPage />} /> */}
             {/* <Route path="recus/:id" element={<RecusPage />} /> */}
             {/* <Route path="echeances" element={<EcheancesPage />} /> */}
@@ -400,8 +494,16 @@ function App() {
             {/* <Route path="annees" element={<AnneesScolairesPage />} /> */}
             {/* <Route path="periodes" element={<PeriodesPage />} /> */}
             {/* <Route path="regles-evaluation" element={<ReglesEvaluationPage />} /> */}
-            {/* <Route path="utilisateurs" element={<UtilisateursPage />} /> */}
-            {/* <Route path="roles" element={<RolesPage />} /> */}
+            <Route path="utilisateurs" element={<UtilisateursPage />} />
+            <Route path="utilisateurs/:id/editer" element={<UtilisateurEditerPage />} />
+            <Route path="utilisateurs/:id" element={<UtilisateurDetailPage />} />
+            <Route path="utilisateurs/nouveau" element={<UtilisateurNouveauPage />} /> 
+            {/* ════════════════════════════════════════════
+                  MON PROFIL (accessible à TOUS les rôles)
+                  ════════════════════════════════════════════ */}
+              <Route path="mon-profil" element={<MonProfilPage />} />
+              <Route path="profil" element={<MonProfilPage />} />
+                       {/* <Route path="roles" element={<RolesPage />} /> */}
             {/* <Route path="audit" element={<AuditPage />} /> */}
             {/* <Route path="logs-email" element={<LogsEmailPage />} /> */}
             {/* <Route path="sauvegardes" element={<SauvegardesPage />} /> */}

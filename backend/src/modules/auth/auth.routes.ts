@@ -20,6 +20,7 @@ import {
   registerSurveillantSchema,
   loginEleveSchema,
   loginSurveillantSchema,
+  verifyResetOtpSchema,   // ⭐ AJOUT
 } from './auth.validation';
 
 const router = Router();
@@ -113,6 +114,21 @@ const otpLimiter = rateLimit({
   max: 5,
   message: rateLimitHandler(
     'Trop de tentatives. Réessayez dans 15 minutes.'
+  ),
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/**
+ * ⭐ AJOUT — OTP de reset password : 5 / 15 min.
+ * On crée un limiter dédié pour ne pas partager le quota avec /verify-otp
+ * (sinon un user qui vérifie son inscription consomme le quota reset).
+ */
+const verifyResetOtpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: rateLimitHandler(
+    'Trop de tentatives de vérification. Réessayez dans 15 minutes.'
   ),
   standardHeaders: true,
   legacyHeaders: false,
@@ -258,7 +274,7 @@ router.post(
 
 /**
  * @route   POST /api/v1/auth/verify-otp
- * @desc    Vérification de l'OTP
+ * @desc    Vérification de l'OTP (inscription)
  * @access  Public
  */
 router.post(
@@ -270,7 +286,7 @@ router.post(
 
 /**
  * @route   POST /api/v1/auth/resend-otp
- * @desc    Renvoyer un nouvel OTP
+ * @desc    Renvoyer un nouvel OTP (inscription)
  * @access  Public
  */
 router.post(
@@ -278,6 +294,20 @@ router.post(
   resendOtpLimiter,
   validateRequest(resendOtpSchema),
   authController.resendOtp
+);
+
+/**
+ * ⭐ AJOUT
+ * @route   POST /api/v1/auth/verify-reset-otp
+ * @desc    Vérifie l'OTP de réinitialisation de mot de passe.
+ *          Si valide → retourne un `resetToken` pour /reset-password
+ * @access  Public
+ */
+router.post(
+  '/verify-reset-otp',
+  verifyResetOtpLimiter,
+  validateRequest(verifyResetOtpSchema),
+  authController.verifyResetOtp
 );
 
 /**
@@ -298,7 +328,7 @@ router.post(
 
 /**
  * @route   POST /api/v1/auth/forgot-password
- * @desc    Demande de réinitialisation du mot de passe
+ * @desc    Demande de réinitialisation du mot de passe (envoie un OTP)
  * @access  Public
  */
 router.post(

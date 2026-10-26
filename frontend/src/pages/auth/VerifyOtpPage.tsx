@@ -1,4 +1,4 @@
-// frontend/src/pages/auth/VerifyOtpPage.tsx
+// frontend/src/pages/auth/VerifyResetOtpPage.tsx
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -10,12 +10,59 @@ import {
   ExclamationCircleIcon,
   ArrowPathIcon
 } from '@heroicons/react/24/outline';
-import { authService } from '../../services/auth.service';
+import { useAuth } from '../../hooks/AuthContext';
 
-const VerifyOtpPage: React.FC = () => {
+// ⭐ Extraction robuste d'un message d'erreur.
+const getErrorMessage = (err: unknown, fallback: string): string => {
+  if (typeof err === 'object' && err !== null) {
+    const e = err as {
+      response?: { data?: { message?: string }; status?: number };
+      message?: string;
+      name?: string;
+    };
+
+    if (e.response?.data?.message) return e.response.data.message;
+
+    if (e.response?.status === 429) {
+      return 'Trop de tentatives. Réessayez dans quelques minutes.';
+    }
+
+    if (e.name === 'SyntaxError' && e.message?.includes('JSON')) {
+      return "Une erreur de données locales est survenue. Veuillez rafraîchir la page (F5).";
+    }
+
+    if (e.message) return e.message;
+  }
+  return fallback;
+};
+
+const sanitizeLocalStorage = (): void => {
+  const JSON_KEYS = ['etablissement', 'auth_user', 'auth_scope'];
+  for (const k of JSON_KEYS) {
+    const raw = localStorage.getItem(k);
+    if (!raw) continue;
+    try {
+      JSON.parse(raw);
+    } catch {
+      localStorage.removeItem(k);
+    }
+  }
+};
+
+// ⭐ Clés partagées avec /forgot-password et /reset-password
+const RESET_KEYS = {
+  EMAIL: 'resetEmail',
+  ETABLISSEMENT_ID: 'resetEtablissementId',
+  RESET_TOKEN: 'resetToken',
+} as const;
+
+const VerifyResetOtpPage: React.FC = () => {
   const navigate = useNavigate();
+  const { verifyResetOtp, forgotPassword } = useAuth();
+
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [userId, setUserId] = useState<string>('');
+  const [email, setEmail] = useState('');
+  const [etablissementId, setEtablissementId] = useState<string | undefined>(undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -23,12 +70,14 @@ const VerifyOtpPage: React.FC = () => {
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
-    // Récupérer l'userId du localStorage ou du state
-    const storedUserId = localStorage.getItem('tempUserId');
-    if (storedUserId) {
-      setUserId(storedUserId);
+    const storedEmail = localStorage.getItem(RESET_KEYS.EMAIL);
+    const storedEtabId = localStorage.getItem(RESET_KEYS.ETABLISSEMENT_ID) ?? undefined;
+
+    if (storedEmail) {
+      setEmail(storedEmail);
+      setEtablissementId(storedEtabId);
     } else {
-      setError('Session expirée. Veuillez vous réinscrire.');
+      setError('Session expirée. Veuillez refaire une demande.');
     }
   }, []);
 
@@ -42,16 +91,13 @@ const VerifyOtpPage: React.FC = () => {
   }, [resendCooldown]);
 
   const handleChange = (index: number, value: string) => {
-    if (value.length > 1) {
-      value = value.slice(-1);
-    }
+    if (value.length > 1) value = value.slice(-1);
     if (!/^\d*$/.test(value)) return;
 
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
 
-    // Auto-advance to next input
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
@@ -83,21 +129,38 @@ const VerifyOtpPage: React.FC = () => {
     setIsSubmitting(true);
 
     const otpString = otp.join('');
-    if (otpString.length !== 6) {
-      setError('Veuillez entrer le code à 6 chiffres.');
-      setIsSubmitting(false);
-      return;
-    }
 
     try {
-      await authService.verifyOtp(userId, otpString);
+      sanitizeLocalStorage();
+
+      // ⭐ verifyResetOtp → { resetToken, etablissementId }
+      const res = await verifyResetOtp({
+        email,
+        otp: otpString,
+        etablissementId: etablissementId ?? '',
+      });
+
+      const data = (res as any)?.data ?? res;
+      const resetToken: string = data?.resetToken ?? '';
+      const finalEtabId: string = data?.etablissementId ?? etablissementId ?? '';
+
+      if (!resetToken) {
+        throw new Error('Réponse invalide du serveur.');
+      }
+
+      localStorage.setItem(RESET_KEYS.RESET_TOKEN, resetToken);
+      localStorage.setItem(RESET_KEYS.ETABLISSEMENT_ID, finalEtabId);
+
       setSuccess(true);
-      localStorage.removeItem('tempUserId');
+
+      // ⭐ Redirection vers /reset-password
       setTimeout(() => {
-        navigate('/login');
-      }, 3000);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Code OTP invalide. Veuillez réessayer.');
+        navigate(
+          `/reset-password?token=${encodeURIComponent(resetToken)}&etablissementId=${encodeURIComponent(finalEtabId)}`
+        );
+      }, 1500);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Code OTP invalide. Veuillez réessayer.'));
       setOtp(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
     } finally {
@@ -109,11 +172,19 @@ const VerifyOtpPage: React.FC = () => {
     if (resendCooldown > 0) return;
 
     try {
-      await authService.resendOtp(userId);
+      sanitizeLocalStorage();
+
+      // ⭐ On renvoie un OTP via forgotPassword
+      const res = await forgotPassword({ email });
+      const data = (res as any)?.data ?? res;
+      const newEtabId = data?.etablissementId ?? etablissementId ?? '';
+      setEtablissementId(newEtabId);
+      localStorage.setItem(RESET_KEYS.ETABLISSEMENT_ID, newEtabId);
+
       setResendCooldown(60);
       setError(null);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Erreur lors du renvoi du code.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Erreur lors du renvoi du code.'));
     }
   };
 
@@ -121,10 +192,7 @@ const VerifyOtpPage: React.FC = () => {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.2,
-      },
+      transition: { staggerChildren: 0.1, delayChildren: 0.2 },
     },
   };
 
@@ -135,7 +203,6 @@ const VerifyOtpPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background decorations */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob" />
         <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000" />
@@ -147,7 +214,6 @@ const VerifyOtpPage: React.FC = () => {
         variants={containerVariants}
         className="w-full max-w-md relative z-10"
       >
-        {/* Logo */}
         <motion.div variants={itemVariants} className="text-center mb-8">
           <Link to="/" className="inline-flex items-center space-x-3 group">
             <motion.div
@@ -165,7 +231,6 @@ const VerifyOtpPage: React.FC = () => {
           </Link>
         </motion.div>
 
-        {/* Card */}
         <motion.div
           variants={itemVariants}
           className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/50"
@@ -175,12 +240,11 @@ const VerifyOtpPage: React.FC = () => {
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Vérifiez votre email</h2>
                 <p className="text-gray-600 mt-1 text-sm">
-                  Nous avons envoyé un code de vérification à votre adresse email.
-                  Veuillez le saisir ci-dessous.
+                  Nous avons envoyé un code de vérification à <strong>{email}</strong>.
+                  Saisissez-le ci-dessous pour réinitialiser votre mot de passe.
                 </p>
               </div>
 
-              {/* Error message */}
               {error && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
@@ -196,7 +260,6 @@ const VerifyOtpPage: React.FC = () => {
               )}
 
               <form onSubmit={handleSubmit} className="space-y-6">
-                {/* OTP Inputs */}
                 <motion.div variants={itemVariants}>
                   <label className="block text-sm font-medium text-gray-700 mb-4 text-center">
                     Code de vérification
@@ -205,7 +268,7 @@ const VerifyOtpPage: React.FC = () => {
                     {otp.map((digit, index) => (
                       <input
                         key={index}
-                        ref={(el) => (inputRefs.current[index] = el)}
+                        ref={(el) => { inputRefs.current[index] = el; }}
                         type="text"
                         inputMode="numeric"
                         maxLength={1}
@@ -248,7 +311,6 @@ const VerifyOtpPage: React.FC = () => {
                 </motion.div>
               </form>
 
-              {/* Resend */}
               <motion.div variants={itemVariants} className="mt-6 text-center">
                 <p className="text-sm text-gray-600">
                   Vous n'avez pas reçu le code ?{' '}
@@ -274,10 +336,9 @@ const VerifyOtpPage: React.FC = () => {
               <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <CheckCircleIcon className="w-10 h-10 text-green-600" />
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Email vérifié !</h3>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Code vérifié !</h3>
               <p className="text-gray-600 mb-6">
-                Votre compte a été activé avec succès.
-                Vous allez être redirigé vers la page de connexion.
+                Vous allez être redirigé vers la page de réinitialisation du mot de passe.
               </p>
               <div className="flex justify-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -285,7 +346,6 @@ const VerifyOtpPage: React.FC = () => {
             </motion.div>
           )}
 
-          {/* Back to login */}
           {!success && (
             <motion.div variants={itemVariants} className="mt-6 text-center">
               <Link
@@ -303,4 +363,4 @@ const VerifyOtpPage: React.FC = () => {
   );
 };
 
-export default VerifyOtpPage;
+export default VerifyResetOtpPage;

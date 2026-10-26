@@ -1,7 +1,7 @@
 // frontend/src/pages/auth/ForgotPasswordPage.tsx
 
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   EnvelopeIcon,
@@ -11,9 +11,60 @@ import {
   AcademicCapIcon,
   ArrowLeftIcon
 } from '@heroicons/react/24/outline';
-import { authService } from '../../services/auth.service';
+import { useAuth } from '../../hooks/AuthContext';
+
+// ⭐ Extraction robuste d'un message d'erreur.
+const getErrorMessage = (err: unknown): string => {
+  if (typeof err === 'object' && err !== null) {
+    const e = err as {
+      response?: { data?: { message?: string }; status?: number };
+      message?: string;
+      name?: string;
+    };
+
+    if (e.response?.data?.message) return e.response.data.message;
+
+    if (e.response?.status === 429) {
+      return 'Trop de tentatives. Réessayez dans quelques minutes.';
+    }
+
+    if (e.name === 'SyntaxError' && e.message?.includes('JSON')) {
+      return "Une erreur de données locales est survenue. Veuillez rafraîchir la page (F5).";
+    }
+
+    if (e.message) return e.message;
+  }
+  return "Erreur lors de l'envoi de l'email.";
+};
+
+// ⭐ Purge préventive des entrées localStorage invalides.
+const sanitizeLocalStorage = (): void => {
+  const JSON_KEYS = ['etablissement', 'auth_user', 'auth_scope'];
+  for (const k of JSON_KEYS) {
+    const raw = localStorage.getItem(k);
+    if (!raw) continue;
+    try {
+      JSON.parse(raw);
+    } catch {
+      console.warn(
+        `⚠️ [ForgotPassword] Entrée localStorage corrompue supprimée: ${k}`,
+        raw
+      );
+      localStorage.removeItem(k);
+    }
+  }
+};
+
+// ⭐ Clés localStorage partagées avec /verify-reset-otp
+const RESET_KEYS = {
+  EMAIL: 'resetEmail',
+  ETABLISSEMENT_ID: 'resetEtablissementId',
+} as const;
 
 const ForgotPasswordPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { forgotPassword } = useAuth();
+
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,10 +76,28 @@ const ForgotPasswordPage: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      await authService.forgotPassword(email);
+      sanitizeLocalStorage();
+
+      const normalizedEmail = email.trim().toLowerCase();
+
+      // ⭐ forgotPassword retourne maintenant { email, etablissementId }
+      const res = await forgotPassword({ email: normalizedEmail });
+
+      // ⭐ Stocker pour la page /verify-reset-otp
+      const data = (res as any)?.data ?? res; // tolère les 2 formats
+      const etablissementId = data?.etablissementId ?? '';
+
+      localStorage.setItem(RESET_KEYS.EMAIL, data?.email ?? normalizedEmail);
+      localStorage.setItem(RESET_KEYS.ETABLISSEMENT_ID, etablissementId);
+
       setSuccess(true);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Erreur lors de l\'envoi de l\'email.');
+
+      // ⭐ Redirection automatique vers la page OTP après 2 s
+      setTimeout(() => {
+        navigate('/verify-reset-otp');
+      }, 2000);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -92,7 +161,7 @@ const ForgotPasswordPage: React.FC = () => {
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Mot de passe oublié ?</h2>
                 <p className="text-gray-600 mt-1 text-sm">
-                  Entrez votre adresse email et nous vous enverrons un lien de réinitialisation.
+                  Entrez votre adresse email et nous vous enverrons un code de vérification.
                 </p>
               </div>
 
@@ -149,7 +218,7 @@ const ForgotPasswordPage: React.FC = () => {
                         </>
                       ) : (
                         <>
-                          Envoyer le lien
+                          Envoyer le code
                           <ArrowRightIcon className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                         </>
                       )}
@@ -168,17 +237,17 @@ const ForgotPasswordPage: React.FC = () => {
               <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <CheckCircleIcon className="w-10 h-10 text-green-600" />
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Email envoyé !</h3>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Code envoyé !</h3>
               <p className="text-gray-600 mb-6">
-                Nous avons envoyé un lien de réinitialisation à <strong>{email}</strong>. 
-                Veuillez vérifier votre boîte de réception.
+                Si un compte existe avec <strong>{email}</strong>, un code de vérification
+                à 6 chiffres a été envoyé. Vérifiez votre boîte de réception.
               </p>
-              <Link to="/login">
-                <button className="text-blue-600 font-semibold hover:underline flex items-center gap-2 mx-auto">
-                  <ArrowLeftIcon className="w-4 h-4" />
-                  Retour à la connexion
-                </button>
-              </Link>
+              <div className="flex justify-center mb-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+              <p className="text-sm text-gray-500">
+                Redirection vers la page de vérification...
+              </p>
             </motion.div>
           )}
 

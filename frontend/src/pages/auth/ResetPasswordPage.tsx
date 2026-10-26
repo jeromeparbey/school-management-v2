@@ -13,12 +13,57 @@ import {
   AcademicCapIcon,
   ArrowLeftIcon
 } from '@heroicons/react/24/outline';
-import { authService } from '../../services/auth.service';
+import { useAuth } from '../../hooks/AuthContext';
+
+// ⭐ Extraction robuste d'un message d'erreur (le backend décide du message).
+const getErrorMessage = (err: unknown): string => {
+  if (typeof err === 'object' && err !== null) {
+    const e = err as {
+      response?: { data?: { message?: string }; status?: number };
+      message?: string;
+      name?: string;
+    };
+
+    if (e.response?.data?.message) return e.response.data.message;
+
+    if (e.response?.status === 429) {
+      return 'Trop de tentatives. Réessayez dans quelques minutes.';
+    }
+
+    if (e.name === 'SyntaxError' && e.message?.includes('JSON')) {
+      return "Une erreur de données locales est survenue. Veuillez rafraîchir la page (F5).";
+    }
+
+    if (e.message) return e.message;
+  }
+  return 'Erreur lors de la réinitialisation du mot de passe.';
+};
+
+// ⭐ Purge préventive des entrées localStorage invalides.
+const sanitizeLocalStorage = (): void => {
+  const JSON_KEYS = ['etablissement', 'auth_user', 'auth_scope'];
+  for (const k of JSON_KEYS) {
+    const raw = localStorage.getItem(k);
+    if (!raw) continue;
+    try {
+      JSON.parse(raw);
+    } catch {
+      console.warn(
+        `⚠️ [ResetPassword] Entrée localStorage corrompue supprimée: ${k}`,
+        raw
+      );
+      localStorage.removeItem(k);
+    }
+  }
+};
 
 const ResetPasswordPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
+  const etablissementId = searchParams.get('etablissementId') ?? undefined;
+
+  const { resetPassword } = useAuth();
 
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -27,12 +72,6 @@ const ResetPasswordPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [passwordStrength, setPasswordStrength] = useState<{
-    score: number;
-    label: string;
-    color: string;
-  }>({ score: 0, label: 'Faible', color: 'red' });
-  const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
 
   useEffect(() => {
     if (!token) {
@@ -40,74 +79,27 @@ const ResetPasswordPage: React.FC = () => {
     }
   }, [token]);
 
-  // Vérifier la force du mot de passe
-  useEffect(() => {
-    const checkPasswordStrength = (password: string) => {
-      const errors: string[] = [];
-      let score = 0;
-
-      if (password.length >= 8) score++;
-      else errors.push('Au moins 8 caractères');
-
-      if (/[a-z]/.test(password)) score++;
-      else errors.push('Une minuscule');
-
-      if (/[A-Z]/.test(password)) score++;
-      else errors.push('Une majuscule');
-
-      if (/[0-9]/.test(password)) score++;
-      else errors.push('Un chiffre');
-
-      if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) score++;
-      else errors.push('Un caractère spécial');
-
-      setPasswordErrors(errors);
-
-      const levels = [
-        { score: 0, label: 'Très faible', color: 'red' },
-        { score: 1, label: 'Faible', color: 'orange' },
-        { score: 2, label: 'Moyen', color: 'yellow' },
-        { score: 3, label: 'Fort', color: 'green' },
-        { score: 4, label: 'Très fort', color: 'green' },
-        { score: 5, label: 'Excellent', color: 'emerald' },
-      ];
-
-      const level = levels.find(l => l.score === score) || levels[0];
-      setPasswordStrength(level);
-    };
-
-    checkPasswordStrength(newPassword);
-  }, [newPassword]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
-    if (!token) {
-      setError('Token de réinitialisation invalide.');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setError('Les mots de passe ne correspondent pas');
-      return;
-    }
-
-    if (passwordStrength.score < 3) {
-      setError('Le mot de passe est trop faible. Veuillez choisir un mot de passe plus fort.');
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
-      await authService.resetPassword(token, newPassword);
+      sanitizeLocalStorage();
+
+      // ⭐ Aucune validation front : on envoie au backend, il juge.
+      await resetPassword({
+        token: token ?? '',
+        nouveauMotDePasse: newPassword,
+        ...(etablissementId && { etablissementId }),
+      });
+
       setSuccess(true);
       setTimeout(() => {
         navigate('/login');
       }, 3000);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Erreur lors de la réinitialisation du mot de passe.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -244,39 +236,6 @@ const ResetPasswordPage: React.FC = () => {
                       )}
                     </button>
                   </div>
-
-                  {/* Password strength */}
-                  {newPassword && (
-                    <div className="mt-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium text-gray-600">Force :</span>
-                          <span className={`text-xs font-semibold text-${passwordStrength.color}-600`}>
-                            {passwordStrength.label}
-                          </span>
-                        </div>
-                        <span className="text-xs text-gray-400">{passwordErrors.length} critères manquants</span>
-                      </div>
-                      <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
-                        <motion.div
-                          className={`h-full bg-${passwordStrength.color}-500 rounded-full`}
-                          initial={{ width: 0 }}
-                          animate={{ width: `${(passwordStrength.score / 5) * 100}%` }}
-                          transition={{ duration: 0.5 }}
-                        />
-                      </div>
-                      {passwordErrors.length > 0 && (
-                        <ul className="text-xs text-gray-500 space-y-0.5">
-                          {passwordErrors.map((err, index) => (
-                            <li key={index} className="flex items-center gap-1.5">
-                              <span className="text-red-400">•</span>
-                              {err}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  )}
                 </motion.div>
 
                 {/* Confirm Password */}
@@ -307,12 +266,6 @@ const ResetPasswordPage: React.FC = () => {
                       )}
                     </button>
                   </div>
-                  {confirmPassword && newPassword !== confirmPassword && (
-                    <p className="text-xs text-red-500 mt-1.5 flex items-center gap-1">
-                      <ExclamationCircleIcon className="w-4 h-4" />
-                      Les mots de passe ne correspondent pas
-                    </p>
-                  )}
                 </motion.div>
 
                 <motion.div variants={itemVariants}>

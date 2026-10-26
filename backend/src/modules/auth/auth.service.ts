@@ -28,31 +28,25 @@ if (!globalThis.otpStore) {
 if (!globalThis.resetTokenStore) {
   globalThis.resetTokenStore = new Map<string, IResetTokenStore>();
 }
+// ⭐ AJOUT : store OTP dédié au reset password (clé = `${schemaName}:${userId}`)
+if (!globalThis.resetOtpStore) {
+  globalThis.resetOtpStore = new Map<string, IOtpStore>();
+}
 
 // ============================================
 // CONTEXTE D'AUTHENTIFICATION TENANT
 // ============================================
 
-/**
- * Contexte obligatoire pour toute opération liée à un tenant.
- * Transporte le schéma Prisma ET l'ID du catalogue (Etablissement.id).
- */
 export interface AuthContext {
   schemaName: string;
   etablissementId: string;
 }
 
-/**
- * Contexte optionnel pour le login : un SUPER_ADMIN n'a pas de tenant.
- */
 export interface OptionalAuthContext {
   schemaName?: string;
   etablissementId?: string;
 }
 
-/**
- * DTO public d'un établissement (exposé au frontend).
- */
 export interface EtablissementDTO {
   id: string;
   nom: string;
@@ -69,11 +63,6 @@ export interface EtablissementDTO {
   email: string | null;
 }
 
-/**
- * Résultat de login unifié.
- * - Pour un utilisateur tenant : user + etablissement + tokens
- * - Pour un SUPER_ADMIN : user (global) + null + tokens (scope GLOBAL)
- */
 export interface UnifiedLoginResult {
   user: UserResponse;
   etablissement: EtablissementDTO | null;
@@ -85,7 +74,6 @@ export interface UnifiedLoginResult {
 // TYPES D'ENTRÉE POUR INSCRIPTIONS SPÉCIALISÉES
 // ============================================
 
-/** Inscription d'un élève */
 export interface RegisterEleveRequest {
   email: string;
   motDePasse: string;
@@ -102,7 +90,6 @@ export interface RegisterEleveRequest {
   infoMedicale?: string;
 }
 
-/** Inscription d'un surveillant */
 export interface RegisterSurveillantRequest {
   email: string;
   motDePasse: string;
@@ -139,10 +126,6 @@ export class AuthService {
   // HELPERS PRIVÉS
   // ──────────────────────────────────────────
 
-  /**
-   * Charge un établissement depuis le catalogue global.
-   * Retourne `null` si non trouvé (ne throw jamais).
-   */
   private async loadEtablissement(
     etablissementId: string
   ): Promise<EtablissementDTO | null> {
@@ -383,29 +366,13 @@ export class AuthService {
   // 🎯 CONNEXION UNIFIÉE (TOUS RÔLES)
   // ══════════════════════════════════════════
 
-  /**
-   * Login unifié : gère SUPER_ADMIN (catalogue global) ET
-   * tous les autres rôles (tenant) sur la même route.
-   *
-   * Stratégie :
-   * 1. Cherche d'abord dans le catalogue global (UtilisateurGlobal avec role SUPER_ADMIN)
-   *    → si trouvé et mot de passe OK, on retourne un token scope 'GLOBAL'
-   * 2. Sinon, cherche dans le tenant (ctx obligatoire dans ce cas)
-   *    → si trouvé et mot de passe OK, on retourne un token scope 'TENANT'
-   * 3. Sinon → 401 générique (ne pas révéler si l'email existe)
-   *
-   * @param ctx Contexte tenant — OPTIONNEL (null si SUPER_ADMIN seul)
-   * @param data { email, motDePasse }
-   */
   async login(
     ctx: AuthContext | null,
     data: LoginRequest
   ): Promise<UnifiedLoginResult> {
     const email = data.email.toLowerCase().trim();
 
-    // ─────────────────────────────────────
-    // ÉTAPE 1 : Tentative SUPER_ADMIN (catalogue global)
-    // ─────────────────────────────────────
+    // ÉTAPE 1 : Tentative SUPER_ADMIN
     const superAdmin = await this.findSuperAdminInCatalog(email);
 
     if (superAdmin) {
@@ -422,7 +389,6 @@ export class AuthService {
         throw new AppError('Compte super-admin désactivé', 403);
       }
 
-      // Mise à jour de la dernière connexion (best-effort)
       try {
         await globalPrisma.utilisateurGlobal.update({
           where: { id: superAdmin.id },
@@ -437,7 +403,6 @@ export class AuthService {
         superAdmin.email
       );
 
-      // Persister le refresh token dans le catalogue global
       try {
         await globalPrisma.utilisateurGlobal.update({
           where: { id: superAdmin.id },
@@ -455,11 +420,8 @@ export class AuthService {
       };
     }
 
-    // ─────────────────────────────────────
     // ÉTAPE 2 : Tentative utilisateur tenant
-    // ─────────────────────────────────────
     if (!ctx?.schemaName) {
-      // Pas de contexte tenant fourni et pas de SUPER_ADMIN trouvé
       throw new AppError('Email ou mot de passe incorrect', 401);
     }
 
@@ -653,7 +615,7 @@ export class AuthService {
   }
 
   // ──────────────────────────────────────────
-  // OTP
+  // OTP (vérification email)
   // ──────────────────────────────────────────
 
   async verifyOtp(
@@ -728,7 +690,6 @@ export class AuthService {
       throw new AppError('Refresh token invalide', 401);
     }
 
-    // 🎯 Cas SUPER_ADMIN : le refresh token est stocké dans le catalogue global
     if (decoded.scope === 'GLOBAL') {
       const superAdmin = await globalPrisma.utilisateurGlobal.findFirst({
         where: {
@@ -759,7 +720,6 @@ export class AuthService {
       return tokens;
     }
 
-    // 🎯 Cas tenant classique
     if (!ctx?.schemaName) {
       throw new AppError(
         'Contexte tenant requis pour rafraîchir ce token',
@@ -791,8 +751,6 @@ export class AuthService {
   }
 
   async logout(ctx: AuthContext | null, userId: string): Promise<void> {
-    // On ne sait pas si c'est un SUPER_ADMIN ou un user tenant
-    // → on tente les deux (best-effort)
     if (ctx?.schemaName) {
       try {
         await this.repository.updateRefreshToken(ctx.schemaName, userId, null);
@@ -815,24 +773,96 @@ export class AuthService {
   // MOT DE PASSE
   // ──────────────────────────────────────────
 
-  async forgotPassword(ctx: AuthContext, email: string): Promise<void> {
-    const { schemaName } = ctx;
-    const user = await this.repository.findByEmail(schemaName, email);
+  /**
+   * ⭐ MODIFIÉ — Envoie un OTP à 6 chiffres par email (au lieu d'un lien).
+   *
+   * Retourne `{ email, etablissementId }` pour que le controller puisse
+   * renvoyer ces infos au frontend (la page `/verify-reset-otp` en a besoin).
+   *
+   * ⚠️ Anti-énumération : si l'email n'existe pas, on retourne quand même
+   * un résultat neutre (pas d'erreur, pas d'OTP envoyé).
+   */
+  async forgotPassword(
+    ctx: AuthContext,
+    email: string
+  ): Promise<{ email: string; etablissementId: string }> {
+    const { schemaName, etablissementId } = ctx;
+    const normalizedEmail = email.toLowerCase().trim();
 
-    if (!user) return;
+    const user = await this.repository.findByEmail(schemaName, normalizedEmail);
 
-    const resetToken = AuthUtils.generateResetToken();
-    this.storeResetToken(user.id, resetToken);
+    if (!user) {
+      // Ne pas révéler que l'email n'existe pas
+      return { email: normalizedEmail, etablissementId };
+    }
+
+    // ⭐ Génère un OTP dédié reset (store séparé)
+    const otp = AuthUtils.generateOtp();
+    this.storeResetOtp(schemaName, user.id, otp);
 
     try {
-      await this.emailService.sendResetPasswordEmail(
+      await this.emailService.sendOtpEmail(
         user.email,
-        resetToken,
+        otp,
         user.prenom
       );
     } catch (err) {
-      console.error('⚠️ Échec envoi email reset:', err);
+      console.error('⚠️ Échec envoi OTP reset:', err);
     }
+
+    return { email: normalizedEmail, etablissementId };
+  }
+
+  /**
+   * ⭐ AJOUT — Vérifie l'OTP de reset password.
+   * Si valide → génère un `resetToken` (utilisable une seule fois,
+   * 24h) et le retourne au frontend.
+   *
+   * Ne marque PAS `emailVerifie = true` (ce n'est pas le but).
+   */
+  async verifyResetOtp(
+    ctx: AuthContext,
+    email: string,
+    otp: string
+  ): Promise<{ resetToken: string; etablissementId: string }> {
+    const { schemaName, etablissementId } = ctx;
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const user = await this.repository.findByEmail(schemaName, normalizedEmail);
+    if (!user) {
+      throw new AppError('Code invalide ou expiré', 400);
+    }
+
+    const stored = this.getStoredResetOtp(schemaName, user.id);
+    if (!stored) {
+      throw new AppError('Code invalide ou expiré', 400);
+    }
+
+    if (Date.now() > stored.expiresAt) {
+      this.clearResetOtp(schemaName, user.id);
+      throw new AppError('Code expiré. Veuillez refaire une demande.', 400);
+    }
+
+    if (stored.attempts >= this.OTP_MAX_ATTEMPTS) {
+      this.clearResetOtp(schemaName, user.id);
+      throw new AppError(
+        'Trop de tentatives. Veuillez refaire une demande.',
+        400
+      );
+    }
+
+    if (stored.otp !== otp) {
+      stored.attempts += 1;
+      this.storeResetOtp(schemaName, user.id, stored.otp, stored.attempts);
+      throw new AppError('Code invalide', 400);
+    }
+
+    // OTP OK → on génère le token de reset
+    const resetToken = AuthUtils.generateResetToken();
+    this.storeResetToken(user.id, resetToken);
+    this.clearResetOtp(schemaName, user.id);
+
+    return { resetToken, etablissementId };
   }
 
   async resetPassword(
@@ -937,7 +967,6 @@ export class AuthService {
     user: UserResponse;
     etablissement: EtablissementDTO | null;
   }> {
-    // 🎯 D'abord tenter comme SUPER_ADMIN (UtilisateurGlobal)
     const superAdmin = await globalPrisma.utilisateurGlobal.findFirst({
       where: {
         id: userId,
@@ -952,7 +981,6 @@ export class AuthService {
       };
     }
 
-    // Sinon, utilisateur tenant classique
     const user = await this.repository.getUserInfo(ctx.schemaName, userId);
     if (!user) {
       throw new AppError('Utilisateur non trouvé', 404);
@@ -1016,11 +1044,6 @@ export class AuthService {
     return this.repository.emailExists(schemaName, email);
   }
 
-  /**
-   * Cherche un SUPER_ADMIN dans le catalogue global.
-   * ⚠️ Le modèle s'appelle "UtilisateurGlobal", filtré sur role SUPER_ADMIN.
-   * Retourne null si non trouvé.
-   */
   private async findSuperAdminInCatalog(email: string): Promise<{
     id: string;
     email: string;
@@ -1068,15 +1091,12 @@ export class AuthService {
     }
   }
 
-  /**
-   * Nettoie les données d'un UtilisateurGlobal (SUPER_ADMIN) avant envoi.
-   */
- private sanitizeSuperAdmin(sa: any): UserResponse {
-  return AuthUtils.sanitizeGlobalUser(sa);
-}
+  private sanitizeSuperAdmin(sa: any): UserResponse {
+    return AuthUtils.sanitizeGlobalUser(sa);
+  }
 
   // ──────────────────────────────────────────
-  // STORES OTP (privés)
+  // STORES OTP INSCRIPTION (privés)
   // ──────────────────────────────────────────
 
   private storeOtp(userId: string, otp: string, attempts = 0): void {
@@ -1093,6 +1113,39 @@ export class AuthService {
 
   private clearOtp(userId: string): void {
     globalThis.otpStore.delete(userId);
+  }
+
+  // ──────────────────────────────────────────
+  // ⭐ STORES OTP RESET PASSWORD (privés)
+  // Clé = `${schemaName}:${userId}` pour éviter les collisions
+  // entre tenants et avec l'OTP d'inscription.
+  // ──────────────────────────────────────────
+
+  private storeResetOtp(
+    schemaName: string,
+    userId: string,
+    otp: string,
+    attempts = 0
+  ): void {
+    const key = `${schemaName}:${userId}`;
+    globalThis.resetOtpStore.set(key, {
+      otp,
+      expiresAt: Date.now() + this.OTP_TTL_MS,
+      attempts,
+    });
+  }
+
+  private getStoredResetOtp(
+    schemaName: string,
+    userId: string
+  ): IOtpStore | null {
+    const key = `${schemaName}:${userId}`;
+    return globalThis.resetOtpStore.get(key) ?? null;
+  }
+
+  private clearResetOtp(schemaName: string, userId: string): void {
+    const key = `${schemaName}:${userId}`;
+    globalThis.resetOtpStore.delete(key);
   }
 
   // ──────────────────────────────────────────
@@ -1124,9 +1177,6 @@ export class AuthService {
   // TOKENS JWT
   // ──────────────────────────────────────────
 
-  /**
-   * Génère les tokens pour un utilisateur tenant classique.
-   */
   private generateTokens(
     userId: string,
     email: string,
@@ -1151,9 +1201,6 @@ export class AuthService {
     };
   }
 
-  /**
-   * Génère les tokens pour un SUPER_ADMIN (scope GLOBAL, pas de tenant).
-   */
   private generateSuperAdminTokens(
     userId: string,
     email: string
