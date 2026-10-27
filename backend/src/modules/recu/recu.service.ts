@@ -54,63 +54,260 @@ function generateCodeVerification(): string {
 }
 
 // ──────────────────────────────────────────
-// CALCUL DU SOLDE APRÈS
+// TYPES INTERNES
+// ──────────────────────────────────────────
+
+interface EcheanceStatus {
+  echeanceId: string;
+  nom: string;
+  ordre: number;
+  montant: number;
+  montantPaye: number;         // cumul avant ce paiement
+  montantPayeApres: number;    // cumul après ce paiement
+  montantRestant: number;
+  dateLimite: string;
+  estPayee: boolean;
+  estPartielle: boolean;
+  estEnRetard: boolean;
+  joursRestants: number;       // négatif si dépassé
+}
+
+interface DetailsFinanciers {
+  // Plan
+  planNom: string;
+  montantTotal: number;
+  montantReduction: number;
+  montantNet: number;
+  devise: string;
+
+  // Avant ce paiement
+  montantPayeAvant: number;
+  montantRestantAvant: number;
+
+  // Après ce paiement (inclut ce paiement)
+  montantPayeApres: number;
+  montantRestantApres: number;
+  pourcentagePaye: number;
+
+  // Statut global
+  estSolde: boolean;
+  estAJour: boolean;
+  estEnRetard: boolean;
+  echeancesEnRetard: number;
+  prochaineEcheance?: {
+    nom: string;
+    montant: number;
+    dateLimite: string;
+    joursRestants: number;
+  };
+
+  // Détail par échéance
+  echeances: EcheanceStatus[];
+}
+
+// ──────────────────────────────────────────
+// CALCUL DÉTAILLÉ DES FINANCES
 // ──────────────────────────────────────────
 
 async function calculerDetailsFinanciers(
   client: any,
   eleveId: string,
-  assignmentId?: string | null
-): Promise<{
-  montantTotal: number;
-  montantReduction: number;
-  montantPaye: number;
-  montantRestant: number;
-}> {
-  let assignment;
-  if (assignmentId) {
-    assignment = await client.assignmentScolarite.findUnique({
-      where: { id: assignmentId },
-      include: {
-        planScolarite: true,
-        paiements: { where: { statut: 'COMPLET' }, select: { montant: true } },
-        reductions: true,
-      },
-    });
-  } else {
-    assignment = await client.assignmentScolarite.findFirst({
-      where: { eleveId, statut: 'ACTIF' },
-      include: {
-        planScolarite: true,
-        paiements: { where: { statut: 'COMPLET' }, select: { montant: true } },
-        reductions: true,
-      },
-    });
-  }
+  assignmentId: string | null | undefined,
+  paiementCourantId: string,     // pour exclure le paiement actuel du "cumul avant"
+  montantPaiementCourant: number
+): Promise<DetailsFinanciers> {
+  const emptyDetails: DetailsFinanciers = {
+    planNom: '—',
+    montantTotal: 0,
+    montantReduction: 0,
+    montantNet: 0,
+    devise: 'XOF',
+    montantPayeAvant: 0,
+    montantRestantAvant: 0,
+    montantPayeApres: 0,
+    montantRestantApres: 0,
+    pourcentagePaye: 0,
+    estSolde: false,
+    estAJour: false,
+    estEnRetard: false,
+    echeancesEnRetard: 0,
+    echeances: [],
+  };
 
-  if (!assignment) {
-    return { montantTotal: 0, montantReduction: 0, montantPaye: 0, montantRestant: 0 };
-  }
+  // 1. Récupérer l'assignment complet avec plan, échéances, paiements, réductions
+  const assignment = assignmentId
+    ? await client.assignmentScolarite.findUnique({
+        where: { id: assignmentId },
+        include: {
+          planScolarite: {
+            include: {
+              echeances: { orderBy: { ordre: 'asc' } },
+            },
+          },
+          reductions: true,
+          paiements: {
+            where: { statut: 'COMPLET' },
+            select: {
+              id: true,
+              montant: true,
+              allocations: {
+                select: {
+                  echeanceId: true,
+                  montant: true,
+                },
+              },
+            },
+          },
+        },
+      })
+    : await client.assignmentScolarite.findFirst({
+        where: { eleveId, statut: 'ACTIF' },
+        include: {
+          planScolarite: {
+            include: {
+              echeances: { orderBy: { ordre: 'asc' } },
+            },
+          },
+          reductions: true,
+          paiements: {
+            where: { statut: 'COMPLET' },
+            select: {
+              id: true,
+              montant: true,
+              allocations: {
+                select: {
+                  echeanceId: true,
+                  montant: true,
+                },
+              },
+            },
+          },
+        },
+      });
 
-  const montantTotal = assignment.planScolarite.montantTotal;
+  if (!assignment) return emptyDetails;
 
-  const montantReduction = assignment.reductions.reduce((sum: number, r: any) => {
-    if (r.type === 'FIXE') return sum + r.valeur;
-    return sum + (montantTotal * r.valeur) / 100;
-  }, 0);
+  const plan = assignment.planScolarite;
+  const devise = plan.devise ?? 'XOF';
+  const montantTotal = plan.montantTotal;
 
-  const montantNet = Math.max(0, montantTotal - montantReduction);
-
-  const montantPaye = assignment.paiements.reduce(
-    (sum: number, p: any) => sum + p.montant,
+  // 2. Réductions
+  const montantReduction = assignment.reductions.reduce(
+    (sum: number, r: any) => {
+      if (r.type === 'FIXE') return sum + r.valeur;
+      return sum + (montantTotal * r.valeur) / 100;
+    },
     0
   );
+  const montantNet = Math.max(0, montantTotal - montantReduction);
+
+  // 3. Calcul "avant ce paiement" (exclure le paiement courant)
+  const paiementsAvant = assignment.paiements.filter(
+    (p: any) => p.id !== paiementCourantId
+  );
+  const montantPayeAvant = paiementsAvant.reduce(
+    (s: number, p: any) => s + p.montant,
+    0
+  );
+  const montantRestantAvant = Math.max(0, montantNet - montantPayeAvant);
+
+  // 4. Calcul "après ce paiement"
+  const montantPayeApres = montantPayeAvant + montantPaiementCourant;
+  const montantRestantApres = Math.max(0, montantNet - montantPayeApres);
+  const pourcentagePaye =
+    montantNet > 0
+      ? Math.min(100, Math.round((montantPayeApres / montantNet) * 100))
+      : 100;
+  const estSolde = montantRestantApres <= 0.01;
+
+  // 5. Cumul des allocations par échéance (avant + après)
+  const cumulAvantParEcheance = new Map<string, number>();
+  const cumulApresParEcheance = new Map<string, number>();
+
+  for (const p of assignment.paiements) {
+    const isCurrent = p.id === paiementCourantId;
+    for (const alloc of p.allocations ?? []) {
+      // Cumul "après" = tous les paiements (y compris le courant)
+      cumulApresParEcheance.set(
+        alloc.echeanceId,
+        (cumulApresParEcheance.get(alloc.echeanceId) ?? 0) + alloc.montant
+      );
+      // Cumul "avant" = tous sauf le courant
+      if (!isCurrent) {
+        cumulAvantParEcheance.set(
+          alloc.echeanceId,
+          (cumulAvantParEcheance.get(alloc.echeanceId) ?? 0) + alloc.montant
+        );
+      }
+    }
+  }
+
+  // 6. Construire le statut par échéance
+  const today = new Date();
+  const echeances: EcheanceStatus[] = plan.echeances.map((e: any) => {
+    const montantPayeAvEch = cumulAvantParEcheance.get(e.id) ?? 0;
+    const montantPayeApEch = cumulApresParEcheance.get(e.id) ?? 0;
+    const montantRestantEch = Math.max(0, e.montant - montantPayeApEch);
+    const estPayee = montantRestantEch <= 0.01;
+    const estPartielle =
+      montantPayeApEch > 0 && !estPayee;
+    const dateLimite = new Date(e.dateLimite);
+    const joursRestants = Math.ceil(
+      (dateLimite.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    const estEnRetard = !estPayee && joursRestants < 0;
+
+    return {
+      echeanceId: e.id,
+      nom: e.nom,
+      ordre: e.ordre,
+      montant: e.montant,
+      montantPaye: montantPayeAvEch,
+      montantPayeApres: montantPayeApEch,
+      montantRestant: montantRestantEch,
+      dateLimite: dateLimite.toISOString(),
+      estPayee,
+      estPartielle,
+      estEnRetard,
+      joursRestants,
+    };
+  });
+
+  // 7. Statistiques globales
+  const echeancesEnRetard = echeances.filter((e) => e.estEnRetard).length;
+  const estEnRetard = echeancesEnRetard > 0;
+  const estAJour = !estSolde && !estEnRetard;
+
+  // 8. Prochaine échéance à payer (la plus proche dans le futur ou en retard)
+  const prochainesEcheances = echeances
+    .filter((e) => !e.estPayee)
+    .sort((a, b) => a.ordre - b.ordre);
+  const prochaine = prochainesEcheances[0];
 
   return {
+    planNom: plan.nom,
     montantTotal,
     montantReduction,
-    montantPaye,
-    montantRestant: Math.max(0, montantNet - montantPaye),
+    montantNet,
+    devise,
+    montantPayeAvant,
+    montantRestantAvant,
+    montantPayeApres,
+    montantRestantApres,
+    pourcentagePaye,
+    estSolde,
+    estAJour,
+    estEnRetard,
+    echeancesEnRetard,
+    ...(prochaine && {
+      prochaineEcheance: {
+        nom: prochaine.nom,
+        montant: prochaine.montantRestant,
+        dateLimite: prochaine.dateLimite,
+        joursRestants: prochaine.joursRestants,
+      },
+    }),
+    echeances,
   };
 }
 
@@ -172,7 +369,7 @@ export class RecuService {
   async generer(ctx: RecuContext, input: GenererRecuInput) {
     const client = await getClient(ctx.schemaName);
 
-    // 1. Récupérer le paiement avec toutes les relations
+    // 1. Récupérer le paiement
     const paiement = await client.paiement.findUnique({
       where: { id: input.paiementId },
       include: {
@@ -196,7 +393,13 @@ export class RecuService {
         allocations: {
           include: {
             echeance: {
-              select: { id: true, nom: true, montant: true, ordre: true },
+              select: {
+                id: true,
+                nom: true,
+                montant: true,
+                ordre: true,
+                dateLimite: true,
+              },
             },
           },
         },
@@ -221,7 +424,7 @@ export class RecuService {
       throw new AppError('Un reçu existe déjà pour ce paiement', 409);
     }
 
-    // 2. Récupérer l'établissement (catalogue global)
+    // 2. Établissement
     const { globalPrisma } = await import('../../config/global-db');
     const etablissement = await globalPrisma.etablissement.findUnique({
       where: { id: ctx.etablissementId },
@@ -240,41 +443,86 @@ export class RecuService {
         devise: true,
       },
     });
-
     if (!etablissement) {
       throw new AppError('Établissement introuvable', 404);
     }
 
-    // 3. Infos classe / niveau / année
+    // 3. Infos classe
     const inscription = paiement.eleve.inscriptions[0];
     const nomClasse = inscription?.classe?.nom ?? 'Non inscrit';
     const codeClasse = inscription?.classe?.code ?? null;
     const nomNiveau = inscription?.classe?.niveau?.nom ?? null;
     const nomAnnee = inscription?.anneeScolaire?.nom ?? null;
 
-    // 4. Échéances couvertes
-    const echeancesCouvertes = paiement.allocations.map((a: any) => ({
-      nom: a.echeance.nom,
-      montant: a.montant,
-      ordre: a.echeance.ordre,
-    }));
-
-    // 5. Détails financiers
+    // 4. Détails financiers enrichis (calcul AVANT insertion, en excluant ce paiement)
     const details = await calculerDetailsFinanciers(
       client,
       paiement.eleveId,
-      paiement.assignmentId
+      paiement.assignmentId,
+      paiement.id,
+      paiement.montant
     );
 
-    // 6. Numéro + code de vérification
+    // 5. Échéances couvertes par CE paiement (avec statut détaillé)
+    const echeancesCouvertes = paiement.allocations.map((a: any) => {
+      const echStatus = details.echeances.find(
+        (e) => e.echeanceId === a.echeance.id
+      );
+      return {
+        nom: a.echeance.nom,
+        montant: a.montant,                     // montant de CE paiement sur cette échéance
+        ordre: a.echeance.ordre,
+        dateLimite: a.echeance.dateLimite,
+        montantEcheanceTotal: a.echeance.montant,
+        montantPayeCumule: echStatus?.montantPayeApres ?? a.montant,
+        montantRestantSurEcheance: echStatus?.montantRestant ?? 0,
+        estPayee: echStatus?.estPayee ?? false,
+        estPartielle: echStatus?.estPartielle ?? false,
+        estEnRetard: echStatus?.estEnRetard ?? false,
+      };
+    });
+
+    // 6. Numéro + code
     const numeroRecu = await generateNumeroRecu(client);
     const codeVerification = generateCodeVerification();
-
-    // 7. URL de vérification publique
     const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const urlVerification = `${baseUrl}/verifier-recu/${codeVerification}`;
 
-    // 8. Créer le reçu avec snapshot complet
+    // 7. Construire le snapshot financier complet
+    const snapshotFinancier = {
+      // Plan
+      planNom: details.planNom,
+      montantTotalPlan: details.montantTotal,
+      montantReduction: details.montantReduction,
+      montantNet: details.montantNet,
+      devise: details.devise,
+
+      // Situation avant ce paiement
+      montantPayeAvant: details.montantPayeAvant,
+      montantRestantAvant: details.montantRestantAvant,
+
+      // Situation après ce paiement
+      montantPayeApres: details.montantPayeApres,
+      montantRestantApres: details.montantRestantApres,
+      pourcentagePaye: details.pourcentagePaye,
+
+      // Statut global
+      estSolde: details.estSolde,
+      estAJour: details.estAJour,
+      estEnRetard: details.estEnRetard,
+      echeancesEnRetard: details.echeancesEnRetard,
+
+      // Prochaine échéance
+      prochaineEcheance: details.prochaineEcheance ?? null,
+
+      // Détail complet par échéance
+      echeances: details.echeances,
+
+      // Généré à
+      calculeLe: new Date().toISOString(),
+    };
+
+    // 8. Créer le reçu
     return client.recu.create({
       data: {
         numeroRecu,
@@ -285,8 +533,8 @@ export class RecuService {
         montant: paiement.montant,
         datePaiement: paiement.datePaiement,
         moyenPaiement: paiement.moyen,
-        echeancesCouvertes,
-        soldeApres: details.montantRestant,
+        echeancesCouvertes: echeancesCouvertes as any,  // enrichi
+        soldeApres: details.montantRestantApres,
         generePar: ctx.userId,
         cheminPDF: null,
 
@@ -318,7 +566,7 @@ export class RecuService {
         // Détails financiers
         montantPaye: paiement.montant,
         montantReduction: details.montantReduction,
-        montantRestant: details.montantRestant,
+        montantRestant: details.montantRestantApres,
         devise: etablissement.devise,
         referencePaiement: paiement.reference,
         moyenPaiementLabel: MOYEN_LABEL[paiement.moyen] ?? paiement.moyen,
@@ -326,6 +574,11 @@ export class RecuService {
         // Vérification
         codeVerification,
         urlVerification,
+
+        // 🆕 Snapshot financier complet (JSON libre)
+        // ⚠️ Si ton schéma Prisma a un champ `detailsFinanciers Json?`, décommente.
+        // Sinon, ces données sont déjà réparties dans `echeancesCouvertes` + `soldeApres`.
+         detailsFinanciers: snapshotFinancier,
       },
       include: recuInclude,
     });
@@ -370,9 +623,10 @@ export class RecuService {
       }),
     ]);
 
+    // ✅ Correction : `montant` (champ réel du modèle Prisma)
     const totalMontant = await client.recu.aggregate({
       where,
-      _sum: { montantPaye: true },
+      _sum: { montant: true },
     });
 
     return {
@@ -384,7 +638,7 @@ export class RecuService {
         totalPages: Math.ceil(total / q.limit) || 1,
       },
       summary: {
-        totalMontant: totalMontant._sum.montantPaye ?? 0,
+        totalMontant: totalMontant._sum.montant ?? 0,
       },
     };
   }
@@ -435,12 +689,14 @@ export class RecuService {
         nomEleve: true,
         nomClasse: true,
         montantPaye: true,
+        montantRestant: true,
         devise: true,
         datePaiement: true,
         moyenPaiementLabel: true,
         etablissementNom: true,
         etablissementCode: true,
         soldeApres: true,
+        echeancesCouvertes: true,
         createdAt: true,
       },
     });
@@ -498,7 +754,6 @@ export class RecuService {
       formatImprime: format,
     };
 
-    // Mise à jour du chemin spécifique au format
     if (format === 'A4') patch.cheminPDF_A4 = `/recus/${id}-A4.pdf`;
     if (format === 'A5') patch.cheminPDF_A5 = `/recus/${id}-A5.pdf`;
     if (format === '80MM') patch.cheminPDF_80MM = `/recus/${id}-80MM.pdf`;

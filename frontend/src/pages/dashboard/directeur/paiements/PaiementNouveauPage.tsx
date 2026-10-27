@@ -12,10 +12,14 @@ import {
   InformationCircleIcon,
   ExclamationTriangleIcon,
   ReceiptPercentIcon,
+  AcademicCapIcon,
+  DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 import { useCreatePaiement } from '../../../../hooks/usePaiements';
 import { useEleves } from '../../../../hooks/useEleves';
-import { useEcheances } from '../../../../hooks/useEcheance';
+import { useClasses } from '../../../../hooks/useClasses';
+import { useEcheancesByPlan } from '../../../../hooks/useEcheance';
+import { useGenererRecu, useDownloadRecuPDF } from '../../../../hooks/useRecus';
 import { useToast } from '../../../../context/ToastContext';
 import type { Eleve } from '../../../../types/eleve.types';
 import type {
@@ -44,11 +48,20 @@ const PaiementNouveauPage: React.FC = () => {
   const toast = useToast();
   const [searchParams] = useSearchParams();
   const eleveIdFromQuery = searchParams.get('eleveId') ?? '';
+  const classeIdFromQuery = searchParams.get('classeId') ?? '';
+  const autoPrint = searchParams.get('autoPrint') === '1';
 
-  // Champs
+  // ─────────── Filtre classe ───────────
+  const [classeId, setClasseId] = useState(classeIdFromQuery);
+  const [searchClasse, setSearchClasse] = useState('');
+  const [showClasseDropdown, setShowClasseDropdown] = useState(false);
+
+  // ─────────── Élève ───────────
   const [eleveId, setEleveId] = useState(eleveIdFromQuery);
   const [searchEleve, setSearchEleve] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
+
+  // ─────────── Champs paiement ───────────
   const [montant, setMontant] = useState<number>(0);
   const [moyen, setMoyen] = useState<MoyenPaiement>('ESPECES');
   const [referenceMoyen, setReferenceMoyen] = useState('');
@@ -60,68 +73,164 @@ const PaiementNouveauPage: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const createMutation = useCreatePaiement();
+  const genererRecu = useGenererRecu();
+  const downloadPDF = useDownloadRecuPDF();
 
-  // ─────────── Lookup élèves ───────────
+  // ─────────── Classes ───────────
+  const { data: classesData, isLoading: classesLoading } = useClasses({
+    limit: 200,
+  });
+  const classes = useMemo(() => {
+    if (!classesData) return [];
+    const any = classesData as any;
+    if (Array.isArray(any.classes)) return any.classes;
+    if (Array.isArray(any.data)) return any.data;
+    return [];
+  }, [classesData]);
+
+  const filteredClasses = useMemo(() => {
+    const q = searchClasse.trim().toLowerCase();
+    if (!q) return classes.slice(0, 50);
+    return classes
+      .filter((c: any) => {
+        const hay = `${c.nom} ${c.code}`.toLowerCase();
+        return hay.includes(q);
+      })
+      .slice(0, 50);
+  }, [classes, searchClasse]);
+
+  const selectedClasse = useMemo(
+    () => classes.find((c: any) => c.id === classeId) ?? null,
+    [classes, classeId]
+  );
+
+  // ─────────── Élèves ───────────
   const { data: elevesData } = useEleves({
     limit: 200,
     sortBy: 'nom',
     sortOrder: 'asc',
+    ...(classeId && { classeId }),
   });
-  const eleves: Eleve[] = useMemo(() => {
+
+  const elevesInscrits: Eleve[] = useMemo(() => {
     if (!elevesData) return [];
     const any = elevesData as any;
-    if (Array.isArray(any.eleves)) return any.eleves;
-    if (Array.isArray(any.data)) return any.data;
-    return [];
-  }, [elevesData]);
+    const list: Eleve[] = Array.isArray(any.eleves)
+      ? any.eleves
+      : Array.isArray(any.data)
+      ? any.data
+      : [];
 
-  // ─────────── Lookup échéances impayées de l'élève ───────────
-  // ✅ Plus de `as any` : eleveId est typé dans ListEcheancesParams
-  const { data: echeancesData, isLoading: echeancesLoading } = useEcheances(
-    eleveId
-      ? {
-          eleveId,
-          estPayee: false,
-          limit: 100,
-          sortBy: 'dateLimite',
-          sortOrder: 'asc',
-        }
-      : undefined
-  );
+    return list.filter((e) => {
+      const activeIns = e.inscriptions?.filter((i) => i.estActive) ?? [];
+      if (activeIns.length === 0) return false;
+      if (classeId) {
+        return activeIns.some((i) => i.classeId === classeId);
+      }
+      return true;
+    });
+  }, [elevesData, classeId]);
 
-  const echeances: any[] = useMemo(() => {
-    if (!echeancesData) return [];
-    const any = echeancesData as any;
-    if (Array.isArray(any.echeances)) return any.echeances;
-    if (Array.isArray(any.data)) return any.data;
-    return [];
-  }, [echeancesData]);
-
-  // ─────────── Filtre élèves ───────────
   const filteredEleves = useMemo(() => {
     const q = searchEleve.trim().toLowerCase();
-    if (!q) return eleves.slice(0, 50);
-    return eleves
+    if (!q) return elevesInscrits.slice(0, 50);
+    return elevesInscrits
       .filter((e) => {
         const hay = `${e.prenom} ${e.nom} ${e.matricule}`.toLowerCase();
         return hay.includes(q);
       })
       .slice(0, 50);
-  }, [eleves, searchEleve]);
+  }, [elevesInscrits, searchEleve]);
 
   const selectedEleve = useMemo(
-    () => eleves.find((e) => e.id === eleveId) ?? null,
-    [eleves, eleveId]
+    () => elevesInscrits.find((e) => e.id === eleveId) ?? null,
+    [elevesInscrits, eleveId]
   );
 
-  // Auto-sélection élève via query
+  // ─────────── Assignment actif ───────────
+  const activeAssignment = useMemo(() => {
+    if (!selectedEleve) return null;
+    const any = selectedEleve as any;
+    const list = any.assignmentsScolarite ?? any.assignments ?? [];
+    return list.find((a: any) => a.statut === 'ACTIF') ?? null;
+  }, [selectedEleve]);
+
+  const planScolariteId = activeAssignment?.planScolariteId ?? null;
+
+  // ─────────── Échéances ───────────
+  const { data: echeancesData, isLoading: echeancesLoading } =
+    useEcheancesByPlan(planScolariteId ?? undefined);
+
+  const echeances: any[] = useMemo(() => {
+    if (!echeancesData) return [];
+    const any = echeancesData as any;
+    if (Array.isArray(any?.data?.echeances)) return any.data.echeances;
+    if (Array.isArray(any?.echeances)) return any.echeances;
+    if (Array.isArray(any?.data)) return any.data;
+    return [];
+  }, [echeancesData]);
+
+  const echeancesAvecEtat = useMemo(() => {
+    return echeances.map((e: any) => {
+      const allocationsExistantes = Array.isArray(e.allocationsPaiement)
+        ? e.allocationsPaiement
+        : Array.isArray(e.allocations)
+        ? e.allocations
+        : [];
+      const montantPaye = allocationsExistantes
+        .filter((a: any) => !a.paiement || a.paiement.statut === 'COMPLET')
+        .reduce((s: number, a: any) => s + (a.montant ?? 0), 0);
+      const montantRestant = Math.max(0, (e.montant ?? 0) - montantPaye);
+      return {
+        ...e,
+        montantPaye,
+        montantRestant,
+        estPayeeCompletement: montantRestant <= 0.01,
+        estPartielle: montantPaye > 0 && montantRestant > 0.01,
+      };
+    });
+  }, [echeances]);
+
+  const echeancesImpayees = useMemo(
+    () =>
+      echeancesAvecEtat.filter(
+        (e: any) =>
+          !e.estPayee && !e.estPayeeCompletement && e.montantRestant > 0.01
+      ),
+    [echeancesAvecEtat]
+  );
+
+  // ─────────── Auto-sélection via query ───────────
   useEffect(() => {
-    if (eleveIdFromQuery && !eleveId) {
-      setEleveId(eleveIdFromQuery);
-    }
+    if (classeIdFromQuery && !classeId) setClasseId(classeIdFromQuery);
+  }, [classeIdFromQuery, classeId]);
+
+  useEffect(() => {
+    if (eleveIdFromQuery && !eleveId) setEleveId(eleveIdFromQuery);
   }, [eleveIdFromQuery, eleveId]);
 
-  // ─────────── Handlers ───────────
+  // ─────────── Handlers classe ───────────
+  const handleSelectClasse = (c: any) => {
+    setClasseId(c.id);
+    setSearchClasse(`${c.nom} (${c.code})`);
+    setShowClasseDropdown(false);
+    setEleveId('');
+    setSearchEleve('');
+    setAllocations([]);
+    setMontant(0);
+    setErrors((x) => ({ ...x, eleveId: '', classeId: '' }));
+  };
+
+  const handleClearClasse = () => {
+    setClasseId('');
+    setSearchClasse('');
+    setEleveId('');
+    setSearchEleve('');
+    setAllocations([]);
+    setMontant(0);
+  };
+
+  // ─────────── Handlers élève ───────────
   const handleSelectEleve = (e: Eleve) => {
     setEleveId(e.id);
     setSearchEleve(`${e.prenom} ${e.nom}`);
@@ -138,53 +247,151 @@ const PaiementNouveauPage: React.FC = () => {
     setMontant(0);
   };
 
+  // ─────────── Allocations ───────────
+
+  /**
+   * Plafond d'une allocation :
+   * = min(montantRestant échéance, montant du paiement dispo hors autres allocations)
+   */
+  const getPlafond = (
+    echeance: any,
+    allocationsActuelles: AllocationInput[],
+    montantPaiement: number,
+    echeanceIdEnCours?: string
+  ): number => {
+    const autresAllocations = allocationsActuelles
+      .filter((a) => a.echeanceId !== echeanceIdEnCours)
+      .reduce((s, a) => s + a.montant, 0);
+    const montantDisponible = Math.max(0, montantPaiement - autresAllocations);
+    return Math.min(echeance.montantRestant, montantDisponible);
+  };
+
+  /**
+   * 🆕 Coche une échéance :
+   * - Ajoute une allocation initiale = min(montantRestant, montant total allouable)
+   * - Si le montant du paiement est vide (0), on l'initialise au montant de l'échéance
+   */
   const addAllocation = (echeanceId: string) => {
-    const echeance = echeances.find((e: any) => e.id === echeanceId);
+    const echeance = echeancesImpayees.find((e: any) => e.id === echeanceId);
     if (!echeance) return;
     if (allocations.some((a) => a.echeanceId === echeanceId)) return;
-    const newAlloc = { echeanceId, montant: echeance.montant };
-    setAllocations((prev) => [...prev, newAlloc]);
-    setMontant((prev) => prev + echeance.montant);
+
+    // Si le montant est vide, on l'initialise au montant de l'échéance
+    const montantBase = montant > 0 ? montant : echeance.montantRestant;
+
+    // Calcul du plafond avec les autres allocations déjà posées
+    const autresTotal = allocations.reduce((s, a) => s + a.montant, 0);
+    const plafondDispo = Math.max(0, montantBase - autresTotal);
+    const allocationInitiale = Math.min(echeance.montantRestant, plafondDispo);
+
+    if (allocationInitiale <= 0) {
+      toast.warning(
+        'Montant insuffisant',
+        'Augmentez le montant du paiement pour allouer cette échéance.'
+      );
+      return;
+    }
+
+    setAllocations((prev) => [
+      ...prev,
+      { echeanceId, montant: allocationInitiale },
+    ]);
+
+    // 🆕 Auto-remplissage du montant du paiement si vide
+    if (montant <= 0) {
+      setMontant(allocationInitiale);
+      setErrors((x) => ({ ...x, montant: '' }));
+    }
   };
 
   const removeAllocation = (echeanceId: string) => {
-    const alloc = allocations.find((a) => a.echeanceId === echeanceId);
-    if (!alloc) return;
-    setAllocations((prev) => prev.filter((a) => a.echeanceId !== echeanceId));
-    setMontant((prev) => Math.max(0, prev - alloc.montant));
+    setAllocations((prev) => {
+      const removed = prev.find((a) => a.echeanceId === echeanceId);
+      const next = prev.filter((a) => a.echeanceId !== echeanceId);
+      // Ajuster le montant du paiement si c'était la seule allocation
+      if (next.length === 0 && removed) {
+        setMontant(0);
+      }
+      return next;
+    });
   };
 
   const updateAllocationMontant = (echeanceId: string, newMontant: number) => {
-    const old = allocations.find((a) => a.echeanceId === echeanceId);
-    if (!old) return;
-    const delta = newMontant - old.montant;
+    const echeance = echeancesImpayees.find((e: any) => e.id === echeanceId);
+    if (!echeance) return;
+
+    const plafond = getPlafond(
+      echeance,
+      allocations,
+      montant,
+      echeanceId
+    );
+    const clamped = Math.min(Math.max(0, newMontant), plafond);
+
     setAllocations((prev) =>
       prev.map((a) =>
-        a.echeanceId === echeanceId ? { ...a, montant: newMontant } : a
+        a.echeanceId === echeanceId ? { ...a, montant: clamped } : a
       )
     );
-    setMontant((prev) => Math.max(0, prev + delta));
+  };
+
+  /**
+   * 🆕 Quand l'utilisateur modifie le montant du paiement :
+   * re-clampe les allocations si nécessaire (ne dépasse pas le nouveau montant)
+   */
+  const handleMontantChange = (newMontant: number) => {
+    setMontant(newMontant);
+    setErrors((x) => ({ ...x, montant: '' }));
+
+    // Re-clamper les allocations si la somme dépasse le nouveau montant
+    if (newMontant > 0) {
+      setAllocations((prev) => {
+        let cumul = 0;
+        return prev.map((a) => {
+          const ech = echeancesImpayees.find((e: any) => e.id === a.echeanceId);
+          if (!ech) return a;
+          const dispo = Math.max(0, newMontant - cumul);
+          const nouveau = Math.min(a.montant, ech.montantRestant, dispo);
+          cumul += nouveau;
+          return { ...a, montant: nouveau };
+        });
+      });
+    }
   };
 
   // ─────────── Validation ───────────
   const totalAllocations = allocations.reduce((s, a) => s + a.montant, 0);
-  const ecartAllocations = Math.abs(totalAllocations - montant);
-  const allocationsValides =
-    allocations.length === 0 || ecartAllocations < 0.01;
+  const resteNonAlloue = Math.max(0, montant - totalAllocations);
+  const allocationsValides = totalAllocations <= montant + 0.01;
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
+    if (!classeId) errs.classeId = 'Sélectionnez une classe';
     if (!eleveId) errs.eleveId = 'Sélectionnez un élève';
     if (!montant || montant <= 0) errs.montant = 'Montant invalide';
+    if (!activeAssignment) {
+      errs.eleveId =
+        "Cet élève n'a pas d'assignement de scolarité actif. Vérifiez son inscription.";
+    }
     if (!allocationsValides) {
-      errs.allocations = `Le total des allocations (${formatMontant(
+      errs.allocations = `Le total alloué (${formatMontant(
         totalAllocations
-      )}) doit égaler le montant (${formatMontant(montant)})`;
+      )}) ne peut pas dépasser le montant du paiement (${formatMontant(
+        montant
+      )})`;
+    }
+    for (const alloc of allocations) {
+      const ech = echeancesImpayees.find((e: any) => e.id === alloc.echeanceId);
+      if (ech && alloc.montant > ech.montantRestant + 0.01) {
+        errs.allocations = `L'allocation sur "${ech.nom}" dépasse le restant dû`;
+        break;
+      }
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
+  // ─────────── Submit + redirection ───────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) {
@@ -199,12 +406,48 @@ const PaiementNouveauPage: React.FC = () => {
       referenceMoyen: referenceMoyen.trim() || null,
       notes: notes.trim() || null,
       datePaiement: new Date(datePaiement).toISOString(),
+      assignmentId: activeAssignment?.id ?? null,
       ...(allocations.length > 0 && { allocations }),
     };
 
     try {
-      await createMutation.mutateAsync(payload);
-      navigate('/dashboard/paiements');
+      const res = await createMutation.mutateAsync(payload);
+      const paiement = (res as any)?.data ?? res;
+      const paiementId = paiement?.id;
+
+      if (!paiementId) {
+        navigate('/dashboard/paiements');
+        return;
+      }
+
+      try {
+        const recuRes = await genererRecu.mutateAsync({ paiementId });
+        const recu = (recuRes as any)?.data ?? recuRes;
+        const recuId = recu?.id;
+        const numeroRecu = recu?.numeroRecu;
+
+        if (!recuId) {
+          navigate(`/dashboard/paiements/${paiementId}`);
+          return;
+        }
+
+        if (autoPrint && numeroRecu) {
+          downloadPDF.mutate({
+            id: recuId,
+            numeroRecu,
+            format: 'A4',
+          });
+        }
+
+        toast.success('Paiement enregistré et reçu généré');
+        navigate(`/dashboard/recus/${recuId}`);
+      } catch {
+        toast.warning(
+          'Paiement enregistré',
+          "Le reçu n'a pas pu être généré automatiquement."
+        );
+        navigate(`/dashboard/paiements/${paiementId}`);
+      }
     } catch {
       /* toasté par le hook */
     }
@@ -216,7 +459,6 @@ const PaiementNouveauPage: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
-      {/* En-tête */}
       <div className="flex items-center gap-3">
         <Link
           to="/dashboard/paiements"
@@ -230,7 +472,7 @@ const PaiementNouveauPage: React.FC = () => {
             Nouveau paiement
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            Enregistrer un encaissement pour un élève
+            Sélectionnez une classe puis un élève inscrit
           </p>
         </div>
       </div>
@@ -239,59 +481,70 @@ const PaiementNouveauPage: React.FC = () => {
         onSubmit={handleSubmit}
         className="bg-white rounded-2xl shadow-sm border border-gray-100/50 p-6 md:p-8 space-y-6"
       >
-        {/* ═══════════ ÉLÈVE ═══════════ */}
+        {/* ═══════════ CLASSE ═══════════ */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Élève <span className="text-red-500">*</span>
+            Classe <span className="text-red-500">*</span>
           </label>
 
-          {!selectedEleve ? (
+          {!selectedClasse ? (
             <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Rechercher par nom, prénom, matricule…"
-                value={searchEleve}
+                placeholder="Rechercher une classe (nom, code)…"
+                value={searchClasse}
                 onChange={(e) => {
-                  setSearchEleve(e.target.value);
-                  setShowDropdown(true);
+                  setSearchClasse(e.target.value);
+                  setShowClasseDropdown(true);
                 }}
-                onFocus={() => setShowDropdown(true)}
-                onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
-                className={`w-full pl-10 pr-10 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none ${
-                  errors.eleveId
+                onFocus={() => setShowClasseDropdown(true)}
+                onBlur={() =>
+                  setTimeout(() => setShowClasseDropdown(false), 150)
+                }
+                disabled={classesLoading}
+                className={`w-full pl-10 pr-10 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none disabled:opacity-60 ${
+                  errors.classeId
                     ? 'border-red-300 bg-red-50'
                     : 'border-gray-200'
                 }`}
               />
 
-              {showDropdown && (
+              {classesLoading && (
+                <ArrowPathIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 animate-spin" />
+              )}
+
+              {showClasseDropdown && !classesLoading && (
                 <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-80 overflow-y-auto">
-                  {filteredEleves.length === 0 ? (
+                  {filteredClasses.length === 0 ? (
                     <div className="p-4 text-center text-sm text-gray-500">
-                      Aucun élève trouvé
+                      {searchClasse.trim()
+                        ? 'Aucune classe ne correspond'
+                        : 'Aucune classe disponible'}
                     </div>
                   ) : (
-                    filteredEleves.map((e) => (
+                    filteredClasses.map((c: any) => (
                       <button
-                        key={e.id}
+                        key={c.id}
                         type="button"
                         onMouseDown={(ev) => {
                           ev.preventDefault();
-                          handleSelectEleve(e);
+                          handleSelectClasse(c);
                         }}
                         className="w-full text-left px-3 py-2.5 hover:bg-emerald-50 flex items-center gap-3 border-b last:border-b-0"
                       >
-                        <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-semibold text-sm shrink-0">
-                          {e.prenom[0]}
-                          {e.nom[0]}
+                        <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700 font-semibold text-xs shrink-0">
+                          <AcademicCapIcon className="w-4 h-4" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate">
-                            {e.prenom} {e.nom}
+                            {c.nom}
                           </p>
                           <p className="text-xs text-gray-500 truncate">
-                            {e.matricule}
+                            {c.code}
+                            {c.capacite != null && (
+                              <> — {c.capacite} places</>
+                            )}
                           </p>
                         </div>
                       </button>
@@ -302,25 +555,157 @@ const PaiementNouveauPage: React.FC = () => {
             </div>
           ) : (
             <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
-              <div className="w-10 h-10 rounded-full bg-emerald-600 flex items-center justify-center text-white font-semibold">
-                {selectedEleve.prenom[0]}
-                {selectedEleve.nom[0]}
+              <div className="w-10 h-10 rounded-lg bg-emerald-600 flex items-center justify-center text-white shrink-0">
+                <AcademicCapIcon className="w-5 h-5" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-gray-900">
-                  {selectedEleve.prenom} {selectedEleve.nom}
+                  {selectedClasse.nom}
                 </p>
                 <p className="text-xs text-gray-600">
-                  {selectedEleve.matricule}
+                  {selectedClasse.code}
+                  {selectedClasse.capacite != null && (
+                    <> — {selectedClasse.capacite} places</>
+                  )}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={handleClearEleve}
+                onClick={handleClearClasse}
                 className="p-1.5 text-gray-500 hover:bg-white rounded-lg"
+                title="Changer de classe"
               >
                 <XMarkIcon className="w-4 h-4" />
               </button>
+            </div>
+          )}
+
+          {errors.classeId && (
+            <p className="text-xs text-red-600 mt-1.5">{errors.classeId}</p>
+          )}
+          {selectedClasse && !classesLoading && (
+            <p className="text-xs text-gray-500 mt-1.5 flex items-center gap-1">
+              <InformationCircleIcon className="w-3.5 h-3.5" />
+              {elevesInscrits.length} élève(s) inscrit(s) dans cette classe
+            </p>
+          )}
+        </div>
+
+        {/* ═══════════ ÉLÈVE ═══════════ */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Élève inscrit <span className="text-red-500">*</span>
+          </label>
+
+          {!selectedEleve ? (
+            <div className="relative">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10 pointer-events-none" />
+              <input
+                type="text"
+                placeholder={
+                  classeId
+                    ? 'Rechercher dans cette classe…'
+                    : "Sélectionnez d'abord une classe"
+                }
+                value={searchEleve}
+                onChange={(e) => {
+                  setSearchEleve(e.target.value);
+                  setShowDropdown(true);
+                }}
+                onFocus={() => setShowDropdown(true)}
+                onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+                disabled={!classeId}
+                className={`w-full pl-10 pr-10 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none disabled:opacity-60 disabled:cursor-not-allowed ${
+                  errors.eleveId
+                    ? 'border-red-300 bg-red-50'
+                    : 'border-gray-200'
+                }`}
+              />
+
+              {showDropdown && classeId && (
+                <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-80 overflow-y-auto">
+                  {filteredEleves.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-gray-500">
+                      {searchEleve.trim()
+                        ? 'Aucun élève ne correspond'
+                        : 'Aucun élève inscrit dans cette classe'}
+                    </div>
+                  ) : (
+                    filteredEleves.map((e) => {
+                      const ins = e.inscriptions?.find(
+                        (i) => i.estActive && i.classeId === classeId
+                      );
+                      return (
+                        <button
+                          key={e.id}
+                          type="button"
+                          onMouseDown={(ev) => {
+                            ev.preventDefault();
+                            handleSelectEleve(e);
+                          }}
+                          className="w-full text-left px-3 py-2.5 hover:bg-emerald-50 flex items-center gap-3 border-b last:border-b-0"
+                        >
+                          <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-semibold text-sm shrink-0">
+                            {e.prenom[0]}
+                            {e.nom[0]}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {e.prenom} {e.nom}
+                            </p>
+                            <p className="text-xs text-gray-500 truncate">
+                              {e.matricule}
+                              {ins?.classe && <> — {ins.classe.nom}</>}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                <div className="w-10 h-10 rounded-full bg-emerald-600 flex items-center justify-center text-white font-semibold">
+                  {selectedEleve.prenom[0]}
+                  {selectedEleve.nom[0]}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-gray-900">
+                    {selectedEleve.prenom} {selectedEleve.nom}
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    {selectedEleve.matricule}
+                    {activeAssignment?.planScolarite && (
+                      <>
+                        {' — '}
+                        <span className="font-medium text-emerald-700">
+                          {activeAssignment.planScolarite.nom}
+                        </span>
+                      </>
+                    )}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleClearEleve}
+                  className="p-1.5 text-gray-500 hover:bg-white rounded-lg"
+                >
+                  <XMarkIcon className="w-4 h-4" />
+                </button>
+              </div>
+
+              {!activeAssignment && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+                  <ExclamationTriangleIcon className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                  <p className="text-xs text-amber-800">
+                    Cet élève n'a pas d'assignement de scolarité actif. Vérifiez
+                    son inscription et le plan de scolarité associé.
+                  </p>
+                </div>
+              )}
             </div>
           )}
           {errors.eleveId && (
@@ -341,10 +726,7 @@ const PaiementNouveauPage: React.FC = () => {
                 min={0}
                 step="0.01"
                 value={montant || ''}
-                onChange={(e) => {
-                  setMontant(Number(e.target.value));
-                  setErrors((x) => ({ ...x, montant: '' }));
-                }}
+                onChange={(e) => handleMontantChange(Number(e.target.value))}
                 placeholder="0"
                 className={`w-full pl-10 pr-16 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none ${
                   errors.montant
@@ -393,7 +775,6 @@ const PaiementNouveauPage: React.FC = () => {
               className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
             />
           </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Date du paiement
@@ -409,15 +790,15 @@ const PaiementNouveauPage: React.FC = () => {
         </div>
 
         {/* ═══════════ ALLOCATIONS ═══════════ */}
-        {selectedEleve && (
+        {selectedEleve && activeAssignment && (
           <div className="border-t border-gray-100 pt-6">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
                 <ReceiptPercentIcon className="w-4 h-4 text-indigo-500" />
-                Allocations aux échéances
+                Échéances impayées
               </h3>
               <p className="text-xs text-gray-500">
-                {allocations.length} / {echeances.length} sélectionnée(s)
+                {allocations.length} / {echeancesImpayees.length} sélectionnée(s)
               </p>
             </div>
 
@@ -426,25 +807,34 @@ const PaiementNouveauPage: React.FC = () => {
                 <ArrowPathIcon className="w-4 h-4 animate-spin" />
                 Chargement des échéances…
               </div>
-            ) : echeances.length === 0 ? (
-              <p className="text-xs text-gray-500">
-                Aucune échéance impayée pour cet élève.
-              </p>
+            ) : echeancesImpayees.length === 0 ? (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-start gap-2">
+                <CheckCircleIcon className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                <p className="text-xs text-emerald-800">
+                  Toutes les échéances sont déjà payées pour cet élève.
+                </p>
+              </div>
             ) : (
               <div className="space-y-2">
-                {echeances.map((e: any) => {
+                {echeancesImpayees.map((e: any) => {
                   const isAllocated = allocations.some(
                     (a) => a.echeanceId === e.id
                   );
                   const alloc = allocations.find(
                     (a) => a.echeanceId === e.id
                   );
+                  const plafond = getPlafond(e, allocations, montant, e.id);
+                  const nonAllouable =
+                    !isAllocated && plafond <= 0 && montant > 0;
+
                   return (
                     <div
                       key={e.id}
                       className={`p-3 rounded-lg border ${
                         isAllocated
                           ? 'bg-indigo-50 border-indigo-200'
+                          : nonAllouable
+                          ? 'bg-gray-100 border-gray-200 opacity-60'
                           : 'bg-gray-50 border-gray-200'
                       }`}
                     >
@@ -456,19 +846,36 @@ const PaiementNouveauPage: React.FC = () => {
                             if (ev.target.checked) addAllocation(e.id);
                             else removeAllocation(e.id);
                           }}
-                          className="w-4 h-4 rounded"
+                          disabled={nonAllouable}
+                          className="w-4 h-4 rounded disabled:cursor-not-allowed"
                         />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">
-                            {e.nom}
-                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {e.nom}
+                            </p>
+                            {e.estPartielle && (
+                              <span className="text-[10px] font-bold uppercase text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+                                Partielle
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-gray-500">
-                            Échéance :{' '}
+                            Limite :{' '}
                             {new Date(e.dateLimite).toLocaleDateString(
                               'fr-FR'
                             )}
                             {' — '}
-                            Montant : {formatMontant(e.montant)} XOF
+                            Restant :{' '}
+                            <strong>
+                              {formatMontant(e.montantRestant)} XOF
+                            </strong>
+                            {e.montantPaye > 0 && (
+                              <>
+                                {' '}
+                                (déjà payé {formatMontant(e.montantPaye)})
+                              </>
+                            )}
                           </p>
                         </div>
                         {isAllocated && alloc && (
@@ -477,7 +884,7 @@ const PaiementNouveauPage: React.FC = () => {
                               type="number"
                               min={0}
                               step="0.01"
-                              max={e.montant}
+                              max={plafond}
                               value={alloc.montant}
                               onChange={(ev) =>
                                 updateAllocationMontant(
@@ -497,38 +904,74 @@ const PaiementNouveauPage: React.FC = () => {
               </div>
             )}
 
+            {/* Résumé allocations */}
             {allocations.length > 0 && (
               <div
-                className={`mt-3 p-3 rounded-lg flex items-start gap-2 ${
+                className={`mt-3 p-3 rounded-lg flex items-start gap-2 border ${
                   allocationsValides
-                    ? 'bg-emerald-50 border border-emerald-200'
-                    : 'bg-red-50 border border-red-200'
+                    ? resteNonAlloue > 0
+                      ? 'bg-blue-50 border-blue-200'
+                      : 'bg-emerald-50 border-emerald-200'
+                    : 'bg-red-50 border-red-200'
                 }`}
               >
-                {allocationsValides ? (
-                  <CheckCircleIcon className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
-                ) : (
+                {!allocationsValides ? (
                   <ExclamationTriangleIcon className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
+                ) : resteNonAlloue > 0 ? (
+                  <InformationCircleIcon className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                ) : (
+                  <CheckCircleIcon className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
                 )}
-                <div className="flex-1 text-xs">
+                <div className="flex-1 text-xs space-y-0.5">
                   <p
                     className={`font-semibold ${
-                      allocationsValides
-                        ? 'text-emerald-800'
-                        : 'text-red-800'
+                      !allocationsValides
+                        ? 'text-red-800'
+                        : resteNonAlloue > 0
+                        ? 'text-blue-800'
+                        : 'text-emerald-800'
                     }`}
                   >
                     Total alloué : {formatMontant(totalAllocations)} XOF
                   </p>
                   {!allocationsValides && (
-                    <p className="text-red-700 mt-0.5">
-                      Doit égaler le montant du paiement (
+                    <p className="text-red-700">
+                      Dépasse le montant du paiement (
                       {formatMontant(montant)} XOF)
+                    </p>
+                  )}
+                  {allocationsValides && resteNonAlloue > 0 && (
+                    <p className="text-blue-700">
+                      Reste <strong>{formatMontant(resteNonAlloue)} XOF</strong>{' '}
+                      non alloué → comptabilisé comme <strong>acompte</strong>
+                    </p>
+                  )}
+                  {allocationsValides && resteNonAlloue === 0 && (
+                    <p className="text-emerald-700">
+                      Toutes les allocations correspondent au montant payé
                     </p>
                   )}
                 </div>
               </div>
             )}
+
+            {/* Acompte pur (aucune allocation) */}
+            {allocations.length === 0 && montant > 0 && (
+              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2">
+                <InformationCircleIcon className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                <div className="flex-1 text-xs">
+                  <p className="font-semibold text-blue-800">
+                    Aucune allocation sélectionnée
+                  </p>
+                  <p className="text-blue-700 mt-0.5">
+                    Le montant de {formatMontant(montant)} XOF sera enregistré
+                    comme <strong>acompte</strong> (non affecté à une échéance
+                    précise).
+                  </p>
+                </div>
+              </div>
+            )}
+
             {errors.allocations && (
               <p className="text-xs text-red-600 mt-1.5">
                 {errors.allocations}
@@ -552,12 +995,11 @@ const PaiementNouveauPage: React.FC = () => {
           />
         </div>
 
-        {/* Info */}
         <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg flex items-start gap-2">
-          <InformationCircleIcon className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+          <DocumentTextIcon className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
           <p className="text-xs text-blue-800">
-            Un reçu sera généré automatiquement. Le paiement peut être annulé
-            depuis la page de détail.
+            Après validation, un reçu sera généré automatiquement et vous serez
+            redirigé vers sa page de détail pour impression.
           </p>
         </div>
 
@@ -573,21 +1015,26 @@ const PaiementNouveauPage: React.FC = () => {
             type="submit"
             disabled={
               createMutation.isPending ||
+              genererRecu.isPending ||
+              !classeId ||
               !eleveId ||
               montant <= 0 ||
-              !allocationsValides
+              !allocationsValides ||
+              !activeAssignment
             }
             className="inline-flex items-center gap-2 px-6 py-2.5 bg-linear-to-r from-emerald-600 to-teal-600 text-white font-semibold rounded-lg shadow-md hover:shadow-lg disabled:opacity-60"
           >
-            {createMutation.isPending ? (
+            {createMutation.isPending || genererRecu.isPending ? (
               <>
                 <ArrowPathIcon className="w-4 h-4 animate-spin" />
-                Enregistrement…
+                {createMutation.isPending
+                  ? 'Enregistrement…'
+                  : 'Génération du reçu…'}
               </>
             ) : (
               <>
                 <CheckCircleIcon className="w-4 h-4" />
-                Enregistrer le paiement
+                Enregistrer et imprimer
               </>
             )}
           </button>

@@ -5,6 +5,7 @@
 generator client {
   provider = "prisma-client-js"
   output   = "../../prisma/generated/tenants/${SCHEMA_NAME}-client"
+  previewFeatures = ["multiSchema"] 
 }
 
 datasource db {
@@ -118,6 +119,7 @@ model Utilisateur {
 
   @@index([role])
   @@map("utilisateurs")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum RoleUtilisateur {
@@ -129,6 +131,7 @@ enum RoleUtilisateur {
   ELEVE
   ADMIN
   BIBLIOTHECAIRE
+  @@schema("${SCHEMA_NAME}")
 }
 
 // ============ PARAMETRES DU TENANT ============
@@ -146,6 +149,7 @@ model ParametreTenant {
 
   @@index([categorie])
   @@map("parametres")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum TypeParametre {
@@ -155,6 +159,7 @@ enum TypeParametre {
   JSON
   ARRAY
   DATE
+  @@schema("${SCHEMA_NAME}")
 }
 
 // ============ ADMINISTRATEURS ET DIRECTEURS ============
@@ -171,11 +176,13 @@ model Admin {
   utilisateur     Utilisateur   @relation(fields: [utilisateurId], references: [id])
 
   @@map("admins")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum NiveauAdmin {
   ADMIN_SYSTEME
   ADMIN_ETABLISSEMENT
+  @@schema("${SCHEMA_NAME}")
 }
 
 model Directeur {
@@ -189,6 +196,7 @@ model Directeur {
   utilisateur     Utilisateur   @relation(fields: [utilisateurId], references: [id])
 
   @@map("directeurs")
+  @@schema("${SCHEMA_NAME}")
 }
 
 // ============ PARENTS ============
@@ -208,6 +216,7 @@ model Parent {
   messagesChat        ChatMessage[]
 
   @@map("parents")
+  @@schema("${SCHEMA_NAME}")
 }
 
 model ParentEleve {
@@ -225,6 +234,7 @@ model ParentEleve {
 
   @@unique([parentId, eleveId])
   @@map("parent_eleve")
+  @@schema("${SCHEMA_NAME}")
 }
 
 // ============ SURVEILLANTS ============
@@ -255,6 +265,7 @@ model Surveillant {
   presences        PresenceSurveillant[]
 
   @@map("surveillants")
+  @@schema("${SCHEMA_NAME}")
 }
 
 // ============ ANNEE SCOLAIRE ET NIVEAUX ============
@@ -281,6 +292,7 @@ model AnneeScolaire {
   objectifs       Objectif[]
 
   @@map("annees_scolaires")
+  @@schema("${SCHEMA_NAME}")
 }
 
 model Periode {
@@ -303,12 +315,14 @@ model Periode {
   objectifs       Objectif[]
 
   @@map("periodes")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum TypePeriode {
   TRIMESTRE
   SEMESTRE
   BULLETIN
+  @@schema("${SCHEMA_NAME}")
 }
 
 model Niveau {
@@ -326,6 +340,7 @@ model Niveau {
   reglesEvaluation RegleEvaluation[]
 
   @@map("niveaux")
+  @@schema("${SCHEMA_NAME}")
 }
 
 // ============ CLASSES ET MATIERES ============
@@ -355,6 +370,7 @@ model Classe {
   objectifs       Objectif[]
 
   @@map("classes")
+  @@schema("${SCHEMA_NAME}")
 }
 
 model Matiere {
@@ -380,6 +396,7 @@ model Matiere {
   groupesTD        GroupeTD[]
 
   @@map("matieres")
+  @@schema("${SCHEMA_NAME}")
 }
 
 // ============ ELEVES ============
@@ -436,6 +453,7 @@ model Eleve {
   @@index([statut])
   @@index([nom, prenom])
   @@map("eleves")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum StatutEleve {
@@ -444,6 +462,7 @@ enum StatutEleve {
   SORTI
   SUSPENDU
   ARCHIVE
+  @@schema("${SCHEMA_NAME}")
 }
 
 model Responsable {
@@ -463,6 +482,7 @@ model Responsable {
   eleve        Eleve    @relation(fields: [eleveId], references: [id])
 
   @@map("responsables")
+  @@schema("${SCHEMA_NAME}")
 }
 
 model Inscription {
@@ -481,6 +501,7 @@ model Inscription {
 
   @@unique([eleveId, classeId, anneeScolaireId])
   @@map("inscriptions")
+  @@schema("${SCHEMA_NAME}")
 }
 
 // ============ ENSEIGNANTS ============
@@ -535,6 +556,7 @@ model Enseignant {
   @@index([estActif])
   @@index([nom, prenom])
   @@map("enseignants")
+  @@schema("${SCHEMA_NAME}")
 }
 
 model AffectationEnseignant {
@@ -558,6 +580,7 @@ model AffectationEnseignant {
 
   @@unique([enseignantId, classeId, matiereId, anneeScolaireId])
   @@map("affectations_enseignants")
+  @@schema("${SCHEMA_NAME}")
 }
 
 // ============ EMPLOI DU TEMPS ============
@@ -587,6 +610,7 @@ model EmploiTemps {
   anneeScolaire   AnneeScolaire? @relation(fields: [anneeScolaireId], references: [id])
 
   @@map("emplois_temps")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum JourSemaine {
@@ -597,6 +621,7 @@ enum JourSemaine {
   VENDREDI
   SAMEDI
   DIMANCHE
+  @@schema("${SCHEMA_NAME}")
 }
 
 // ============ PRESENCE ENSEIGNANTS ============
@@ -618,6 +643,7 @@ model Presence {
 
   @@unique([enseignantId, date])
   @@map("presences")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum StatutPresence {
@@ -627,6 +653,7 @@ enum StatutPresence {
   EXCUSE
   CONGE
   FORMATION
+  @@schema("${SCHEMA_NAME}")
 }
 
 model PresenceSurveillant {
@@ -644,6 +671,7 @@ model PresenceSurveillant {
 
   @@unique([surveillantId, date])
   @@map("presences_surveillants")
+  @@schema("${SCHEMA_NAME}")
 }
 
 model HeureSupp {
@@ -664,6 +692,7 @@ model HeureSupp {
   approbateur  Utilisateur?  @relation("HeureSuppApprobateur", fields: [approuvePar], references: [id])
 
   @@map("heures_supp")
+  @@schema("${SCHEMA_NAME}")
 }
 
 // ============ PRESENCE ET ABSENCE ELEVES ============
@@ -688,6 +717,7 @@ model PresenceEleve {
   @@unique([eleveId, date])
   @@index([classeId, date])
   @@map("presences_eleves")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum StatutPresenceEleve {
@@ -696,6 +726,7 @@ enum StatutPresenceEleve {
   RETARD
   EXCUSE
   SORTIE_ANTICIPEE
+  @@schema("${SCHEMA_NAME}")
 }
 
 model AbsenceEleve {
@@ -717,6 +748,7 @@ model AbsenceEleve {
   eleve            Eleve            @relation(fields: [eleveId], references: [id])
 
   @@map("absences_eleves")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum TypeAbsenceEleve {
@@ -725,6 +757,7 @@ enum TypeAbsenceEleve {
   VOYAGE
   DISPENSE
   AUTRE
+  @@schema("${SCHEMA_NAME}")
 }
 
 // ============ ABSENCES, AVANCES, RECLAMATIONS ============
@@ -748,6 +781,7 @@ model Absence {
   approbateur  Utilisateur?  @relation("AbsenceApprobateur", fields: [approuvePar], references: [id])
 
   @@map("absences")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum TypeAbsence {
@@ -758,6 +792,7 @@ enum TypeAbsence {
   PERSONNELLE
   NON_PAYEE
   FORMATION
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum StatutDemande {
@@ -766,6 +801,7 @@ enum StatutDemande {
   APPROUVEE
   REJETEE
   ANNULEE
+  @@schema("${SCHEMA_NAME}")
 }
 
 model Avance {
@@ -787,6 +823,7 @@ model Avance {
   approbateur        Utilisateur?  @relation("AvanceApprobateur", fields: [approuvePar], references: [id])
 
   @@map("avances")
+  @@schema("${SCHEMA_NAME}")
 }
 
 model Reclamation {
@@ -808,6 +845,7 @@ model Reclamation {
   assigneUtilisateur Utilisateur?      @relation("ReclamationAssignee", fields: [assigneA], references: [id])
 
   @@map("reclamations")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum Priorite {
@@ -815,6 +853,7 @@ enum Priorite {
   MOYENNE
   HAUTE
   CRITIQUE
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum StatutReclamation {
@@ -822,6 +861,7 @@ enum StatutReclamation {
   EN_COURS
   RESOLUE
   FERMEE
+  @@schema("${SCHEMA_NAME}")
 }
 
 // ============ SCOLARITE ET PAIEMENTS ============
@@ -849,6 +889,7 @@ model PlanScolarite {
   assignments      AssignmentScolarite[]
 
   @@map("plans_scolarite")
+  @@schema("${SCHEMA_NAME}")
 }
 
 model Echeance {
@@ -866,6 +907,7 @@ model Echeance {
   allocationsPaiement AllocationPaiement[]
 
   @@map("echeances")
+  @@schema("${SCHEMA_NAME}")
 }
 
 model AssignmentScolarite {
@@ -888,6 +930,7 @@ model AssignmentScolarite {
 
   @@unique([eleveId, planScolariteId, anneeScolaireId])
   @@map("assignments_scolarite")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum StatutScolarite {
@@ -895,6 +938,7 @@ enum StatutScolarite {
   COMPLET
   ANNULE
   EN_RETARD
+  @@schema("${SCHEMA_NAME}")
 }
 
 model Reduction {
@@ -914,11 +958,13 @@ model Reduction {
   approbateur           Utilisateur         @relation("ReductionApprobateur", fields: [approuvePar], references: [id])
 
   @@map("reductions")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum TypeReduction {
   FIXE
   POURCENTAGE
+  @@schema("${SCHEMA_NAME}")
 }
 
 model Paiement {
@@ -950,6 +996,7 @@ model Paiement {
   @@index([datePaiement])
   @@index([statut])
   @@map("paiements")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum MoyenPaiement {
@@ -959,12 +1006,14 @@ enum MoyenPaiement {
   CARTE
   CHEQUE
   AUTRE
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum StatutPaiement {
   COMPLET
   ANNULE
   REMBOURSE
+  @@schema("${SCHEMA_NAME}")
 }
 
 model AllocationPaiement {
@@ -979,6 +1028,7 @@ model AllocationPaiement {
 
   @@unique([paiementId, echeanceId])
   @@map("allocations_paiement")
+  @@schema("${SCHEMA_NAME}")
 }
 model Recu {
   id                 String        @id @default(cuid())
@@ -994,7 +1044,7 @@ model Recu {
   soldeApres         Float
   generePar          String
   cheminPDF          String?
-  
+  detailsFinanciers Json? 
   // 🆕 SNAPSHOT ÉTABLISSEMENT (figé au moment de l'émission)
   etablissementNom      String
   etablissementLogo     String?
@@ -1051,6 +1101,7 @@ model Recu {
   @@index([codeVerification])
   @@index([datePaiement])
   @@map("recus")
+  @@schema("${SCHEMA_NAME}")
 }
 // ============ NOTES ET BULLETINS ============
 
@@ -1074,6 +1125,7 @@ model RegleEvaluation {
   notes           Note[]
 
   @@map("regles_evaluation")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum TypeEvaluation {
@@ -1084,6 +1136,7 @@ enum TypeEvaluation {
   PROJET
   PARTICIPATION
   COMPOSITION
+  @@schema("${SCHEMA_NAME}")
 }
 
 model Note {
@@ -1121,6 +1174,7 @@ model Note {
   @@index([saisiePar])
   @@index([estValide])
   @@map("notes")
+  @@schema("${SCHEMA_NAME}")
 }
 
 model Appreciation {
@@ -1140,6 +1194,7 @@ model Appreciation {
   auteur    Utilisateur      @relation("AppreciationAuteur", fields: [auteurId], references: [id])
 
   @@map("appreciations")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum TypeAppreciation {
@@ -1147,6 +1202,7 @@ enum TypeAppreciation {
   PAR_MATIERE
   COMPORTEMENT
   PROGRESSION
+  @@schema("${SCHEMA_NAME}")
 }
 
 model Bulletin {
@@ -1181,6 +1237,7 @@ model Bulletin {
   @@unique([eleveId, periodeId, anneeScolaireId])
   @@index([eleveId, periodeId])
   @@map("bulletins")
+  @@schema("${SCHEMA_NAME}")
 }
 
 // ============ PAIE ET SALAIRES ============
@@ -1197,6 +1254,7 @@ model PeriodePaie {
   paies       Paie[]
 
   @@map("periodes_paie")
+  @@schema("${SCHEMA_NAME}")
 }
 
 model Paie {
@@ -1225,6 +1283,7 @@ model Paie {
   approbateur       Utilisateur?  @relation("PaieApprobateur", fields: [approuvePar], references: [id])
 
   @@map("paies")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum StatutPaie {
@@ -1233,6 +1292,7 @@ enum StatutPaie {
   APPROUVEE
   PAYEE
   ANNULEE
+  @@schema("${SCHEMA_NAME}")
 }
 
 model HistoriqueSalaire {
@@ -1249,6 +1309,7 @@ model HistoriqueSalaire {
   approbateur    Utilisateur @relation("HistoriqueSalaireApprobateur", fields: [approuvePar], references: [id])
 
   @@map("historiques_salaire")
+  @@schema("${SCHEMA_NAME}")
 }
 
 // ============ NOTIFICATIONS ET LOGS ============
@@ -1270,6 +1331,7 @@ model Notification {
 
   @@index([utilisateurId, lue])
   @@map("notifications")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum TypeNotification {
@@ -1302,6 +1364,7 @@ enum TypeNotification {
   GROUPE_TD
   ABSENCE_ELEVE
   CONVOCATION
+  @@schema("${SCHEMA_NAME}")
 }
 
 model LogEmail {
@@ -1318,12 +1381,14 @@ model LogEmail {
   utilisateur   Utilisateur? @relation(fields: [utilisateurId], references: [id])
 
   @@map("logs_email")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum StatutEmail {
   EN_ATTENTE
   ENVOYE
   ECHEC
+  @@schema("${SCHEMA_NAME}")
 }
 
 model LogAudit {
@@ -1351,12 +1416,14 @@ model LogAudit {
   @@index([action])
   @@index([createdAt])
   @@map("logs_audit")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum StatutAudit {
   SUCCES
   ECHEC
   ATTENTE
+  @@schema("${SCHEMA_NAME}")
 }
 
 // ============ MESSAGERIE ============
@@ -1382,6 +1449,7 @@ model Message {
   @@index([expediteurId])
   @@index([envoyeLe])
   @@map("messages")
+  @@schema("${SCHEMA_NAME}")
 }
 
 model MessageDestinataire {
@@ -1400,6 +1468,7 @@ model MessageDestinataire {
   @@unique([messageId, destinataireId])
   @@index([destinataireId, lu])
   @@map("messages_destinataires")
+  @@schema("${SCHEMA_NAME}")
 }
 
 model MessageReponse {
@@ -1414,6 +1483,7 @@ model MessageReponse {
   auteur      Utilisateur @relation(fields: [auteurId], references: [id])
 
   @@map("messages_reponses")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum TypeMessage {
@@ -1423,6 +1493,7 @@ enum TypeMessage {
   INFORMATION
   DEMANDE
   REPONSE
+  @@schema("${SCHEMA_NAME}")
 }
 
 model Communique {
@@ -1450,6 +1521,7 @@ model Communique {
   @@index([estPublie])
   @@index([datePublication])
   @@map("communiques")
+  @@schema("${SCHEMA_NAME}")
 }
 
 model CommuniqueVu {
@@ -1464,6 +1536,7 @@ model CommuniqueVu {
 
   @@unique([communiqueId, utilisateurId])
   @@map("communiques_vus")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum TypeCommunique {
@@ -1474,6 +1547,7 @@ enum TypeCommunique {
   VACANCES
   EXAMEN
   ADMINISTRATIF
+  @@schema("${SCHEMA_NAME}")
 }
 
 // ============ CHAT ============
@@ -1490,6 +1564,7 @@ model Conversation {
   messages     ChatMessage[]
 
   @@map("conversations")
+  @@schema("${SCHEMA_NAME}")
 }
 
 model ConversationParticipant {
@@ -1512,6 +1587,7 @@ model ConversationParticipant {
 
   @@unique([conversationId, utilisateurId])
   @@map("conversations_participants")
+  @@schema("${SCHEMA_NAME}")
 }
 
 model ChatMessage {
@@ -1538,6 +1614,7 @@ model ChatMessage {
   @@index([conversationId])
   @@index([createdAt])
   @@map("chat_messages")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum TypeConversation {
@@ -1546,6 +1623,7 @@ enum TypeConversation {
   CLASSE
   MATIERE
   ADMINISTRATION
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum TypeChatMessage {
@@ -1555,6 +1633,7 @@ enum TypeChatMessage {
   AUDIO
   VIDEO
   SYSTEME
+  @@schema("${SCHEMA_NAME}")
 }
 
 // ============ DOCUMENTS ============
@@ -1586,6 +1665,7 @@ model Document {
   @@index([type])
   @@index([matiereId])
   @@map("documents")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum TypeDocument {
@@ -1599,6 +1679,7 @@ enum TypeDocument {
   ANNALE
   ADMINISTRATIF
   AUTRE
+  @@schema("${SCHEMA_NAME}")
 }
 
 // ============ OBJECTIFS ============
@@ -1636,6 +1717,7 @@ model Objectif {
   @@index([eleveId])
   @@index([classeId])
   @@map("objectifs")
+  @@schema("${SCHEMA_NAME}")
 }
 
 model ObjectifSuivi {
@@ -1652,6 +1734,7 @@ model ObjectifSuivi {
   utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id])
 
   @@map("objectifs_suivis")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum TypeObjectif {
@@ -1663,6 +1746,7 @@ enum TypeObjectif {
   DEVOIRS
   PARTICIPATION
   PERSONNALISE
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum StatutObjectif {
@@ -1671,6 +1755,7 @@ enum StatutObjectif {
   NON_ATTEINT
   ABANDONNE
   EN_PAUSE
+  @@schema("${SCHEMA_NAME}")
 }
 
 // ============ GROUPES TD ============
@@ -1711,6 +1796,7 @@ model GroupeTD {
 
   @@index([enseignantId])
   @@map("groupes_td")
+  @@schema("${SCHEMA_NAME}")
 }
 
 model MembreGroupeTD {
@@ -1730,6 +1816,7 @@ model MembreGroupeTD {
 
   @@unique([groupeTDId, eleveId])
   @@map("membres_groupe_td")
+  @@schema("${SCHEMA_NAME}")
 }
 
 model PaiementGroupeTD {
@@ -1747,6 +1834,7 @@ model PaiementGroupeTD {
   groupeTD      GroupeTD      @relation(fields: [groupeTDId], references: [id])
 
   @@map("paiements_groupe_td")
+  @@schema("${SCHEMA_NAME}")
 }
 
 model SeanceTD {
@@ -1766,6 +1854,7 @@ model SeanceTD {
   groupeTD        GroupeTD @relation(fields: [groupeTDId], references: [id])
 
   @@map("seances_td")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum StatutMembreTD {
@@ -1773,6 +1862,7 @@ enum StatutMembreTD {
   INACTIF
   SUSPENDU
   TERMINE
+  @@schema("${SCHEMA_NAME}")
 }
 
 // ============ BIBLIOTHEQUE ============
@@ -1788,6 +1878,7 @@ model CategorieLivre {
   livres      Livre[]
 
   @@map("categories_livres")
+  @@schema("${SCHEMA_NAME}")
 }
 
 model Livre {
@@ -1816,6 +1907,7 @@ model Livre {
   @@index([titre])
   @@index([isbn])
   @@map("livres")
+  @@schema("${SCHEMA_NAME}")
 }
 
 model EmpruntLivre {
@@ -1843,6 +1935,7 @@ model EmpruntLivre {
   @@index([eleveId])
   @@index([statut])
   @@map("emprunts_livres")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum StatutEmprunt {
@@ -1851,6 +1944,7 @@ enum StatutEmprunt {
   EN_RETARD
   PERDU
   ENDOMMAGE
+  @@schema("${SCHEMA_NAME}")
 }
 
 // ============ SURVEILLANCE ET INCIDENTS ============
@@ -1876,6 +1970,7 @@ model Surveillance {
 
   @@index([surveillantId, date])
   @@map("surveillances")
+  @@schema("${SCHEMA_NAME}")
 }
 
 model Incident {
@@ -1910,6 +2005,7 @@ model Incident {
   @@index([statut])
   @@index([eleveId])
   @@map("incidents")
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum TypeSurveillance {
@@ -1921,6 +2017,7 @@ enum TypeSurveillance {
   EXAMEN
   ACTIVITE
   NUIT
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum TypeIncident {
@@ -1934,6 +2031,7 @@ enum TypeIncident {
   INSUBORDINATION
   HARCELEMENT
   AUTRE
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum GraviteIncident {
@@ -1941,6 +2039,7 @@ enum GraviteIncident {
   MODERE
   GRAVE
   TRES_GRAVE
+  @@schema("${SCHEMA_NAME}")
 }
 
 enum StatutIncident {
@@ -1949,6 +2048,7 @@ enum StatutIncident {
   RESOLU
   FERME
   ESCALADE
+  @@schema("${SCHEMA_NAME}")
 }
 
 // ============ COMMUNICATION ECOLE ============
@@ -1975,4 +2075,5 @@ model Communication {
   @@index([destinataireId, lu])
   @@index([expediteurId])
   @@map("communications")
+  @@schema("${SCHEMA_NAME}")
 }

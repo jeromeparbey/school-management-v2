@@ -3,8 +3,9 @@
 // La variable tenant_etab_test_01 est remplacée à la volée
 
 generator client {
-  provider = "prisma-client-js"
-  output   = "../../prisma/generated/tenants/tenant_etab_test_01-client"
+  provider        = "prisma-client-js"
+  output          = "../../prisma/generated/tenants/tenant_etab_test_01-client"
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
@@ -1048,26 +1049,75 @@ model AllocationPaiement {
 }
 
 model Recu {
-  id                 String        @id @default(cuid())
-  numeroRecu         String        @unique
-  paiementId         String        @unique
-  eleveId            String
-  nomEleve           String
-  nomClasse          String
-  montant            Float
-  datePaiement       DateTime
-  moyenPaiement      MoyenPaiement
-  echeancesCouvertes Json
-  soldeApres         Float
-  generePar          String
-  cheminPDF          String?
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
+  id                     String        @id @default(cuid())
+  numeroRecu             String        @unique
+  paiementId             String        @unique
+  eleveId                String
+  nomEleve               String
+  nomClasse              String
+  montant                Float
+  datePaiement           DateTime
+  moyenPaiement          MoyenPaiement
+  echeancesCouvertes     Json
+  soldeApres             Float
+  generePar              String
+  cheminPDF              String?
+  detailsFinanciers      Json?
+  // 🆕 SNAPSHOT ÉTABLISSEMENT (figé au moment de l'émission)
+  etablissementNom       String
+  etablissementLogo      String?
+  etablissementAdresse   String?
+  etablissementVille     String?
+  etablissementPays      String?
+  etablissementTelephone String?
+  etablissementEmail     String?
+  etablissementSiteWeb   String?
+  etablissementCode      String
+  etablissementAgrement  String?
+  etablissementDevise    String        @default("XOF")
+
+  // 🆕 SNAPSHOT ÉLÈVE (figé)
+  eleveMatricule String
+  elevePrenom    String
+  eleveNom       String
+  eleveSexe      String?
+
+  // 🆕 SNAPSHOT CLASSE
+  classeNom        String?
+  classeCode       String?
+  niveauNom        String?
+  anneeScolaireNom String?
+
+  // 🆕 DÉTAILS FINANCIERS
+  montantPaye        Float
+  montantReduction   Float  @default(0)
+  montantRestant     Float  @default(0)
+  devise             String @default("XOF")
+  referencePaiement  String
+  moyenPaiementLabel String
+
+  // 🆕 MÉTADONNÉES D'IMPRESSION
+  formatImprime      String?   @default("A4") // A4, A5, 80MM
+  cheminPDF_A4       String?
+  cheminPDF_A5       String?
+  cheminPDF_80MM     String?
+  nombreImpressions  Int       @default(0)
+  derniereImpression DateTime?
+
+  // 🆕 VÉRIFICATION
+  codeVerification String  @unique
+  urlVerification  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   paiement   Paiement    @relation(fields: [paiementId], references: [id])
   eleve      Eleve       @relation(fields: [eleveId], references: [id])
   generateur Utilisateur @relation("RecuGenerateur", fields: [generePar], references: [id])
 
+  @@index([numeroRecu])
+  @@index([codeVerification])
+  @@index([datePaiement])
   @@map("recus")
   @@schema("tenant_etab_test_01")
 }

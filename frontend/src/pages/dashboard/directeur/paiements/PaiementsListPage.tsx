@@ -14,21 +14,36 @@ import {
   XMarkIcon,
   ArrowDownTrayIcon,
   ReceiptPercentIcon,
-  UserGroupIcon,
   ExclamationTriangleIcon,
   ChevronUpIcon,
   ChevronDownIcon,
+  DocumentTextIcon,
+  PrinterIcon,
+  ClockIcon,
+  AcademicCapIcon,
 } from '@heroicons/react/24/outline';
 import {
   usePaiements,
   useAnnulerPaiement,
 } from '../../../../hooks/usePaiements';
+import {
+  useDownloadRecuPDF,
+  usePreviewRecuPDF,
+  useGenererRecu,
+} from '../../../../hooks/useRecus';
+import { useClasses } from '../../../../hooks/useClasses';
 import { useToast } from '../../../../context/ToastContext';
 import type {
   ListPaiementsParams,
   MoyenPaiement,
   StatutPaiement,
 } from '../../../../types/paiement.types';
+
+// ──────────────────────────────────────────
+// DEVISE (centralisée)
+// ──────────────────────────────────────────
+
+const DEFAULT_DEVISE = 'F CFA';
 
 // ──────────────────────────────────────────
 // CONSTANTES
@@ -54,8 +69,30 @@ const moyenLabel = (m: MoyenPaiement) =>
 const moyenColor = (m: MoyenPaiement) =>
   MOYENS.find((x) => x.value === m)?.color ?? 'bg-gray-100 text-gray-700';
 
-const formatMontant = (n: number) =>
-  n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+// ──────────────────────────────────────────
+// FORMAT MONÉTAIRE
+// ──────────────────────────────────────────
+
+const formatMontant = (n: number, devise: string = DEFAULT_DEVISE) =>
+  `${n.toLocaleString('fr-FR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })} ${devise}`;
+
+const formatDateHeure = (date: string) => {
+  const d = new Date(date);
+  return {
+    dateStr: d.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }),
+    heureStr: d.toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    }),
+  };
+};
 
 // ──────────────────────────────────────────
 // PAGE
@@ -67,6 +104,9 @@ const PaiementsListPage: React.FC = () => {
 
   // Filtres
   const [search, setSearch] = useState('');
+  const [classeId, setClasseId] = useState('');
+  const [searchClasse, setSearchClasse] = useState('');
+  const [showClasseDropdown, setShowClasseDropdown] = useState(false);
   const [moyen, setMoyen] = useState<MoyenPaiement | ''>('');
   const [statut, setStatut] = useState<StatutPaiement | ''>('COMPLET');
   const [dateDebut, setDateDebut] = useState('');
@@ -83,19 +123,66 @@ const PaiementsListPage: React.FC = () => {
   const [motifAnnulation, setMotifAnnulation] = useState('');
   const annulerMutation = useAnnulerPaiement();
 
+  // Reçu : génération + PDF
+  const genererRecu = useGenererRecu();
+  const downloadPDF = useDownloadRecuPDF();
+  const previewPDF = usePreviewRecuPDF();
+
+  // Classes pour le filtre
+  const { data: classesData, isLoading: classesLoading } = useClasses({
+    limit: 200,
+  });
+  const classes = useMemo(() => {
+    if (!classesData) return [];
+    const any = classesData as any;
+    if (Array.isArray(any.classes)) return any.classes;
+    if (Array.isArray(any.data)) return any.data;
+    return [];
+  }, [classesData]);
+
+  const filteredClasses = useMemo(() => {
+    const q = searchClasse.trim().toLowerCase();
+    if (!q) return classes.slice(0, 50);
+    return classes
+      .filter((c: any) => {
+        const hay = `${c.nom} ${c.code}`.toLowerCase();
+        return hay.includes(q);
+      })
+      .slice(0, 50);
+  }, [classes, searchClasse]);
+
+  const selectedClasse = useMemo(
+    () => classes.find((c: any) => c.id === classeId) ?? null,
+    [classes, classeId]
+  );
+
   const params: ListPaiementsParams = useMemo(
     () => ({
       page,
       limit,
       search: search.trim() || undefined,
+      classeId: classeId || undefined,   // 🆕
       moyen: moyen || undefined,
       statut: statut || undefined,
       dateDebut: dateDebut ? new Date(dateDebut).toISOString() : undefined,
-      dateFin: dateFin ? new Date(dateFin + 'T23:59:59').toISOString() : undefined,
+      dateFin: dateFin
+        ? new Date(dateFin + 'T23:59:59').toISOString()
+        : undefined,
       sortBy,
       sortOrder,
     }),
-    [page, limit, search, moyen, statut, dateDebut, dateFin, sortBy, sortOrder]
+    [
+      page,
+      limit,
+      search,
+      classeId,
+      moyen,
+      statut,
+      dateDebut,
+      dateFin,
+      sortBy,
+      sortOrder,
+    ]
   );
 
   const { data, isLoading, isFetching, isError, refetch } = usePaiements(params);
@@ -117,6 +204,8 @@ const PaiementsListPage: React.FC = () => {
 
   const resetFilters = () => {
     setSearch('');
+    setClasseId('');
+    setSearchClasse('');
     setMoyen('');
     setStatut('COMPLET');
     setDateDebut('');
@@ -126,6 +215,7 @@ const PaiementsListPage: React.FC = () => {
 
   const hasActiveFilters =
     !!search.trim() ||
+    !!classeId ||
     !!moyen ||
     statut !== 'COMPLET' ||
     !!dateDebut ||
@@ -137,6 +227,20 @@ const PaiementsListPage: React.FC = () => {
       setSortBy(key);
       setSortOrder('desc');
     }
+    setPage(1);
+  };
+
+  // ─────────── Handlers classe ───────────
+  const handleSelectClasse = (c: any) => {
+    setClasseId(c.id);
+    setSearchClasse(`${c.nom} (${c.code})`);
+    setShowClasseDropdown(false);
+    setPage(1);
+  };
+
+  const handleClearClasse = () => {
+    setClasseId('');
+    setSearchClasse('');
     setPage(1);
   };
 
@@ -158,6 +262,55 @@ const PaiementsListPage: React.FC = () => {
     }
   };
 
+  // ─────────── Gestion reçu ───────────
+
+  const ensureRecu = async (
+    paiementId: string,
+    existingRecu: any | null | undefined
+  ): Promise<{ id: string; numeroRecu: string } | null> => {
+    if (existingRecu?.id && existingRecu?.numeroRecu) {
+      return { id: existingRecu.id, numeroRecu: existingRecu.numeroRecu };
+    }
+    try {
+      const res = await genererRecu.mutateAsync({ paiementId });
+      const created = (res as any)?.data ?? res;
+      if (created?.id && created?.numeroRecu) {
+        return { id: created.id, numeroRecu: created.numeroRecu };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  const handlePrintDirect = async (
+    p: (typeof paiements)[number],
+    format: 'A4' | 'A5' | '80MM' = 'A4'
+  ) => {
+    const recu = await ensureRecu(p.id, p.recu);
+    if (!recu) return;
+    downloadPDF.mutate({
+      id: recu.id,
+      numeroRecu: recu.numeroRecu,
+      format,
+    });
+  };
+
+  const handlePreviewDirect = async (p: (typeof paiements)[number]) => {
+    const recu = await ensureRecu(p.id, p.recu);
+    if (!recu) return;
+    previewPDF.mutate({ id: recu.id, format: 'A4' });
+  };
+
+  // Récupérer la classe d'un paiement (via inscriptions actives de l'élève)
+  const getClasseOfPaiement = (p: (typeof paiements)[number]) => {
+    const anyP = p as any;
+    const ins =
+      anyP.eleve?.inscriptions?.find((i: any) => i.estActive) ??
+      anyP.eleve?.inscriptions?.[0];
+    return ins?.classe ?? null;
+  };
+
   // ═══════════════════════════════════════════════════════
   // RENDER
   // ═══════════════════════════════════════════════════════
@@ -175,7 +328,7 @@ const PaiementsListPage: React.FC = () => {
             Gérer les encaissements et paiements des élèves
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
             onClick={() => refetch()}
@@ -187,6 +340,13 @@ const PaiementsListPage: React.FC = () => {
             />
             Rafraîchir
           </button>
+          <Link
+            to="/dashboard/recus"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-blue-700 rounded-lg hover:bg-blue-50 font-medium"
+          >
+            <DocumentTextIcon className="w-5 h-5" />
+            Reçus
+          </Link>
           <Link
             to="/dashboard/paiements/nouveau"
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-linear-to-r from-emerald-600 to-teal-600 text-white font-semibold rounded-lg shadow-md hover:shadow-lg"
@@ -201,13 +361,13 @@ const PaiementsListPage: React.FC = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard
           label="Total global (filtre)"
-          value={`${formatMontant(summary.totalMontant)} XOF`}
+          value={formatMontant(summary.totalMontant)}
           icon={BanknotesIcon}
           color="emerald"
         />
         <StatCard
           label="Montant page courante"
-          value={`${formatMontant(pageStats.montantPage)} XOF`}
+          value={formatMontant(pageStats.montantPage)}
           icon={ReceiptPercentIcon}
           color="blue"
         />
@@ -245,6 +405,7 @@ const PaiementsListPage: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* Recherche texte */}
           <div className="relative lg:col-span-2">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
@@ -259,6 +420,89 @@ const PaiementsListPage: React.FC = () => {
             />
           </div>
 
+          {/* 🆕 Filtre classe avec recherche */}
+          {!selectedClasse ? (
+            <div className="relative">
+              <AcademicCapIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Rechercher une classe…"
+                value={searchClasse}
+                onChange={(e) => {
+                  setSearchClasse(e.target.value);
+                  setShowClasseDropdown(true);
+                }}
+                onFocus={() => setShowClasseDropdown(true)}
+                onBlur={() =>
+                  setTimeout(() => setShowClasseDropdown(false), 150)
+                }
+                disabled={classesLoading}
+                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none disabled:opacity-60"
+              />
+
+              {classesLoading && (
+                <ArrowPathIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 animate-spin" />
+              )}
+
+              {showClasseDropdown && !classesLoading && (
+                <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-64 overflow-y-auto">
+                  {filteredClasses.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-gray-500">
+                      {searchClasse.trim()
+                        ? 'Aucune classe ne correspond'
+                        : 'Aucune classe'}
+                    </div>
+                  ) : (
+                    filteredClasses.map((c: any) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onMouseDown={(ev) => {
+                          ev.preventDefault();
+                          handleSelectClasse(c);
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-emerald-50 flex items-center gap-2 border-b last:border-b-0"
+                      >
+                        <div className="w-7 h-7 rounded bg-emerald-100 flex items-center justify-center text-emerald-700 text-xs shrink-0">
+                          <AcademicCapIcon className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {c.nom}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {c.code}
+                          </p>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-lg">
+              <AcademicCapIcon className="w-4 h-4 text-emerald-600 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">
+                  {selectedClasse.nom}
+                </p>
+                <p className="text-xs text-gray-600 truncate">
+                  {selectedClasse.code}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleClearClasse}
+                className="p-1 text-gray-500 hover:bg-white rounded"
+                title="Retirer le filtre"
+              >
+                <XMarkIcon className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Moyen */}
           <select
             value={moyen}
             onChange={(e) => {
@@ -275,6 +519,7 @@ const PaiementsListPage: React.FC = () => {
             ))}
           </select>
 
+          {/* Statut */}
           <select
             value={statut}
             onChange={(e) => {
@@ -291,6 +536,7 @@ const PaiementsListPage: React.FC = () => {
             ))}
           </select>
 
+          {/* Dates */}
           <div>
             <label className="block text-xs text-gray-500 mb-1">Du</label>
             <input
@@ -346,23 +592,27 @@ const PaiementsListPage: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="w-full table-fixed">
               <colgroup>
+                <col className="w-[11%]" />
+                <col className="w-[20%]" />
+                <col className="w-[10%]" />
+                <col className="w-[10%]" />
+                <col className="w-[10%]" />
                 <col className="w-[12%]" />
-                <col className="w-[24%]" />
-                <col className="w-[12%]" />
-                <col className="w-[12%]" />
-                <col className="w-[13%]" />
-                <col className="w-[13%]" />
-                <col className="w-[14%]" />
+                <col className="w-[10%]" />
+                <col className="w-[17%]" />
               </colgroup>
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Référence
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Élève
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Classe
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     <button
                       type="button"
                       onClick={() => toggleSort('montant')}
@@ -377,10 +627,10 @@ const PaiementsListPage: React.FC = () => {
                         ))}
                     </button>
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Moyen
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     <button
                       type="button"
                       onClick={() => toggleSort('datePaiement')}
@@ -395,116 +645,192 @@ const PaiementsListPage: React.FC = () => {
                         ))}
                     </button>
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Statut
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {paiements.map((p) => (
-                  <tr key={p.id} className="hover:bg-gray-50/50">
-                    <td className="px-4 py-3">
-                      <p className="font-mono text-xs font-medium text-gray-900 truncate">
-                        {p.reference}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold text-xs shrink-0">
-                          {p.eleve?.prenom?.[0]}
-                          {p.eleve?.nom?.[0]}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">
-                            {p.eleve?.prenom} {p.eleve?.nom}
+                {paiements.map((p) => {
+                  const hasRecu = !!p.recu?.id;
+                  const isPendingPDF =
+                    downloadPDF.isPending || previewPDF.isPending;
+                  const { dateStr, heureStr } = formatDateHeure(p.datePaiement);
+                  const classe = getClasseOfPaiement(p);
+
+                  return (
+                    <tr key={p.id} className="hover:bg-gray-50/50">
+                      <td className="px-3 py-3">
+                        <p className="font-mono text-xs font-medium text-gray-900 truncate">
+                          {p.reference}
+                        </p>
+                        {hasRecu && (
+                          <p className="text-[10px] text-blue-600 truncate flex items-center gap-1 mt-0.5">
+                            <DocumentTextIcon className="w-3 h-3 shrink-0" />
+                            {(p.recu as any)?.numeroRecu}
                           </p>
-                          <p className="text-xs text-gray-500 truncate">
-                            {p.eleve?.matricule}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="text-sm font-bold text-gray-900">
-                        {formatMontant(p.montant)}
-                      </p>
-                      <p className="text-xs text-gray-500">XOF</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${moyenColor(
-                          p.moyen
-                        )}`}
-                      >
-                        {moyenLabel(p.moyen)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
-                      {new Date(p.datePaiement).toLocaleDateString('fr-FR')}
-                    </td>
-                    <td className="px-4 py-3">
-                      {p.statut === 'COMPLET' && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium">
-                          <CheckCircleIcon className="w-3.5 h-3.5" />
-                          Complet
-                        </span>
-                      )}
-                      {p.statut === 'ANNULE' && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 text-red-700 text-xs font-medium">
-                          <XCircleIcon className="w-3.5 h-3.5" />
-                          Annulé
-                        </span>
-                      )}
-                      {p.statut === 'REMBOURSE' && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-medium">
-                          <XCircleIcon className="w-3.5 h-3.5" />
-                          Remboursé
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="inline-flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            navigate(`/dashboard/paiements/${p.id}`)
-                          }
-                          className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
-                          title="Voir le détail"
-                        >
-                          <EyeIcon className="w-4 h-4" />
-                        </button>
-                        {p.recu?.cheminPDF && (
-                          <a
-                            href={p.recu.cheminPDF}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                            title="Télécharger le reçu"
-                          >
-                            <ArrowDownTrayIcon className="w-4 h-4" />
-                          </a>
                         )}
+                      </td>
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold text-xs shrink-0">
+                            {p.eleve?.prenom?.[0]}
+                            {p.eleve?.nom?.[0]}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {p.eleve?.prenom} {p.eleve?.nom}
+                            </p>
+                            <p className="text-xs text-gray-500 truncate">
+                              {p.eleve?.matricule}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-3">
+                        {classe ? (
+                          <>
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {classe.nom}
+                            </p>
+                            <p className="text-xs text-gray-500 truncate">
+                              {classe.code}
+                            </p>
+                          </>
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-3">
+                        <p className="text-sm font-bold text-gray-900">
+                          {formatMontant(p.montant)}
+                        </p>
+                      </td>
+                      <td className="px-3 py-3">
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${moyenColor(
+                            p.moyen
+                          )}`}
+                        >
+                          {moyenLabel(p.moyen)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3">
+                        <div className="text-sm text-gray-900">{dateStr}</div>
+                        <div className="text-xs text-gray-500 flex items-center gap-1">
+                          <ClockIcon className="w-3 h-3" />
+                          {heureStr}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3">
                         {p.statut === 'COMPLET' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium">
+                            <CheckCircleIcon className="w-3.5 h-3.5" />
+                            Complet
+                          </span>
+                        )}
+                        {p.statut === 'ANNULE' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 text-red-700 text-xs font-medium">
+                            <XCircleIcon className="w-3.5 h-3.5" />
+                            Annulé
+                          </span>
+                        )}
+                        {p.statut === 'REMBOURSE' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-medium">
+                            <XCircleIcon className="w-3.5 h-3.5" />
+                            Remboursé
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-3 text-right">
+                        <div className="inline-flex items-center gap-0.5">
                           <button
                             type="button"
-                            onClick={() => {
-                              setAnnulerId(p.id);
-                              setMotifAnnulation('');
-                            }}
-                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
-                            title="Annuler le paiement"
+                            onClick={() =>
+                              navigate(`/dashboard/paiements/${p.id}`)
+                            }
+                            className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg"
+                            title="Voir le paiement"
                           >
-                            <XCircleIcon className="w-4 h-4" />
+                            <EyeIcon className="w-4 h-4" />
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+
+                          {hasRecu && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                navigate(
+                                  `/dashboard/recus/${(p.recu as any).id}`
+                                )
+                              }
+                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"
+                              title="Voir le reçu"
+                            >
+                              <DocumentTextIcon className="w-4 h-4" />
+                            </button>
+                          )}
+
+                          {p.statut === 'COMPLET' && (
+                            <button
+                              type="button"
+                              onClick={() => handlePreviewDirect(p)}
+                              disabled={isPendingPDF}
+                              className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg disabled:opacity-50"
+                              title={
+                                hasRecu
+                                  ? 'Aperçu du reçu'
+                                  : 'Générer + aperçu'
+                              }
+                            >
+                              <PrinterIcon className="w-4 h-4" />
+                            </button>
+                          )}
+
+                          {p.statut === 'COMPLET' && (
+                            <button
+                              type="button"
+                              onClick={() => handlePrintDirect(p, 'A4')}
+                              disabled={isPendingPDF}
+                              className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg disabled:opacity-50"
+                              title="Télécharger A4"
+                            >
+                              <ArrowDownTrayIcon className="w-4 h-4" />
+                            </button>
+                          )}
+
+                          {p.statut === 'COMPLET' && (
+                            <button
+                              type="button"
+                              onClick={() => handlePrintDirect(p, '80MM')}
+                              disabled={isPendingPDF}
+                              className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg disabled:opacity-50"
+                              title="Ticket 80mm"
+                            >
+                              <ReceiptPercentIcon className="w-4 h-4" />
+                            </button>
+                          )}
+
+                          {p.statut === 'COMPLET' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAnnulerId(p.id);
+                                setMotifAnnulation('');
+                              }}
+                              className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"
+                              title="Annuler le paiement"
+                            >
+                              <XCircleIcon className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -694,7 +1020,7 @@ const EmptyState: React.FC<{
     </p>
     <p className="text-xs text-gray-500 mt-1">
       {hasFilters
-        ? 'Essayez d\'ajuster vos critères de recherche.'
+        ? "Essayez d'ajuster vos critères de recherche."
         : 'Enregistrez le premier paiement pour commencer.'}
     </p>
     <div className="mt-4 flex items-center justify-center gap-3">

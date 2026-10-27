@@ -15,7 +15,6 @@ const intCoerce = (min?: number, max?: number) => {
   return s;
 };
 
-// ✅ Constante déclarée avec "MOYENS" (sans "S" à MOYEN)
 const MOYENS_PAIEMENT = [
   'ESPECES',
   'VIREMENT',
@@ -34,10 +33,12 @@ export const createPaiementSchema = z.object({
       eleveId: cuidLike,
       montant: z.number().positive('Le montant doit être positif'),
       datePaiement: z.string().datetime().optional(),
-      moyen: z.enum(MOYENS_PAIEMENT),          // ✅ CORRIGÉ
+      moyen: z.enum(MOYENS_PAIEMENT),
       referenceMoyen: z.string().trim().max(100).nullable().optional(),
       notes: z.string().trim().max(500).nullable().optional(),
       assignmentId: cuidLike.nullable().optional(),
+      /** 🆕 Optionnel : associer directement à une classe (rarement utilisé) */
+      classeId: cuidLike.nullable().optional(),
       allocations: z
         .array(
           z.object({
@@ -100,7 +101,9 @@ export const listPaiementsSchema = z.object({
       limit: intCoerce(1, 200).optional().default(50),
       search: z.string().trim().max(100).optional(),
       eleveId: cuidLike.optional(),
-      moyen: z.enum(MOYENS_PAIEMENT).optional(),   // ✅ CORRIGÉ
+      /** 🆕 Filtre par classe (via inscriptions actives) */
+      classeId: cuidLike.optional(),
+      moyen: z.enum(MOYENS_PAIEMENT).optional(),
       statut: z.enum(['COMPLET', 'ANNULE', 'REMBOURSE']).optional(),
       dateDebut: z.string().datetime().optional(),
       dateFin: z.string().datetime().optional(),

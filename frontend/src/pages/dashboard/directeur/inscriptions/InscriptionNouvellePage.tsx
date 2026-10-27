@@ -15,11 +15,13 @@ import {
   XMarkIcon,
   ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
-import { useCreateInscription } from '../../../../hooks/useInscriptions';
+import {
+  useCreateInscription,
+  useInscriptions,
+} from '../../../../hooks/useInscriptions';
 import { useEleves, useCreateEleve } from '../../../../hooks/useEleves';
 import { useClasses } from '../../../../hooks/useClasses';
 import { useAnneesScolaires } from '../../../../hooks/useAnneesScolaires';
-import { useInscriptions } from '../../../../hooks/useInscriptions';
 import { useToast } from '../../../../context/ToastContext';
 import type { AnneeScolaire } from '../../../../types/anneeScolaire.types';
 import type { Eleve } from '../../../../types/eleve.types';
@@ -41,6 +43,10 @@ const InscriptionNouvellePage: React.FC = () => {
   const [searchEleve, setSearchEleve] = useState('');
   const [showEleveDropdown, setShowEleveDropdown] = useState(false);
 
+  // ─────────── Recherche classe ───────────
+  const [searchClasse, setSearchClasse] = useState('');
+  const [showClasseDropdown, setShowClasseDropdown] = useState(false);
+
   // ─────────── Modal création rapide élève ───────────
   const [showCreateEleve, setShowCreateEleve] = useState(false);
   const [newEleve, setNewEleve] = useState({
@@ -51,9 +57,9 @@ const InscriptionNouvellePage: React.FC = () => {
     email: '',
     telephone: '',
   });
-  const [newEleveErrors, setNewEleveErrors] = useState<
-    Record<string, string>
-  >({});
+  const [newEleveErrors, setNewEleveErrors] = useState<Record<string, string>>(
+    {}
+  );
 
   const createMutation = useCreateInscription();
   const createEleveMutation = useCreateEleve();
@@ -64,32 +70,77 @@ const InscriptionNouvellePage: React.FC = () => {
     isLoading: elevesLoading,
     refetch: refetchEleves,
   } = useEleves({ sortBy: 'nom', sortOrder: 'asc' });
-  const eleves = elevesData?.eleves ?? [];
+  const eleves = useMemo(() => {
+    if (!elevesData) return [];
+    const any = elevesData as any;
+    if (Array.isArray(any.eleves)) return any.eleves as Eleve[];
+    if (Array.isArray(any.data)) return any.data as Eleve[];
+    return [];
+  }, [elevesData]);
 
   const { data: classesData, isLoading: classesLoading } = useClasses({
     limit: 200,
   });
-  const classes = classesData?.classes ?? [];
+  const classes = useMemo(() => {
+    if (!classesData) return [];
+    const any = classesData as any;
+    if (Array.isArray(any.classes)) return any.classes;
+    if (Array.isArray(any.data)) return any.data;
+    return [];
+  }, [classesData]);
 
   const { data: anneesData } = useAnneesScolaires({ limit: 50 });
-  const annees: AnneeScolaire[] = anneesData?.annees ?? [];
+  const annees: AnneeScolaire[] = useMemo(() => {
+    if (!anneesData) return [];
+    const any = anneesData as any;
+    if (Array.isArray(any.annees)) return any.annees;
+    if (Array.isArray(any.data)) return any.data;
+    return [];
+  }, [anneesData]);
 
-  // ─────────── Places restantes ───────────
+  // ─────────── Classes filtrées (recherche) ───────────
+  const filteredClasses = useMemo(() => {
+    const q = searchClasse.trim().toLowerCase();
+    if (!q) return classes.slice(0, 50);
+    return classes
+      .filter((c: any) => {
+        const hay = `${c.nom} ${c.code}`.toLowerCase();
+        return hay.includes(q);
+      })
+      .slice(0, 50);
+  }, [classes, searchClasse]);
+
   const selectedClasse = useMemo(
-    () => classes.find((c) => c.id === classeId),
+    () => classes.find((c: any) => c.id === classeId) ?? null,
     [classes, classeId]
   );
 
-  // Compte des inscriptions actives pour la classe + année sélectionnées
-  const { data: inscriptionsClasseData, isLoading: inscriptionsClasseLoading } =
-    useInscriptions({
-      classeId: classeId || undefined,
-      anneeScolaireId: anneeScolaireId || undefined,
-      estActive: true,
-      limit: 1, // on n'a besoin que du total
-    });
+  // ─────────── Inscriptions actives pour la classe + année ───────────
+  const {
+    data: inscriptionsClasseData,
+    isLoading: inscriptionsClasseLoading,
+  } = useInscriptions({
+    classeId: classeId || undefined,
+    anneeScolaireId: anneeScolaireId || undefined,
+    estActive: true,
+    limit: 200, // on charge pour filtrer les élèves déjà inscrits
+  });
+
+  const inscriptionsClasse = useMemo(() => {
+    if (!inscriptionsClasseData) return [];
+    const any = inscriptionsClasseData as any;
+    if (Array.isArray(any.inscriptions)) return any.inscriptions;
+    if (Array.isArray(any.data)) return any.data;
+    return [];
+  }, [inscriptionsClasseData]);
 
   const nbInscrits = inscriptionsClasseData?.pagination?.total ?? 0;
+
+  const eleveIdsDejaInscrits = useMemo(
+    () => new Set(inscriptionsClasse.map((i: any) => i.eleveId)),
+    [inscriptionsClasse]
+  );
+
   const capacite = selectedClasse?.capacite ?? null;
   const placesRestantes =
     capacite != null ? Math.max(0, capacite - nbInscrits) : null;
@@ -103,18 +154,32 @@ const InscriptionNouvellePage: React.FC = () => {
     }
   }, [annees, anneeScolaireId]);
 
-  // ─────────── Filtre élèves ───────────
+  // ─────────── Élèves éligibles = ni déjà inscrits dans cette classe/année ───────────
+  const elevesEligibles = useMemo(() => {
+    return eleves.filter((e) => {
+      // Statut : ne pas proposer les archivés / sortis
+      if (e.statut === 'ARCHIVE' || e.statut === 'SORTI') return false;
+
+      // Si classe + année sélectionnées → exclure ceux déjà inscrits
+      if (classeId && anneeScolaireId) {
+        if (eleveIdsDejaInscrits.has(e.id)) return false;
+      }
+
+      return true;
+    });
+  }, [eleves, classeId, anneeScolaireId, eleveIdsDejaInscrits]);
+
+  // ─────────── Filtre recherche ───────────
   const filteredEleves = useMemo(() => {
     const q = searchEleve.trim().toLowerCase();
-    if (!q) return eleves.slice(0, 50); // limite l'affichage initial
-    return eleves
+    if (!q) return elevesEligibles.slice(0, 50);
+    return elevesEligibles
       .filter((e) => {
-        const hay = `${e.prenom} ${e.nom} ${e.matricule} ${e.email ?? ''}`
-          .toLowerCase();
+        const hay = `${e.prenom} ${e.nom} ${e.matricule} ${e.email ?? ''}`.toLowerCase();
         return hay.includes(q);
       })
       .slice(0, 50);
-  }, [eleves, searchEleve]);
+  }, [elevesEligibles, searchEleve]);
 
   const selectedEleve = useMemo(
     () => eleves.find((e) => e.id === eleveId) ?? null,
@@ -126,7 +191,24 @@ const InscriptionNouvellePage: React.FC = () => {
     [annees, anneeScolaireId]
   );
 
-  // ─────────── Sélection ───────────
+  // ─────────── Handlers sélection ───────────
+  const handleSelectClasse = (c: any) => {
+    setClasseId(c.id);
+    setSearchClasse(`${c.nom} (${c.code})`);
+    setShowClasseDropdown(false);
+    setErrors((x) => ({ ...x, classeId: '' }));
+    // Reset élève si déjà inscrit dans cette classe
+    if (eleveId && eleveIdsDejaInscrits.has(eleveId)) {
+      setEleveId('');
+      setSearchEleve('');
+    }
+  };
+
+  const handleClearClasse = () => {
+    setClasseId('');
+    setSearchClasse('');
+  };
+
   const handleSelectEleve = (e: Eleve) => {
     setEleveId(e.id);
     setSearchEleve(`${e.prenom} ${e.nom}`);
@@ -146,6 +228,9 @@ const InscriptionNouvellePage: React.FC = () => {
     if (!classeId) errs.classeId = 'Sélectionnez une classe';
     if (!anneeScolaireId) errs.anneeScolaireId = 'Sélectionnez une année';
     if (classePleine) errs.classeId = 'La classe est pleine';
+    if (eleveId && eleveIdsDejaInscrits.has(eleveId)) {
+      errs.eleveId = 'Cet élève est déjà inscrit dans cette classe pour cette année';
+    }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -223,7 +308,7 @@ const InscriptionNouvellePage: React.FC = () => {
       {/* En-tête */}
       <div className="flex items-center gap-3">
         <Link
-          to="/dashboard/inscriptions"
+          to="/dashboard/eleves/inscriptions"
           className="p-2 rounded-lg text-gray-500 hover:bg-gray-100"
         >
           <ArrowLeftIcon className="w-5 h-5" />
@@ -243,185 +328,138 @@ const InscriptionNouvellePage: React.FC = () => {
         onSubmit={handleSubmit}
         className="bg-white rounded-2xl shadow-sm border border-gray-100/50 p-6 md:p-8 space-y-6"
       >
-        {/* ═══════════ ÉLÈVE (recherche) ═══════════ */}
+        {/* ═══════════ ANNÉE (avant la classe) ═══════════ */}
         <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-sm font-medium text-gray-700">
-              Élève <span className="text-red-500">*</span>
-            </label>
-            <button
-              type="button"
-              onClick={() => setShowCreateEleve(true)}
-              className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Année scolaire <span className="text-red-500">*</span>
+          </label>
+          <div className="relative">
+            <CalendarDaysIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <select
+              value={anneeScolaireId}
+              onChange={(e) => {
+                setAnneeScolaireId(e.target.value);
+                setErrors((x) => ({ ...x, anneeScolaireId: '' }));
+              }}
+              className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none ${
+                errors.anneeScolaireId
+                  ? 'border-red-300 bg-red-50'
+                  : 'border-gray-200'
+              }`}
             >
-              <PlusIcon className="w-3.5 h-3.5" />
-              Créer un élève
-            </button>
+              <option value="">— Sélectionner une année —</option>
+              {annees.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.nom} {a.estActive ? '(active)' : ''}
+                </option>
+              ))}
+            </select>
           </div>
+          {errors.anneeScolaireId && (
+            <p className="text-xs text-red-600 mt-1.5">
+              {errors.anneeScolaireId}
+            </p>
+          )}
+        </div>
 
-          {!selectedEleve ? (
+        {/* ═══════════ CLASSE (recherche) ═══════════ */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Classe <span className="text-red-500">*</span>
+          </label>
+
+          {!selectedClasse ? (
             <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Rechercher par nom, prénom, matricule…"
-                value={searchEleve}
+                placeholder="Rechercher une classe (nom, code)…"
+                value={searchClasse}
                 onChange={(e) => {
-                  setSearchEleve(e.target.value);
-                  setShowEleveDropdown(true);
+                  setSearchClasse(e.target.value);
+                  setShowClasseDropdown(true);
                 }}
-                onFocus={() => setShowEleveDropdown(true)}
+                onFocus={() => setShowClasseDropdown(true)}
                 onBlur={() =>
-                  setTimeout(() => setShowEleveDropdown(false), 150)
+                  setTimeout(() => setShowClasseDropdown(false), 150)
                 }
-                className={`w-full pl-10 pr-10 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none ${
-                  errors.eleveId
+                disabled={classesLoading || !anneeScolaireId}
+                className={`w-full pl-10 pr-10 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none disabled:opacity-60 disabled:cursor-not-allowed ${
+                  errors.classeId
                     ? 'border-red-300 bg-red-50'
                     : 'border-gray-200'
                 }`}
               />
-              {elevesLoading && (
+              {classesLoading && (
                 <ArrowPathIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 animate-spin" />
               )}
 
-              {/* Dropdown */}
-              {showEleveDropdown && (
+              {showClasseDropdown && anneeScolaireId && !classesLoading && (
                 <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-80 overflow-y-auto">
-                  {filteredEleves.length === 0 ? (
+                  {filteredClasses.length === 0 ? (
                     <div className="p-4 text-center text-sm text-gray-500">
-                      {searchEleve.trim() ? (
-                        <>
-                          Aucun élève ne correspond à «&nbsp;
-                          <strong>{searchEleve}</strong>&nbsp;».
-                          <button
-                            type="button"
-                            onClick={() => setShowCreateEleve(true)}
-                            className="block mx-auto mt-2 text-blue-600 font-medium hover:underline text-xs"
-                          >
-                            + Créer cet élève
-                          </button>
-                        </>
-                      ) : (
-                        'Aucun élève enregistré'
-                      )}
+                      {searchClasse.trim()
+                        ? 'Aucune classe ne correspond'
+                        : 'Aucune classe disponible'}
                     </div>
                   ) : (
-                    <>
-                      <div className="px-3 py-2 text-xs text-gray-500 border-b bg-gray-50 sticky top-0">
-                        {filteredEleves.length} résultat(s)
-                        {eleves.length > filteredEleves.length &&
-                          ` sur ${eleves.length}`}
-                      </div>
-                      {filteredEleves.map((e) => {
-                        const currentInscription = e.inscriptions?.find(
-                          (i) => i.estActive
-                        );
-                        return (
-                          <button
-                            key={e.id}
-                            type="button"
-                            onMouseDown={(ev) => {
-                              ev.preventDefault();
-                              handleSelectEleve(e);
-                            }}
-                            className="w-full text-left px-3 py-2.5 hover:bg-blue-50 flex items-center gap-3 border-b last:border-b-0"
-                          >
-                            <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-sm shrink-0">
-                              {e.prenom[0]}
-                              {e.nom[0]}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900 truncate">
-                                {e.prenom} {e.nom}
-                              </p>
-                              <p className="text-xs text-gray-500 truncate">
-                                {e.matricule}
-                                {currentInscription?.classe && (
-                                  <>
-                                    {' — '}
-                                    <span className="text-amber-600">
-                                      {currentInscription.classe.nom}
-                                    </span>
-                                  </>
-                                )}
-                              </p>
-                            </div>
-                            <span
-                              className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                                e.statut === 'ACTIF'
-                                  ? 'bg-emerald-50 text-emerald-700'
-                                  : 'bg-gray-100 text-gray-600'
-                              }`}
-                            >
-                              {e.statut}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </>
+                    filteredClasses.map((c: any) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onMouseDown={(ev) => {
+                          ev.preventDefault();
+                          handleSelectClasse(c);
+                        }}
+                        className="w-full text-left px-3 py-2.5 hover:bg-blue-50 flex items-center gap-3 border-b last:border-b-0"
+                      >
+                        <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center text-blue-700 shrink-0">
+                          <AcademicCapIcon className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {c.nom}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {c.code}
+                            {c.capacite != null && (
+                              <> — {c.capacite} places</>
+                            )}
+                          </p>
+                        </div>
+                      </button>
+                    ))
                   )}
                 </div>
               )}
             </div>
           ) : (
-            // Élève sélectionné
             <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-xl">
-              <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
-                {selectedEleve.prenom[0]}
-                {selectedEleve.nom[0]}
+              <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0">
+                <AcademicCapIcon className="w-5 h-5" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-gray-900">
-                  {selectedEleve.prenom} {selectedEleve.nom}
+                  {selectedClasse.nom}
                 </p>
                 <p className="text-xs text-gray-600">
-                  {selectedEleve.matricule}
-                  {selectedEleve.email && ` — ${selectedEleve.email}`}
+                  {selectedClasse.code}
+                  {selectedClasse.capacite != null && (
+                    <> — {selectedClasse.capacite} places</>
+                  )}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={handleClearEleve}
+                onClick={handleClearClasse}
                 className="p-1.5 text-gray-500 hover:bg-white rounded-lg"
-                title="Changer d'élève"
+                title="Changer de classe"
               >
                 <XMarkIcon className="w-4 h-4" />
               </button>
             </div>
           )}
 
-          {errors.eleveId && (
-            <p className="text-xs text-red-600 mt-1.5">{errors.eleveId}</p>
-          )}
-        </div>
-
-        {/* ═══════════ CLASSE ═══════════ */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Classe <span className="text-red-500">*</span>
-          </label>
-          <div className="relative">
-            <AcademicCapIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <select
-              value={classeId}
-              onChange={(e) => {
-                setClasseId(e.target.value);
-                setErrors((x) => ({ ...x, classeId: '' }));
-              }}
-              disabled={classesLoading}
-              className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none ${
-                errors.classeId ? 'border-red-300 bg-red-50' : 'border-gray-200'
-              }`}
-            >
-              <option value="">— Sélectionner une classe —</option>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nom} ({c.code})
-                  {c.capacite != null ? ` — ${c.capacite} places` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
           {errors.classeId && (
             <p className="text-xs text-red-600 mt-1.5">{errors.classeId}</p>
           )}
@@ -480,37 +518,146 @@ const InscriptionNouvellePage: React.FC = () => {
           )}
         </div>
 
-        {/* ═══════════ ANNÉE ═══════════ */}
+        {/* ═══════════ ÉLÈVE (recherche, filtré) ═══════════ */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Année scolaire <span className="text-red-500">*</span>
-          </label>
-          <div className="relative">
-            <CalendarDaysIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <select
-              value={anneeScolaireId}
-              onChange={(e) => {
-                setAnneeScolaireId(e.target.value);
-                setErrors((x) => ({ ...x, anneeScolaireId: '' }));
-              }}
-              className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none ${
-                errors.anneeScolaireId
-                  ? 'border-red-300 bg-red-50'
-                  : 'border-gray-200'
-              }`}
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="block text-sm font-medium text-gray-700">
+              Élève <span className="text-red-500">*</span>
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowCreateEleve(true)}
+              className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
             >
-              <option value="">— Sélectionner une année —</option>
-              {annees.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.nom} {a.estActive ? '(active)' : ''}
-                </option>
-              ))}
-            </select>
+              <PlusIcon className="w-3.5 h-3.5" />
+              Créer un élève
+            </button>
           </div>
-          {errors.anneeScolaireId && (
-            <p className="text-xs text-red-600 mt-1.5">
-              {errors.anneeScolaireId}
-            </p>
+
+          {!selectedEleve ? (
+            <div className="relative">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10 pointer-events-none" />
+              <input
+                type="text"
+                placeholder={
+                  classeId && anneeScolaireId
+                    ? 'Rechercher un élève non encore inscrit…'
+                    : 'Sélectionnez d\'abord une classe et une année'
+                }
+                value={searchEleve}
+                onChange={(e) => {
+                  setSearchEleve(e.target.value);
+                  setShowEleveDropdown(true);
+                }}
+                onFocus={() => setShowEleveDropdown(true)}
+                onBlur={() =>
+                  setTimeout(() => setShowEleveDropdown(false), 150)
+                }
+                disabled={!classeId || !anneeScolaireId}
+                className={`w-full pl-10 pr-10 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none disabled:opacity-60 disabled:cursor-not-allowed ${
+                  errors.eleveId
+                    ? 'border-red-300 bg-red-50'
+                    : 'border-gray-200'
+                }`}
+              />
+              {elevesLoading && (
+                <ArrowPathIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 animate-spin" />
+              )}
+
+              {showEleveDropdown && classeId && anneeScolaireId && (
+                <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-80 overflow-y-auto">
+                  {filteredEleves.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-gray-500">
+                      {searchEleve.trim() ? (
+                        <>
+                          Aucun élève éligible ne correspond à «&nbsp;
+                          <strong>{searchEleve}</strong>&nbsp;».
+                          <button
+                            type="button"
+                            onClick={() => setShowCreateEleve(true)}
+                            className="block mx-auto mt-2 text-blue-600 font-medium hover:underline text-xs"
+                          >
+                            + Créer cet élève
+                          </button>
+                        </>
+                      ) : (
+                        'Tous les élèves sont déjà inscrits dans cette classe'
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="px-3 py-2 text-xs text-gray-500 border-b bg-gray-50 sticky top-0">
+                        {filteredEleves.length} élève(s) éligible(s)
+                        {elevesEligibles.length > filteredEleves.length &&
+                          ` sur ${elevesEligibles.length}`}
+                      </div>
+                      {filteredEleves.map((e) => (
+                        <button
+                          key={e.id}
+                          type="button"
+                          onMouseDown={(ev) => {
+                            ev.preventDefault();
+                            handleSelectEleve(e);
+                          }}
+                          className="w-full text-left px-3 py-2.5 hover:bg-blue-50 flex items-center gap-3 border-b last:border-b-0"
+                        >
+                          <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-sm shrink-0">
+                            {e.prenom[0]}
+                            {e.nom[0]}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {e.prenom} {e.nom}
+                            </p>
+                            <p className="text-xs text-gray-500 truncate">
+                              {e.matricule}
+                              {e.email && <> — {e.email}</>}
+                            </p>
+                          </div>
+                          <span
+                            className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                              e.statut === 'ACTIF'
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : 'bg-gray-100 text-gray-600'
+                            }`}
+                          >
+                            {e.statut}
+                          </span>
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-xl">
+              <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
+                {selectedEleve.prenom[0]}
+                {selectedEleve.nom[0]}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-gray-900">
+                  {selectedEleve.prenom} {selectedEleve.nom}
+                </p>
+                <p className="text-xs text-gray-600">
+                  {selectedEleve.matricule}
+                  {selectedEleve.email && ` — ${selectedEleve.email}`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleClearEleve}
+                className="p-1.5 text-gray-500 hover:bg-white rounded-lg"
+                title="Changer d'élève"
+              >
+                <XMarkIcon className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {errors.eleveId && (
+            <p className="text-xs text-red-600 mt-1.5">{errors.eleveId}</p>
           )}
         </div>
 
@@ -572,7 +719,7 @@ const InscriptionNouvellePage: React.FC = () => {
         {/* ═══════════ ACTIONS ═══════════ */}
         <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
           <Link
-            to="/dashboard/inscriptions"
+            to="/dashboard/eleves/inscriptions"
             className="px-4 py-2.5 text-gray-700 font-medium rounded-lg hover:bg-gray-100"
           >
             Annuler
@@ -580,7 +727,11 @@ const InscriptionNouvellePage: React.FC = () => {
           <button
             type="submit"
             disabled={
-              createMutation.isPending || classePleine || !eleveId || !classeId
+              createMutation.isPending ||
+              classePleine ||
+              !eleveId ||
+              !classeId ||
+              !anneeScolaireId
             }
             className="inline-flex items-center gap-2 px-6 py-2.5 bg-linear-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg shadow-md hover:shadow-lg disabled:opacity-60"
           >
@@ -677,9 +828,7 @@ const InscriptionNouvellePage: React.FC = () => {
                     <button
                       key={s}
                       type="button"
-                      onClick={() =>
-                        setNewEleve((f) => ({ ...f, sexe: s }))
-                      }
+                      onClick={() => setNewEleve((f) => ({ ...f, sexe: s }))}
                       className={`flex-1 px-3 py-2 text-sm rounded-lg font-medium ${
                         newEleve.sexe === s
                           ? 'bg-blue-600 text-white'

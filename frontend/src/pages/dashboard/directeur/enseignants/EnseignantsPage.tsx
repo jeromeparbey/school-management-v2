@@ -34,24 +34,26 @@ import type {
 } from '../../../../types/enseignant.types';
 
 // ============================================
+// DEVISE
+// ============================================
+
+const DEFAULT_DEVISE = 'F CFA';
+
+// ============================================
 // HELPERS
 // ============================================
 
 type SortOption = NonNullable<ListEnseignantsParams['sortBy']>;
 
-const formatMoney = (amount: number) => {
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'XOF',
-    maximumFractionDigits: 0,
-  }).format(amount);
-};
-
-const formatMoneyShort = (amount: number) => {
-  if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)}M`;
-  if (amount >= 1_000) return `${(amount / 1_000).toFixed(0)}k`;
-  return `${amount}`;
-};
+/**
+ * Format monétaire complet avec séparateurs de milliers.
+ * Ex: 45000 → "45 000 F CFA"
+ */
+const formatMoney = (amount: number, devise: string = DEFAULT_DEVISE) =>
+  `${amount.toLocaleString('fr-FR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })} ${devise}`;
 
 const CONTRAT_COLORS: Record<string, { bg: string; text: string; label: string }> = {
   CDI: { bg: 'bg-emerald-50', text: 'text-emerald-700', label: 'CDI' },
@@ -87,12 +89,14 @@ const StatCard: React.FC<StatCardProps> = ({
   bgColor,
 }) => (
   <div className="bg-white rounded-xl border border-gray-100 p-4">
-    <div className="flex items-center justify-between">
-      <div>
+    <div className="flex items-center justify-between gap-2">
+      <div className="min-w-0">
         <p className="text-xs text-gray-500">{label}</p>
-        <p className="text-xl font-bold text-gray-900 mt-1">{value}</p>
+        <p className="text-xl font-bold text-gray-900 mt-1 truncate">
+          {value}
+        </p>
       </div>
-      <div className={`p-2 rounded-lg ${bgColor}`}>
+      <div className={`p-2 rounded-lg ${bgColor} shrink-0`}>
         <Icon className={`w-5 h-5 ${color}`} />
       </div>
     </div>
@@ -118,7 +122,6 @@ const EnseignantCard: React.FC<EnseignantCardProps> = ({
 }) => {
   const contratStyle = getContratStyle(enseignant.typeContrat);
   const nbAffectations = enseignant._count?.affectations ?? 0;
-  const nbClasses = nbAffectations; // approximation
 
   return (
     <motion.div
@@ -145,8 +148,8 @@ const EnseignantCard: React.FC<EnseignantCardProps> = ({
             <div
               className={`w-14 h-14 rounded-xl flex items-center justify-center text-white font-bold text-lg shrink-0 ${
                 enseignant.sexe === 'F'
-                  ? 'bg-gradient-to-br from-pink-500 to-rose-500'
-                  : 'bg-gradient-to-br from-indigo-500 to-purple-500'
+                  ? 'bg-linear-to-br from-pink-500 to-rose-500'
+                  : 'bg-linear-to-br from-indigo-500 to-purple-500'
               }`}
             >
               {enseignant.prenom.charAt(0)}
@@ -236,7 +239,7 @@ const EnseignantCard: React.FC<EnseignantCardProps> = ({
         <div>
           <p className="text-xs text-gray-500">Salaire</p>
           <p className="text-sm font-bold text-gray-900 mt-0.5">
-            {formatMoneyShort(enseignant.salaireBase)}
+            {formatMoney(enseignant.salaireBase)}
           </p>
         </div>
         <div>
@@ -425,9 +428,7 @@ const EnseignantsPage: React.FC = () => {
 
   return (
     <div className="p-6 space-y-5">
-      {/* ============================================
-          EN-TÊTE
-          ============================================ */}
+      {/* EN-TÊTE */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -477,9 +478,7 @@ const EnseignantsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* ============================================
-          STATISTIQUES
-          ============================================ */}
+      {/* STATISTIQUES */}
       {!isLoading && !isError && enseignants.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard
@@ -498,7 +497,7 @@ const EnseignantsPage: React.FC = () => {
           />
           <StatCard
             label="Masse salariale"
-            value={formatMoneyShort(stats.masseSalariale)}
+            value={formatMoney(stats.masseSalariale)}
             icon={BanknotesIcon}
             color="text-orange-600"
             bgColor="bg-orange-50"
@@ -513,12 +512,9 @@ const EnseignantsPage: React.FC = () => {
         </div>
       )}
 
-      {/* ============================================
-          RECHERCHE + FILTRES
-          ============================================ */}
+      {/* RECHERCHE + FILTRES */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <div className="flex flex-col sm:flex-row gap-3">
-          {/* Recherche */}
           <div className="relative flex-1">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
@@ -546,7 +542,6 @@ const EnseignantsPage: React.FC = () => {
             )}
           </div>
 
-          {/* Tri */}
           <div className="relative">
             <ArrowsUpDownIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <select
@@ -573,7 +568,6 @@ const EnseignantsPage: React.FC = () => {
             </select>
           </div>
 
-          {/* Bouton filtres */}
           <button
             onClick={() => setShowFilters((v) => !v)}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
@@ -761,9 +755,7 @@ const EnseignantsPage: React.FC = () => {
         </div>
       )}
 
-      {/* ============================================
-          CONTENU
-          ============================================ */}
+      {/* CONTENU */}
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {[...Array(6)].map((_, i) => (
@@ -845,9 +837,7 @@ const EnseignantsPage: React.FC = () => {
         </div>
       )}
 
-      {/* ============================================
-          PAGINATION
-          ============================================ */}
+      {/* PAGINATION */}
       {pagination && pagination.totalPages > 1 && (
         <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-sm text-gray-500">

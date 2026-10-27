@@ -18,6 +18,18 @@ export type StatutPaiement = 'COMPLET' | 'ANNULE' | 'REMBOURSE';
 // RÉSUMÉS (relations imbriquées)
 // ============================================
 
+export interface ClasseSummary {
+  id: string;
+  nom: string;
+  code: string;
+}
+
+export interface InscriptionSummary {
+  id: string;
+  classeId: string;
+  classe?: ClasseSummary;
+}
+
 export interface EleveSummary {
   id: string;
   matricule: string;
@@ -26,6 +38,8 @@ export interface EleveSummary {
   sexe: string;
   photo: string | null;
   statut: string;
+  /** 🆕 Inscription active (via paiementInclude.eleve.inscriptions) */
+  inscriptions?: InscriptionSummary[];
 }
 
 export interface UtilisateurSummary {
@@ -93,6 +107,11 @@ export interface Paiement {
   allocations?: AllocationPaiement[];
   recu?: RecuSummary | null;
   assignment?: AssignmentSummary | null;
+
+  /** 🆕 Classe de l'élève (résolue côté frontend via eleve.inscriptions) */
+  classeId?: string | null;
+  classeNom?: string | null;
+  classeCode?: string | null;
 }
 
 // ============================================
@@ -133,6 +152,8 @@ export interface ListPaiementsParams {
   limit?: number;
   search?: string;
   eleveId?: string;
+  /** 🆕 Filtre par classe (via inscriptions actives de l'élève) */
+  classeId?: string;
   moyen?: MoyenPaiement;
   statut?: StatutPaiement;
   dateDebut?: string;

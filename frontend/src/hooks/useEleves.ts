@@ -1,6 +1,12 @@
 // frontend2/src/hooks/useEleves.ts
 
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  keepPreviousData,
+} from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { eleveApi } from '../api/eleve.api';
 import { useToast } from '../context/ToastContext';
 import type {
@@ -9,6 +15,12 @@ import type {
   UpdateElevePayload,
   ElevesListResult,
   Eleve,
+  EleveDetail,
+  FinanceResume,
+  EleveStats,
+  EcheanceDetail,
+  EmploiTempsResume,
+  AffectationEnseignantResume,
 } from '../types/eleve.types';
 
 // ──────────────────────────────────────────
@@ -18,7 +30,8 @@ import type {
 export const eleveKeys = {
   all: ['eleves'] as const,
   lists: () => [...eleveKeys.all, 'list'] as const,
-  list: (params?: ListElevesParams) => [...eleveKeys.lists(), params ?? {}] as const,
+  list: (params?: ListElevesParams) =>
+    [...eleveKeys.lists(), params ?? {}] as const,
   details: () => [...eleveKeys.all, 'detail'] as const,
   detail: (id: string) => [...eleveKeys.details(), id] as const,
 };
@@ -32,16 +45,24 @@ function normalize(res: any): ElevesListResult {
     return {
       eleves: res.data.data,
       pagination:
-        res.data.pagination ??
-        { page: 1, limit: 20, total: res.data.data.length, totalPages: 1 },
+        res.data.pagination ?? {
+          page: 1,
+          limit: 20,
+          total: res.data.data.length,
+          totalPages: 1,
+        },
     };
   }
   if (Array.isArray(res?.data)) {
     return {
       eleves: res.data,
       pagination:
-        res.pagination ??
-        { page: 1, limit: 20, total: res.data.length, totalPages: 1 },
+        res.pagination ?? {
+          page: 1,
+          limit: 20,
+          total: res.data.length,
+          totalPages: 1,
+        },
     };
   }
   return {
@@ -56,12 +77,41 @@ function getErrorMessage(err: unknown, fallback = 'Erreur'): string {
 }
 
 /** Extrait l'élève renvoyé par l'API quel que soit le wrapping (data / direct) */
-function unwrapEleve(res: any): Eleve | null {
-  if (res?.data?.data) return res.data.data as Eleve;
+function unwrapEleve(res: any): EleveDetail | null {
+  if (res?.data?.data) return res.data.data as EleveDetail;
   if (res?.data && typeof res.data === 'object' && 'id' in res.data) {
-    return res.data as Eleve;
+    return res.data as EleveDetail;
   }
   return null;
+}
+
+/**
+ * Invalide tous les caches "élève" + les caches métier liés.
+ * Utilisé après création / mise à jour / suppression.
+ */
+function invalidateAllEleveRelated(
+  qc: ReturnType<typeof useQueryClient>,
+  id?: string
+) {
+  qc.invalidateQueries({ queryKey: eleveKeys.lists() });
+  if (id) {
+    qc.invalidateQueries({ queryKey: eleveKeys.detail(id) });
+  }
+  [
+    'paiements',
+    'echeances',
+    'assignments-scolarite',
+    'inscriptions',
+    'presences-eleves',
+    'absences-eleves',
+    'notes',
+    'bulletins',
+    'reductions',
+    'emplois-temps',
+    'affectations-enseignants',
+  ].forEach((domain) => {
+    qc.invalidateQueries({ queryKey: [domain] });
+  });
 }
 
 // ──────────────────────────────────────────
@@ -77,8 +127,16 @@ export function useEleves(params?: ListElevesParams) {
   });
 }
 
+/**
+ * Détail complet de l'élève — inclut :
+ * - infos, parents, responsables, inscriptions
+ * - assignmentsScolarite (avec échéances enrichies `_meta`)
+ * - paiements, presences, absences, notes, bulletins, etc.
+ * - classeActive, emploiTemps, equipePedagogique
+ * - _finance (résumé financier) et _stats (compteurs dérivés)
+ */
 export function useEleve(id: string | undefined) {
-  return useQuery<Eleve>({
+  return useQuery<EleveDetail>({
     queryKey: eleveKeys.detail(id ?? ''),
     queryFn: async () => {
       const res = await eleveApi.getById(id!);
@@ -89,6 +147,146 @@ export function useEleve(id: string | undefined) {
     enabled: !!id,
     staleTime: 30_000,
   });
+}
+
+// ──────────────────────────────────────────
+// 🆕 HOOKS DÉRIVÉS (sélecteurs)
+// Tous partagent la même queryKey → une seule requête réseau.
+// ──────────────────────────────────────────
+
+/** Récupère uniquement le résumé financier. */
+export function useEleveFinance(id: string | undefined) {
+  return useQuery<EleveDetail, Error, FinanceResume | undefined>({
+    queryKey: eleveKeys.detail(id ?? ''),
+    queryFn: async () => {
+      const res = await eleveApi.getById(id!);
+      const eleve = unwrapEleve(res);
+      if (!eleve) throw new Error('Élève introuvable');
+      return eleve;
+    },
+    enabled: !!id,
+    staleTime: 30_000,
+    select: (eleve) => eleve._finance,
+  });
+}
+
+/**
+ * Aplatit toutes les échéances de tous les assignments.
+ * Chaque échéance est enrichie du plan et de l'assignment.
+ */
+export function useEleveEcheances(id: string | undefined) {
+  return useQuery<
+    EleveDetail,
+    Error,
+    Array<
+      EcheanceDetail & {
+        assignmentId: string;
+        planId?: string;
+        planNom?: string;
+        classeNom?: string | null;
+      }
+    >
+  >({
+    queryKey: eleveKeys.detail(id ?? ''),
+    queryFn: async () => {
+      const res = await eleveApi.getById(id!);
+      const eleve = unwrapEleve(res);
+      if (!eleve) throw new Error('Élève introuvable');
+      return eleve;
+    },
+    enabled: !!id,
+    staleTime: 30_000,
+    select: (eleve) => {
+      const out: Array<
+        EcheanceDetail & {
+          assignmentId: string;
+          planId?: string;
+          planNom?: string;
+          classeNom?: string | null;
+        }
+      > = [];
+      for (const a of eleve.assignmentsScolarite ?? []) {
+        for (const e of a.planScolarite?.echeances ?? []) {
+          out.push({
+            ...e,
+            assignmentId: a.id,
+            planId: a.planScolarite?.id,
+            planNom: a.planScolarite?.nom,
+            classeNom: a.classe?.nom ?? null,
+          });
+        }
+      }
+      return out;
+    },
+  });
+}
+
+/** Emploi du temps de la classe active. */
+export function useEleveEmploiTemps(id: string | undefined) {
+  return useQuery<EleveDetail, Error, EmploiTempsResume[]>({
+    queryKey: eleveKeys.detail(id ?? ''),
+    queryFn: async () => {
+      const res = await eleveApi.getById(id!);
+      const eleve = unwrapEleve(res);
+      if (!eleve) throw new Error('Élève introuvable');
+      return eleve;
+    },
+    enabled: !!id,
+    staleTime: 30_000,
+    select: (eleve) => eleve.emploiTemps ?? [],
+  });
+}
+
+/** Équipe pédagogique (enseignants) de la classe active. */
+export function useEleveEquipePedagogique(id: string | undefined) {
+  return useQuery<EleveDetail, Error, AffectationEnseignantResume[]>({
+    queryKey: eleveKeys.detail(id ?? ''),
+    queryFn: async () => {
+      const res = await eleveApi.getById(id!);
+      const eleve = unwrapEleve(res);
+      if (!eleve) throw new Error('Élève introuvable');
+      return eleve;
+    },
+    enabled: !!id,
+    staleTime: 30_000,
+    select: (eleve) => eleve.equipePedagogique ?? [],
+  });
+}
+
+/**
+ * Compteurs dérivés (finance + stats) pour les cartes du dashboard élève.
+ */
+export function useEleveDashboardStats(id: string | undefined) {
+  const q = useEleve(id);
+  return useMemo(
+    () => ({
+      ...q,
+      finance: q.data?._finance,
+      stats: q.data?._stats,
+    }),
+    [q]
+  );
+}
+
+/**
+ * Petit hook pratique pour savoir en un coup d'œil si l'élève a du retard
+ * ou des échéances en attente. Utile dans les listes / badges.
+ */
+export function useEleveFinanceFlags(id: string | undefined) {
+  const { data, isLoading, isError } = useEleveFinance(id);
+  return useMemo(
+    () => ({
+      isLoading,
+      isError,
+      estAJour: data?.estAJour ?? true,
+      estEnRetard: data?.estEnRetard ?? false,
+      totalRetard: data?.totalRetard ?? 0,
+      totalRestant: data?.totalRestant ?? 0,
+      nombreEcheancesRetard: data?.nombreEcheancesRetard ?? 0,
+      prochaineEcheance: data?.prochainesEcheances?.[0] ?? null,
+    }),
+    [data, isLoading, isError]
+  );
 }
 
 // ──────────────────────────────────────────
@@ -109,15 +307,11 @@ export function useCreateEleve() {
     onSuccess: (res) => {
       const eleve = unwrapEleve(res);
 
-      qc.invalidateQueries({ queryKey: eleveKeys.lists() });
+      invalidateAllEleveRelated(qc);
 
       if (eleve) {
-        // Pré-remplir le cache détail pour éviter un refetch immédiat
         qc.setQueryData(eleveKeys.detail(eleve.id), eleve);
-
         toast.success(`Élève créé : ${eleve.prenom} ${eleve.nom}`);
-
-        // 🆕 Warnings non bloquants (ex: classe sans plan de scolarité)
         if (eleve._warnings?.length) {
           eleve._warnings.forEach((w) => toast.warning(w));
         }
@@ -136,8 +330,7 @@ export function useCreateEleve() {
 
 /**
  * Met à jour un élève.
- * - Si `payload.classeId` est fourni → réinscription automatique
- *   (désactive l'ancienne inscription, crée la nouvelle, assignment si plan).
+ * - Si `payload.classeId` est fourni → réinscription automatique.
  * - Si `payload.classeId === null` → retire l'élève de sa classe active.
  */
 export function useUpdateEleve() {
@@ -155,16 +348,12 @@ export function useUpdateEleve() {
     onSuccess: (res, v) => {
       const eleve = unwrapEleve(res);
 
-      qc.invalidateQueries({ queryKey: eleveKeys.lists() });
-      qc.invalidateQueries({ queryKey: eleveKeys.detail(v.id) });
+      invalidateAllEleveRelated(qc, v.id);
 
-      // 🆕 Le changement de classe impacte les inscriptions et la scolarité
-      if (v.payload.classeId !== undefined) {
-        qc.invalidateQueries({ queryKey: ['inscriptions', 'list'] });
-        qc.invalidateQueries({ queryKey: ['assignments-scolarite', 'list'] });
+      if (eleve) {
+        qc.setQueryData(eleveKeys.detail(v.id), eleve);
       }
 
-      // Warnings éventuels
       if (eleve?._warnings?.length) {
         eleve._warnings.forEach((w) => toast.warning(w));
       } else {
@@ -187,8 +376,7 @@ export function useSoftDeleteEleve() {
   return useMutation({
     mutationFn: (id: string) => eleveApi.softDelete(id),
     onSuccess: (_r, id) => {
-      qc.invalidateQueries({ queryKey: eleveKeys.lists() });
-      qc.invalidateQueries({ queryKey: eleveKeys.detail(id) });
+      invalidateAllEleveRelated(qc, id);
       toast.success('Élève archivé');
     },
     onError: (err) => toast.error(getErrorMessage(err, 'Échec')),
@@ -207,7 +395,7 @@ export function useHardDeleteEleve() {
     mutationFn: (id: string) => eleveApi.hardDelete(id),
     onSuccess: (_r, id) => {
       qc.removeQueries({ queryKey: eleveKeys.detail(id) });
-      qc.invalidateQueries({ queryKey: eleveKeys.lists() });
+      invalidateAllEleveRelated(qc);
       toast.success('Élève supprimé définitivement');
     },
     onError: (err) => toast.error(getErrorMessage(err, 'Échec')),

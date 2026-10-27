@@ -52,6 +52,8 @@ import UtilisateursPage from './pages/dashboard/directeur/utilisateurs/Utilisate
 import UtilisateurNouveauPage from './pages/dashboard/directeur/utilisateurs/UtilisateurNouveauPage';
 import UtilisateurEditerPage from './pages/dashboard/directeur/utilisateurs/UtilisateurEditerPage';
 import MonProfilPage from './pages/dashboard/shared/MonProfilPage';
+import RecusListPage from './pages/dashboard/directeur/recus/RecusListPage';
+import RecuDetailPage from './pages/dashboard/directeur/recus/RecuDetailPage';
 // ============================================
 // PAGES DASHBOARD — À VENIR (Directeur)
 // ============================================
@@ -472,7 +474,8 @@ function App() {
             {/* <Route path="absences" element={<AbsencesPage />} /> */}
             {/* <Route path="avances" element={<AvancesPage />} /> */}
             {/* <Route path="reclamations" element={<ReclamationsPage />} /> */}
-
+<Route path="recus" element={<RecusListPage />} />
+<Route path="recus/:id" element={<RecuDetailPage />} />
             {/* ============================================
                 DIRECTEUR — FINANCES : PAIEMENTS & PAIE ✅
                 ============================================ */}

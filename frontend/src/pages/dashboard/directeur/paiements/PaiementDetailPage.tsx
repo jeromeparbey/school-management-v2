@@ -18,6 +18,8 @@ import {
   ClockIcon,
   IdentificationIcon,
   DocumentTextIcon,
+  AcademicCapIcon,
+  ChartBarIcon,
 } from '@heroicons/react/24/outline';
 import {
   usePaiement,
@@ -25,6 +27,10 @@ import {
   useHardDeletePaiement,
 } from '../../../../hooks/usePaiements';
 import { useToast } from '../../../../context/ToastContext';
+
+// ══════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════
 
 const MOYENS_LABEL: Record<string, string> = {
   ESPECES: 'Espèces',
@@ -35,8 +41,58 @@ const MOYENS_LABEL: Record<string, string> = {
   AUTRE: 'Autre',
 };
 
-const formatMontant = (n: number) =>
-  n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+/**
+ * Formate un montant avec la devise fournie.
+ * - Si devise est un code ISO connu (XOF, XAF, EUR, USD…) → format court avec symbole/code
+ * - Sinon → suffixe avec la devise fournie (ex: "F CFA")
+ */
+const formatMoney = (
+  amount: number | null | undefined,
+  devise: string = 'F CFA'
+): string => {
+  if (amount == null) return '—';
+  const value = amount.toLocaleString('fr-FR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+
+  const upper = devise.toUpperCase();
+  // Codes ISO courants → symbole/code court
+  if (upper === 'XOF' || upper === 'XAF') return `${value} F CFA`;
+  if (upper === 'EUR') return `${value} €`;
+  if (upper === 'USD') return `${value} $`;
+  if (upper === 'GBP') return `${value} £`;
+  if (upper === 'MAD') return `${value} DH`;
+  if (upper === 'NGN') return `${value} ₦`;
+  // Fallback : on affiche la devise telle que fournie
+  return `${value} ${devise}`;
+};
+
+/**
+ * Extrait la devise de manière robuste depuis le paiement :
+ * 1. Reçu (snapshot figé) → le plus fiable
+ * 2. Assignment → planScolarite.devise
+ * 3. Fallback 'F CFA'
+ */
+function resolveDevise(paiement: any): string {
+  return (
+    paiement?.recu?.etablissementDevise ||
+    paiement?.recu?.devise ||
+    paiement?.assignment?.planScolarite?.devise ||
+    'F CFA'
+  );
+}
+
+const STATUT_COLORS: Record<string, { bg: string; text: string; label: string }> = {
+  PAYEE: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Payée' },
+  PARTIELLE: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Partielle' },
+  IMPAYEE: { bg: 'bg-gray-100', text: 'text-gray-700', label: 'Impayée' },
+  EN_RETARD: { bg: 'bg-red-100', text: 'text-red-700', label: 'En retard' },
+};
+
+// ══════════════════════════════════════════════
+// PAGE
+// ══════════════════════════════════════════════
 
 const PaiementDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -124,13 +180,27 @@ const PaiementDetailPage: React.FC = () => {
   const canAnnuler = paiement.statut === 'COMPLET';
   const canHardDelete = paiement.statut === 'ANNULE';
 
-  // ═══════════════════════════════════════════════════════
-  // RENDER
-  // ═══════════════════════════════════════════════════════
+  // 🆕 Devise dynamique
+  const devise = resolveDevise(paiement);
+
+  // 🆕 Récapitulatif financier
+  const totalAlloue = (paiement.allocations ?? []).reduce(
+    (s: number, a: any) => s + (a.montant ?? 0),
+    0
+  );
+  const resteNonAlloue = Math.max(0, (paiement.montant ?? 0) - totalAlloue);
+  const nombreEcheancesCouvertes = paiement.allocations?.length ?? 0;
+
+  // 🆕 Classe active de l'élève (via inscriptions du paiement.eleve)
+  const classeActive =
+    paiement.eleve?.inscriptions?.find((i: any) => i.estActive)?.classe ??
+    null;
 
   return (
     <div className="w-full max-w-[1400px] mx-auto space-y-6">
-      {/* Breadcrumb + actions */}
+      {/* ═══════════════════════════════════════════
+          BREADCRUMB + ACTIONS
+          ═══════════════════════════════════════════ */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <Link
@@ -191,7 +261,51 @@ const PaiementDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Layout 2 colonnes */}
+      {/* ═══════════════════════════════════════════
+          STATS RAPIDES (4 cartes)
+          ═══════════════════════════════════════════ */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-white rounded-xl border border-gray-100 p-4">
+          <p className="text-xs text-gray-500">Montant encaissé</p>
+          <p className="text-xl font-bold text-emerald-700 mt-1 truncate">
+            {formatMoney(paiement.montant, devise)}
+          </p>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 p-4">
+          <p className="text-xs text-gray-500">Alloué aux échéances</p>
+          <p className="text-xl font-bold text-blue-700 mt-1 truncate">
+            {formatMoney(totalAlloue, devise)}
+          </p>
+          <p className="text-[10px] text-gray-400 mt-0.5">
+            {nombreEcheancesCouvertes} échéance(s)
+          </p>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 p-4">
+          <p className="text-xs text-gray-500">Reste non alloué</p>
+          <p
+            className={`text-xl font-bold mt-1 truncate ${
+              resteNonAlloue > 0 ? 'text-orange-600' : 'text-gray-400'
+            }`}
+          >
+            {formatMoney(resteNonAlloue, devise)}
+          </p>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 p-4">
+          <p className="text-xs text-gray-500">Moyen de paiement</p>
+          <p className="text-sm font-semibold text-gray-900 mt-1 truncate">
+            {MOYENS_LABEL[paiement.moyen] ?? paiement.moyen}
+          </p>
+          {paiement.referenceMoyen && (
+            <p className="text-[10px] font-mono text-gray-400 mt-0.5 truncate">
+              {paiement.referenceMoyen}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════
+          LAYOUT 2 COLONNES
+          ═══════════════════════════════════════════ */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ─────────── COLONNE PRINCIPALE ─────────── */}
         <div className="lg:col-span-2 space-y-6">
@@ -267,7 +381,7 @@ const PaiementDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Montant & référence */}
+          {/* Montant & référence (🆕 devise dynamique) */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 flex items-center gap-2">
               <ReceiptPercentIcon className="w-4 h-4 text-emerald-500" />
@@ -277,8 +391,7 @@ const PaiementDetailPage: React.FC = () => {
               <div>
                 <p className="text-xs text-gray-500">Montant encaissé</p>
                 <p className="text-3xl font-bold text-emerald-700 mt-1">
-                  {formatMontant(paiement.montant)}{' '}
-                  <span className="text-sm font-medium text-gray-500">XOF</span>
+                  {formatMoney(paiement.montant, devise)}
                 </p>
               </div>
               <div>
@@ -306,7 +419,7 @@ const PaiementDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Élève */}
+          {/* Élève (🆕 avec classe active) */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
@@ -324,11 +437,11 @@ const PaiementDetailPage: React.FC = () => {
               )}
             </div>
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-linear-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shrink-0">
+              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shrink-0">
                 {paiement.eleve?.prenom?.[0]}
                 {paiement.eleve?.nom?.[0]}
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="font-semibold text-gray-900 truncate">
                   {eleveNom}
                 </p>
@@ -337,6 +450,12 @@ const PaiementDetailPage: React.FC = () => {
                     <IdentificationIcon className="w-3.5 h-3.5" />
                     {paiement.eleve?.matricule}
                   </span>
+                  {classeActive && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium">
+                      <AcademicCapIcon className="w-3.5 h-3.5" />
+                      {classeActive.nom}
+                    </span>
+                  )}
                   {paiement.eleve?.statut && (
                     <span className="inline-block px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
                       {paiement.eleve.statut}
@@ -347,13 +466,19 @@ const PaiementDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Allocations */}
+          {/* Allocations (🆕 avec statut par échéance + devise dynamique) */}
           {paiement.allocations && paiement.allocations.length > 0 && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 flex items-center gap-2">
-                <DocumentTextIcon className="w-4 h-4 text-indigo-500" />
-                Allocations aux échéances
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
+                  <DocumentTextIcon className="w-4 h-4 text-indigo-500" />
+                  Allocations aux échéances
+                </h2>
+                <span className="text-xs text-gray-500">
+                  {paiement.allocations.length} échéance(s)
+                </span>
+              </div>
+
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -363,37 +488,94 @@ const PaiementDetailPage: React.FC = () => {
                         Date limite
                       </th>
                       <th className="text-right py-2 font-semibold">
-                        Montant échéance
+                        Montant
                       </th>
                       <th className="text-right py-2 font-semibold">
                         Alloué
                       </th>
+                      <th className="text-right py-2 font-semibold">
+                        Statut
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {paiement.allocations.map((a) => (
-                      <tr key={a.id}>
-                        <td className="py-2 text-gray-900">
-                          {a.echeance?.nom ?? '—'}
-                        </td>
-                        <td className="py-2 text-gray-600">
-                          {a.echeance?.dateLimite
-                            ? new Date(
-                                a.echeance.dateLimite
-                              ).toLocaleDateString('fr-FR')
-                            : '—'}
-                        </td>
-                        <td className="py-2 text-right text-gray-600">
-                          {formatMontant(a.echeance?.montant ?? 0)} XOF
-                        </td>
-                        <td className="py-2 text-right font-medium text-gray-900">
-                          {formatMontant(a.montant)} XOF
-                        </td>
-                      </tr>
-                    ))}
+                    {paiement.allocations.map((a: any) => {
+                      // 🆕 métadonnées enrichies par le backend (_meta)
+                      const meta = a._meta;
+                      const statutKey =
+                        meta?.estPayeeCompletement
+                          ? 'PAYEE'
+                          : meta?.estPartielle
+                          ? 'PARTIELLE'
+                          : meta?.enRetard
+                          ? 'EN_RETARD'
+                          : 'IMPAYEE';
+                      const st =
+                        STATUT_COLORS[statutKey] ?? STATUT_COLORS.IMPAYEE;
+
+                      return (
+                        <tr key={a.id}>
+                          <td className="py-2 text-gray-900">
+                            {a.echeance?.nom ?? '—'}
+                          </td>
+                          <td className="py-2 text-gray-600">
+                            {a.echeance?.dateLimite
+                              ? new Date(
+                                  a.echeance.dateLimite
+                                ).toLocaleDateString('fr-FR')
+                              : '—'}
+                          </td>
+                          <td className="py-2 text-right text-gray-600">
+                            {formatMoney(a.echeance?.montant ?? 0, devise)}
+                          </td>
+                          <td className="py-2 text-right font-medium text-gray-900">
+                            {formatMoney(a.montant, devise)}
+                          </td>
+                          <td className="py-2 text-right">
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${st.bg} ${st.text}`}
+                            >
+                              {st.label}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
+                  <tfoot className="border-t-2 border-gray-200">
+                    <tr>
+                      <td colSpan={3} className="py-2 text-right text-xs font-medium text-gray-600">
+                        Total alloué
+                      </td>
+                      <td className="py-2 text-right font-bold text-gray-900">
+                        {formatMoney(totalAlloue, devise)}
+                      </td>
+                      <td />
+                    </tr>
+                    {resteNonAlloue > 0 && (
+                      <tr>
+                        <td colSpan={3} className="py-1 text-right text-xs font-medium text-orange-600">
+                          Reste non alloué
+                        </td>
+                        <td className="py-1 text-right font-bold text-orange-600">
+                          {formatMoney(resteNonAlloue, devise)}
+                        </td>
+                        <td />
+                      </tr>
+                    )}
+                  </tfoot>
                 </table>
               </div>
+
+              {resteNonAlloue > 0 && (
+                <div className="mt-3 flex items-start gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                  <ExclamationTriangleIcon className="w-4 h-4 text-orange-600 shrink-0 mt-0.5" />
+                  <p className="text-xs text-orange-700">
+                    Une partie du paiement ({formatMoney(resteNonAlloue, devise)}) n'est pas allouée à une échéance.
+                    Vérifiez avec le caissier si cela est intentionnel.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -546,6 +728,42 @@ const PaiementDetailPage: React.FC = () => {
                 </button>
               )}
             </div>
+          </div>
+
+          {/* 🆕 Récapitulatif financier */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <ChartBarIcon className="w-4 h-4 text-emerald-600" />
+              Récapitulatif
+            </h3>
+            <dl className="space-y-2 text-sm">
+              <div className="flex justify-between gap-2">
+                <dt className="text-gray-500">Montant</dt>
+                <dd className="font-semibold text-gray-900 text-right">
+                  {formatMoney(paiement.montant, devise)}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-gray-500">Alloué</dt>
+                <dd className="font-semibold text-blue-700 text-right">
+                  {formatMoney(totalAlloue, devise)}
+                </dd>
+              </div>
+              {resteNonAlloue > 0 && (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-gray-500">Reste non alloué</dt>
+                  <dd className="font-semibold text-orange-600 text-right">
+                    {formatMoney(resteNonAlloue, devise)}
+                  </dd>
+                </div>
+              )}
+              <div className="flex justify-between gap-2 pt-2 border-t border-gray-100">
+                <dt className="text-gray-500">Échéances couvertes</dt>
+                <dd className="font-semibold text-gray-900 text-right">
+                  {nombreEcheancesCouvertes}
+                </dd>
+              </div>
+            </dl>
           </div>
 
           {/* Caissier */}

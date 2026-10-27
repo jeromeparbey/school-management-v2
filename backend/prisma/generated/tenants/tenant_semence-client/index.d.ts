@@ -50336,11 +50336,19 @@ export namespace Prisma {
   export type RecuAvgAggregateOutputType = {
     montant: number | null
     soldeApres: number | null
+    montantPaye: number | null
+    montantReduction: number | null
+    montantRestant: number | null
+    nombreImpressions: number | null
   }
 
   export type RecuSumAggregateOutputType = {
     montant: number | null
     soldeApres: number | null
+    montantPaye: number | null
+    montantReduction: number | null
+    montantRestant: number | null
+    nombreImpressions: number | null
   }
 
   export type RecuMinAggregateOutputType = {
@@ -50356,6 +50364,39 @@ export namespace Prisma {
     soldeApres: number | null
     generePar: string | null
     cheminPDF: string | null
+    etablissementNom: string | null
+    etablissementLogo: string | null
+    etablissementAdresse: string | null
+    etablissementVille: string | null
+    etablissementPays: string | null
+    etablissementTelephone: string | null
+    etablissementEmail: string | null
+    etablissementSiteWeb: string | null
+    etablissementCode: string | null
+    etablissementAgrement: string | null
+    etablissementDevise: string | null
+    eleveMatricule: string | null
+    elevePrenom: string | null
+    eleveNom: string | null
+    eleveSexe: string | null
+    classeNom: string | null
+    classeCode: string | null
+    niveauNom: string | null
+    anneeScolaireNom: string | null
+    montantPaye: number | null
+    montantReduction: number | null
+    montantRestant: number | null
+    devise: string | null
+    referencePaiement: string | null
+    moyenPaiementLabel: string | null
+    formatImprime: string | null
+    cheminPDF_A4: string | null
+    cheminPDF_A5: string | null
+    cheminPDF_80MM: string | null
+    nombreImpressions: number | null
+    derniereImpression: Date | null
+    codeVerification: string | null
+    urlVerification: string | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -50373,6 +50414,39 @@ export namespace Prisma {
     soldeApres: number | null
     generePar: string | null
     cheminPDF: string | null
+    etablissementNom: string | null
+    etablissementLogo: string | null
+    etablissementAdresse: string | null
+    etablissementVille: string | null
+    etablissementPays: string | null
+    etablissementTelephone: string | null
+    etablissementEmail: string | null
+    etablissementSiteWeb: string | null
+    etablissementCode: string | null
+    etablissementAgrement: string | null
+    etablissementDevise: string | null
+    eleveMatricule: string | null
+    elevePrenom: string | null
+    eleveNom: string | null
+    eleveSexe: string | null
+    classeNom: string | null
+    classeCode: string | null
+    niveauNom: string | null
+    anneeScolaireNom: string | null
+    montantPaye: number | null
+    montantReduction: number | null
+    montantRestant: number | null
+    devise: string | null
+    referencePaiement: string | null
+    moyenPaiementLabel: string | null
+    formatImprime: string | null
+    cheminPDF_A4: string | null
+    cheminPDF_A5: string | null
+    cheminPDF_80MM: string | null
+    nombreImpressions: number | null
+    derniereImpression: Date | null
+    codeVerification: string | null
+    urlVerification: string | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -50391,6 +50465,40 @@ export namespace Prisma {
     soldeApres: number
     generePar: number
     cheminPDF: number
+    detailsFinanciers: number
+    etablissementNom: number
+    etablissementLogo: number
+    etablissementAdresse: number
+    etablissementVille: number
+    etablissementPays: number
+    etablissementTelephone: number
+    etablissementEmail: number
+    etablissementSiteWeb: number
+    etablissementCode: number
+    etablissementAgrement: number
+    etablissementDevise: number
+    eleveMatricule: number
+    elevePrenom: number
+    eleveNom: number
+    eleveSexe: number
+    classeNom: number
+    classeCode: number
+    niveauNom: number
+    anneeScolaireNom: number
+    montantPaye: number
+    montantReduction: number
+    montantRestant: number
+    devise: number
+    referencePaiement: number
+    moyenPaiementLabel: number
+    formatImprime: number
+    cheminPDF_A4: number
+    cheminPDF_A5: number
+    cheminPDF_80MM: number
+    nombreImpressions: number
+    derniereImpression: number
+    codeVerification: number
+    urlVerification: number
     createdAt: number
     updatedAt: number
     _all: number
@@ -50400,11 +50508,19 @@ export namespace Prisma {
   export type RecuAvgAggregateInputType = {
     montant?: true
     soldeApres?: true
+    montantPaye?: true
+    montantReduction?: true
+    montantRestant?: true
+    nombreImpressions?: true
   }
 
   export type RecuSumAggregateInputType = {
     montant?: true
     soldeApres?: true
+    montantPaye?: true
+    montantReduction?: true
+    montantRestant?: true
+    nombreImpressions?: true
   }
 
   export type RecuMinAggregateInputType = {
@@ -50420,6 +50536,39 @@ export namespace Prisma {
     soldeApres?: true
     generePar?: true
     cheminPDF?: true
+    etablissementNom?: true
+    etablissementLogo?: true
+    etablissementAdresse?: true
+    etablissementVille?: true
+    etablissementPays?: true
+    etablissementTelephone?: true
+    etablissementEmail?: true
+    etablissementSiteWeb?: true
+    etablissementCode?: true
+    etablissementAgrement?: true
+    etablissementDevise?: true
+    eleveMatricule?: true
+    elevePrenom?: true
+    eleveNom?: true
+    eleveSexe?: true
+    classeNom?: true
+    classeCode?: true
+    niveauNom?: true
+    anneeScolaireNom?: true
+    montantPaye?: true
+    montantReduction?: true
+    montantRestant?: true
+    devise?: true
+    referencePaiement?: true
+    moyenPaiementLabel?: true
+    formatImprime?: true
+    cheminPDF_A4?: true
+    cheminPDF_A5?: true
+    cheminPDF_80MM?: true
+    nombreImpressions?: true
+    derniereImpression?: true
+    codeVerification?: true
+    urlVerification?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -50437,6 +50586,39 @@ export namespace Prisma {
     soldeApres?: true
     generePar?: true
     cheminPDF?: true
+    etablissementNom?: true
+    etablissementLogo?: true
+    etablissementAdresse?: true
+    etablissementVille?: true
+    etablissementPays?: true
+    etablissementTelephone?: true
+    etablissementEmail?: true
+    etablissementSiteWeb?: true
+    etablissementCode?: true
+    etablissementAgrement?: true
+    etablissementDevise?: true
+    eleveMatricule?: true
+    elevePrenom?: true
+    eleveNom?: true
+    eleveSexe?: true
+    classeNom?: true
+    classeCode?: true
+    niveauNom?: true
+    anneeScolaireNom?: true
+    montantPaye?: true
+    montantReduction?: true
+    montantRestant?: true
+    devise?: true
+    referencePaiement?: true
+    moyenPaiementLabel?: true
+    formatImprime?: true
+    cheminPDF_A4?: true
+    cheminPDF_A5?: true
+    cheminPDF_80MM?: true
+    nombreImpressions?: true
+    derniereImpression?: true
+    codeVerification?: true
+    urlVerification?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -50455,6 +50637,40 @@ export namespace Prisma {
     soldeApres?: true
     generePar?: true
     cheminPDF?: true
+    detailsFinanciers?: true
+    etablissementNom?: true
+    etablissementLogo?: true
+    etablissementAdresse?: true
+    etablissementVille?: true
+    etablissementPays?: true
+    etablissementTelephone?: true
+    etablissementEmail?: true
+    etablissementSiteWeb?: true
+    etablissementCode?: true
+    etablissementAgrement?: true
+    etablissementDevise?: true
+    eleveMatricule?: true
+    elevePrenom?: true
+    eleveNom?: true
+    eleveSexe?: true
+    classeNom?: true
+    classeCode?: true
+    niveauNom?: true
+    anneeScolaireNom?: true
+    montantPaye?: true
+    montantReduction?: true
+    montantRestant?: true
+    devise?: true
+    referencePaiement?: true
+    moyenPaiementLabel?: true
+    formatImprime?: true
+    cheminPDF_A4?: true
+    cheminPDF_A5?: true
+    cheminPDF_80MM?: true
+    nombreImpressions?: true
+    derniereImpression?: true
+    codeVerification?: true
+    urlVerification?: true
     createdAt?: true
     updatedAt?: true
     _all?: true
@@ -50560,6 +50776,40 @@ export namespace Prisma {
     soldeApres: number
     generePar: string
     cheminPDF: string | null
+    detailsFinanciers: JsonValue | null
+    etablissementNom: string
+    etablissementLogo: string | null
+    etablissementAdresse: string | null
+    etablissementVille: string | null
+    etablissementPays: string | null
+    etablissementTelephone: string | null
+    etablissementEmail: string | null
+    etablissementSiteWeb: string | null
+    etablissementCode: string
+    etablissementAgrement: string | null
+    etablissementDevise: string
+    eleveMatricule: string
+    elevePrenom: string
+    eleveNom: string
+    eleveSexe: string | null
+    classeNom: string | null
+    classeCode: string | null
+    niveauNom: string | null
+    anneeScolaireNom: string | null
+    montantPaye: number
+    montantReduction: number
+    montantRestant: number
+    devise: string
+    referencePaiement: string
+    moyenPaiementLabel: string
+    formatImprime: string | null
+    cheminPDF_A4: string | null
+    cheminPDF_A5: string | null
+    cheminPDF_80MM: string | null
+    nombreImpressions: number
+    derniereImpression: Date | null
+    codeVerification: string
+    urlVerification: string | null
     createdAt: Date
     updatedAt: Date
     _count: RecuCountAggregateOutputType | null
@@ -50597,6 +50847,40 @@ export namespace Prisma {
     soldeApres?: boolean
     generePar?: boolean
     cheminPDF?: boolean
+    detailsFinanciers?: boolean
+    etablissementNom?: boolean
+    etablissementLogo?: boolean
+    etablissementAdresse?: boolean
+    etablissementVille?: boolean
+    etablissementPays?: boolean
+    etablissementTelephone?: boolean
+    etablissementEmail?: boolean
+    etablissementSiteWeb?: boolean
+    etablissementCode?: boolean
+    etablissementAgrement?: boolean
+    etablissementDevise?: boolean
+    eleveMatricule?: boolean
+    elevePrenom?: boolean
+    eleveNom?: boolean
+    eleveSexe?: boolean
+    classeNom?: boolean
+    classeCode?: boolean
+    niveauNom?: boolean
+    anneeScolaireNom?: boolean
+    montantPaye?: boolean
+    montantReduction?: boolean
+    montantRestant?: boolean
+    devise?: boolean
+    referencePaiement?: boolean
+    moyenPaiementLabel?: boolean
+    formatImprime?: boolean
+    cheminPDF_A4?: boolean
+    cheminPDF_A5?: boolean
+    cheminPDF_80MM?: boolean
+    nombreImpressions?: boolean
+    derniereImpression?: boolean
+    codeVerification?: boolean
+    urlVerification?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     paiement?: boolean | PaiementDefaultArgs<ExtArgs>
@@ -50618,6 +50902,40 @@ export namespace Prisma {
     soldeApres?: boolean
     generePar?: boolean
     cheminPDF?: boolean
+    detailsFinanciers?: boolean
+    etablissementNom?: boolean
+    etablissementLogo?: boolean
+    etablissementAdresse?: boolean
+    etablissementVille?: boolean
+    etablissementPays?: boolean
+    etablissementTelephone?: boolean
+    etablissementEmail?: boolean
+    etablissementSiteWeb?: boolean
+    etablissementCode?: boolean
+    etablissementAgrement?: boolean
+    etablissementDevise?: boolean
+    eleveMatricule?: boolean
+    elevePrenom?: boolean
+    eleveNom?: boolean
+    eleveSexe?: boolean
+    classeNom?: boolean
+    classeCode?: boolean
+    niveauNom?: boolean
+    anneeScolaireNom?: boolean
+    montantPaye?: boolean
+    montantReduction?: boolean
+    montantRestant?: boolean
+    devise?: boolean
+    referencePaiement?: boolean
+    moyenPaiementLabel?: boolean
+    formatImprime?: boolean
+    cheminPDF_A4?: boolean
+    cheminPDF_A5?: boolean
+    cheminPDF_80MM?: boolean
+    nombreImpressions?: boolean
+    derniereImpression?: boolean
+    codeVerification?: boolean
+    urlVerification?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     paiement?: boolean | PaiementDefaultArgs<ExtArgs>
@@ -50639,6 +50957,40 @@ export namespace Prisma {
     soldeApres?: boolean
     generePar?: boolean
     cheminPDF?: boolean
+    detailsFinanciers?: boolean
+    etablissementNom?: boolean
+    etablissementLogo?: boolean
+    etablissementAdresse?: boolean
+    etablissementVille?: boolean
+    etablissementPays?: boolean
+    etablissementTelephone?: boolean
+    etablissementEmail?: boolean
+    etablissementSiteWeb?: boolean
+    etablissementCode?: boolean
+    etablissementAgrement?: boolean
+    etablissementDevise?: boolean
+    eleveMatricule?: boolean
+    elevePrenom?: boolean
+    eleveNom?: boolean
+    eleveSexe?: boolean
+    classeNom?: boolean
+    classeCode?: boolean
+    niveauNom?: boolean
+    anneeScolaireNom?: boolean
+    montantPaye?: boolean
+    montantReduction?: boolean
+    montantRestant?: boolean
+    devise?: boolean
+    referencePaiement?: boolean
+    moyenPaiementLabel?: boolean
+    formatImprime?: boolean
+    cheminPDF_A4?: boolean
+    cheminPDF_A5?: boolean
+    cheminPDF_80MM?: boolean
+    nombreImpressions?: boolean
+    derniereImpression?: boolean
+    codeVerification?: boolean
+    urlVerification?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     paiement?: boolean | PaiementDefaultArgs<ExtArgs>
@@ -50660,11 +51012,45 @@ export namespace Prisma {
     soldeApres?: boolean
     generePar?: boolean
     cheminPDF?: boolean
+    detailsFinanciers?: boolean
+    etablissementNom?: boolean
+    etablissementLogo?: boolean
+    etablissementAdresse?: boolean
+    etablissementVille?: boolean
+    etablissementPays?: boolean
+    etablissementTelephone?: boolean
+    etablissementEmail?: boolean
+    etablissementSiteWeb?: boolean
+    etablissementCode?: boolean
+    etablissementAgrement?: boolean
+    etablissementDevise?: boolean
+    eleveMatricule?: boolean
+    elevePrenom?: boolean
+    eleveNom?: boolean
+    eleveSexe?: boolean
+    classeNom?: boolean
+    classeCode?: boolean
+    niveauNom?: boolean
+    anneeScolaireNom?: boolean
+    montantPaye?: boolean
+    montantReduction?: boolean
+    montantRestant?: boolean
+    devise?: boolean
+    referencePaiement?: boolean
+    moyenPaiementLabel?: boolean
+    formatImprime?: boolean
+    cheminPDF_A4?: boolean
+    cheminPDF_A5?: boolean
+    cheminPDF_80MM?: boolean
+    nombreImpressions?: boolean
+    derniereImpression?: boolean
+    codeVerification?: boolean
+    urlVerification?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type RecuOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "numeroRecu" | "paiementId" | "eleveId" | "nomEleve" | "nomClasse" | "montant" | "datePaiement" | "moyenPaiement" | "echeancesCouvertes" | "soldeApres" | "generePar" | "cheminPDF" | "createdAt" | "updatedAt", ExtArgs["result"]["recu"]>
+  export type RecuOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "numeroRecu" | "paiementId" | "eleveId" | "nomEleve" | "nomClasse" | "montant" | "datePaiement" | "moyenPaiement" | "echeancesCouvertes" | "soldeApres" | "generePar" | "cheminPDF" | "detailsFinanciers" | "etablissementNom" | "etablissementLogo" | "etablissementAdresse" | "etablissementVille" | "etablissementPays" | "etablissementTelephone" | "etablissementEmail" | "etablissementSiteWeb" | "etablissementCode" | "etablissementAgrement" | "etablissementDevise" | "eleveMatricule" | "elevePrenom" | "eleveNom" | "eleveSexe" | "classeNom" | "classeCode" | "niveauNom" | "anneeScolaireNom" | "montantPaye" | "montantReduction" | "montantRestant" | "devise" | "referencePaiement" | "moyenPaiementLabel" | "formatImprime" | "cheminPDF_A4" | "cheminPDF_A5" | "cheminPDF_80MM" | "nombreImpressions" | "derniereImpression" | "codeVerification" | "urlVerification" | "createdAt" | "updatedAt", ExtArgs["result"]["recu"]>
   export type RecuInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     paiement?: boolean | PaiementDefaultArgs<ExtArgs>
     eleve?: boolean | EleveDefaultArgs<ExtArgs>
@@ -50702,6 +51088,40 @@ export namespace Prisma {
       soldeApres: number
       generePar: string
       cheminPDF: string | null
+      detailsFinanciers: Prisma.JsonValue | null
+      etablissementNom: string
+      etablissementLogo: string | null
+      etablissementAdresse: string | null
+      etablissementVille: string | null
+      etablissementPays: string | null
+      etablissementTelephone: string | null
+      etablissementEmail: string | null
+      etablissementSiteWeb: string | null
+      etablissementCode: string
+      etablissementAgrement: string | null
+      etablissementDevise: string
+      eleveMatricule: string
+      elevePrenom: string
+      eleveNom: string
+      eleveSexe: string | null
+      classeNom: string | null
+      classeCode: string | null
+      niveauNom: string | null
+      anneeScolaireNom: string | null
+      montantPaye: number
+      montantReduction: number
+      montantRestant: number
+      devise: string
+      referencePaiement: string
+      moyenPaiementLabel: string
+      formatImprime: string | null
+      cheminPDF_A4: string | null
+      cheminPDF_A5: string | null
+      cheminPDF_80MM: string | null
+      nombreImpressions: number
+      derniereImpression: Date | null
+      codeVerification: string
+      urlVerification: string | null
       createdAt: Date
       updatedAt: Date
     }, ExtArgs["result"]["recu"]>
@@ -51143,6 +51563,40 @@ export namespace Prisma {
     readonly soldeApres: FieldRef<"Recu", 'Float'>
     readonly generePar: FieldRef<"Recu", 'String'>
     readonly cheminPDF: FieldRef<"Recu", 'String'>
+    readonly detailsFinanciers: FieldRef<"Recu", 'Json'>
+    readonly etablissementNom: FieldRef<"Recu", 'String'>
+    readonly etablissementLogo: FieldRef<"Recu", 'String'>
+    readonly etablissementAdresse: FieldRef<"Recu", 'String'>
+    readonly etablissementVille: FieldRef<"Recu", 'String'>
+    readonly etablissementPays: FieldRef<"Recu", 'String'>
+    readonly etablissementTelephone: FieldRef<"Recu", 'String'>
+    readonly etablissementEmail: FieldRef<"Recu", 'String'>
+    readonly etablissementSiteWeb: FieldRef<"Recu", 'String'>
+    readonly etablissementCode: FieldRef<"Recu", 'String'>
+    readonly etablissementAgrement: FieldRef<"Recu", 'String'>
+    readonly etablissementDevise: FieldRef<"Recu", 'String'>
+    readonly eleveMatricule: FieldRef<"Recu", 'String'>
+    readonly elevePrenom: FieldRef<"Recu", 'String'>
+    readonly eleveNom: FieldRef<"Recu", 'String'>
+    readonly eleveSexe: FieldRef<"Recu", 'String'>
+    readonly classeNom: FieldRef<"Recu", 'String'>
+    readonly classeCode: FieldRef<"Recu", 'String'>
+    readonly niveauNom: FieldRef<"Recu", 'String'>
+    readonly anneeScolaireNom: FieldRef<"Recu", 'String'>
+    readonly montantPaye: FieldRef<"Recu", 'Float'>
+    readonly montantReduction: FieldRef<"Recu", 'Float'>
+    readonly montantRestant: FieldRef<"Recu", 'Float'>
+    readonly devise: FieldRef<"Recu", 'String'>
+    readonly referencePaiement: FieldRef<"Recu", 'String'>
+    readonly moyenPaiementLabel: FieldRef<"Recu", 'String'>
+    readonly formatImprime: FieldRef<"Recu", 'String'>
+    readonly cheminPDF_A4: FieldRef<"Recu", 'String'>
+    readonly cheminPDF_A5: FieldRef<"Recu", 'String'>
+    readonly cheminPDF_80MM: FieldRef<"Recu", 'String'>
+    readonly nombreImpressions: FieldRef<"Recu", 'Int'>
+    readonly derniereImpression: FieldRef<"Recu", 'DateTime'>
+    readonly codeVerification: FieldRef<"Recu", 'String'>
+    readonly urlVerification: FieldRef<"Recu", 'String'>
     readonly createdAt: FieldRef<"Recu", 'DateTime'>
     readonly updatedAt: FieldRef<"Recu", 'DateTime'>
   }
@@ -90135,6 +90589,40 @@ export namespace Prisma {
     soldeApres: 'soldeApres',
     generePar: 'generePar',
     cheminPDF: 'cheminPDF',
+    detailsFinanciers: 'detailsFinanciers',
+    etablissementNom: 'etablissementNom',
+    etablissementLogo: 'etablissementLogo',
+    etablissementAdresse: 'etablissementAdresse',
+    etablissementVille: 'etablissementVille',
+    etablissementPays: 'etablissementPays',
+    etablissementTelephone: 'etablissementTelephone',
+    etablissementEmail: 'etablissementEmail',
+    etablissementSiteWeb: 'etablissementSiteWeb',
+    etablissementCode: 'etablissementCode',
+    etablissementAgrement: 'etablissementAgrement',
+    etablissementDevise: 'etablissementDevise',
+    eleveMatricule: 'eleveMatricule',
+    elevePrenom: 'elevePrenom',
+    eleveNom: 'eleveNom',
+    eleveSexe: 'eleveSexe',
+    classeNom: 'classeNom',
+    classeCode: 'classeCode',
+    niveauNom: 'niveauNom',
+    anneeScolaireNom: 'anneeScolaireNom',
+    montantPaye: 'montantPaye',
+    montantReduction: 'montantReduction',
+    montantRestant: 'montantRestant',
+    devise: 'devise',
+    referencePaiement: 'referencePaiement',
+    moyenPaiementLabel: 'moyenPaiementLabel',
+    formatImprime: 'formatImprime',
+    cheminPDF_A4: 'cheminPDF_A4',
+    cheminPDF_A5: 'cheminPDF_A5',
+    cheminPDF_80MM: 'cheminPDF_80MM',
+    nombreImpressions: 'nombreImpressions',
+    derniereImpression: 'derniereImpression',
+    codeVerification: 'codeVerification',
+    urlVerification: 'urlVerification',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
   };
@@ -94690,6 +95178,40 @@ export namespace Prisma {
     soldeApres?: FloatFilter<"Recu"> | number
     generePar?: StringFilter<"Recu"> | string
     cheminPDF?: StringNullableFilter<"Recu"> | string | null
+    detailsFinanciers?: JsonNullableFilter<"Recu">
+    etablissementNom?: StringFilter<"Recu"> | string
+    etablissementLogo?: StringNullableFilter<"Recu"> | string | null
+    etablissementAdresse?: StringNullableFilter<"Recu"> | string | null
+    etablissementVille?: StringNullableFilter<"Recu"> | string | null
+    etablissementPays?: StringNullableFilter<"Recu"> | string | null
+    etablissementTelephone?: StringNullableFilter<"Recu"> | string | null
+    etablissementEmail?: StringNullableFilter<"Recu"> | string | null
+    etablissementSiteWeb?: StringNullableFilter<"Recu"> | string | null
+    etablissementCode?: StringFilter<"Recu"> | string
+    etablissementAgrement?: StringNullableFilter<"Recu"> | string | null
+    etablissementDevise?: StringFilter<"Recu"> | string
+    eleveMatricule?: StringFilter<"Recu"> | string
+    elevePrenom?: StringFilter<"Recu"> | string
+    eleveNom?: StringFilter<"Recu"> | string
+    eleveSexe?: StringNullableFilter<"Recu"> | string | null
+    classeNom?: StringNullableFilter<"Recu"> | string | null
+    classeCode?: StringNullableFilter<"Recu"> | string | null
+    niveauNom?: StringNullableFilter<"Recu"> | string | null
+    anneeScolaireNom?: StringNullableFilter<"Recu"> | string | null
+    montantPaye?: FloatFilter<"Recu"> | number
+    montantReduction?: FloatFilter<"Recu"> | number
+    montantRestant?: FloatFilter<"Recu"> | number
+    devise?: StringFilter<"Recu"> | string
+    referencePaiement?: StringFilter<"Recu"> | string
+    moyenPaiementLabel?: StringFilter<"Recu"> | string
+    formatImprime?: StringNullableFilter<"Recu"> | string | null
+    cheminPDF_A4?: StringNullableFilter<"Recu"> | string | null
+    cheminPDF_A5?: StringNullableFilter<"Recu"> | string | null
+    cheminPDF_80MM?: StringNullableFilter<"Recu"> | string | null
+    nombreImpressions?: IntFilter<"Recu"> | number
+    derniereImpression?: DateTimeNullableFilter<"Recu"> | Date | string | null
+    codeVerification?: StringFilter<"Recu"> | string
+    urlVerification?: StringNullableFilter<"Recu"> | string | null
     createdAt?: DateTimeFilter<"Recu"> | Date | string
     updatedAt?: DateTimeFilter<"Recu"> | Date | string
     paiement?: XOR<PaiementScalarRelationFilter, PaiementWhereInput>
@@ -94711,6 +95233,40 @@ export namespace Prisma {
     soldeApres?: SortOrder
     generePar?: SortOrder
     cheminPDF?: SortOrderInput | SortOrder
+    detailsFinanciers?: SortOrderInput | SortOrder
+    etablissementNom?: SortOrder
+    etablissementLogo?: SortOrderInput | SortOrder
+    etablissementAdresse?: SortOrderInput | SortOrder
+    etablissementVille?: SortOrderInput | SortOrder
+    etablissementPays?: SortOrderInput | SortOrder
+    etablissementTelephone?: SortOrderInput | SortOrder
+    etablissementEmail?: SortOrderInput | SortOrder
+    etablissementSiteWeb?: SortOrderInput | SortOrder
+    etablissementCode?: SortOrder
+    etablissementAgrement?: SortOrderInput | SortOrder
+    etablissementDevise?: SortOrder
+    eleveMatricule?: SortOrder
+    elevePrenom?: SortOrder
+    eleveNom?: SortOrder
+    eleveSexe?: SortOrderInput | SortOrder
+    classeNom?: SortOrderInput | SortOrder
+    classeCode?: SortOrderInput | SortOrder
+    niveauNom?: SortOrderInput | SortOrder
+    anneeScolaireNom?: SortOrderInput | SortOrder
+    montantPaye?: SortOrder
+    montantReduction?: SortOrder
+    montantRestant?: SortOrder
+    devise?: SortOrder
+    referencePaiement?: SortOrder
+    moyenPaiementLabel?: SortOrder
+    formatImprime?: SortOrderInput | SortOrder
+    cheminPDF_A4?: SortOrderInput | SortOrder
+    cheminPDF_A5?: SortOrderInput | SortOrder
+    cheminPDF_80MM?: SortOrderInput | SortOrder
+    nombreImpressions?: SortOrder
+    derniereImpression?: SortOrderInput | SortOrder
+    codeVerification?: SortOrder
+    urlVerification?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     paiement?: PaiementOrderByWithRelationInput
@@ -94722,6 +95278,7 @@ export namespace Prisma {
     id?: string
     numeroRecu?: string
     paiementId?: string
+    codeVerification?: string
     AND?: RecuWhereInput | RecuWhereInput[]
     OR?: RecuWhereInput[]
     NOT?: RecuWhereInput | RecuWhereInput[]
@@ -94735,12 +95292,45 @@ export namespace Prisma {
     soldeApres?: FloatFilter<"Recu"> | number
     generePar?: StringFilter<"Recu"> | string
     cheminPDF?: StringNullableFilter<"Recu"> | string | null
+    detailsFinanciers?: JsonNullableFilter<"Recu">
+    etablissementNom?: StringFilter<"Recu"> | string
+    etablissementLogo?: StringNullableFilter<"Recu"> | string | null
+    etablissementAdresse?: StringNullableFilter<"Recu"> | string | null
+    etablissementVille?: StringNullableFilter<"Recu"> | string | null
+    etablissementPays?: StringNullableFilter<"Recu"> | string | null
+    etablissementTelephone?: StringNullableFilter<"Recu"> | string | null
+    etablissementEmail?: StringNullableFilter<"Recu"> | string | null
+    etablissementSiteWeb?: StringNullableFilter<"Recu"> | string | null
+    etablissementCode?: StringFilter<"Recu"> | string
+    etablissementAgrement?: StringNullableFilter<"Recu"> | string | null
+    etablissementDevise?: StringFilter<"Recu"> | string
+    eleveMatricule?: StringFilter<"Recu"> | string
+    elevePrenom?: StringFilter<"Recu"> | string
+    eleveNom?: StringFilter<"Recu"> | string
+    eleveSexe?: StringNullableFilter<"Recu"> | string | null
+    classeNom?: StringNullableFilter<"Recu"> | string | null
+    classeCode?: StringNullableFilter<"Recu"> | string | null
+    niveauNom?: StringNullableFilter<"Recu"> | string | null
+    anneeScolaireNom?: StringNullableFilter<"Recu"> | string | null
+    montantPaye?: FloatFilter<"Recu"> | number
+    montantReduction?: FloatFilter<"Recu"> | number
+    montantRestant?: FloatFilter<"Recu"> | number
+    devise?: StringFilter<"Recu"> | string
+    referencePaiement?: StringFilter<"Recu"> | string
+    moyenPaiementLabel?: StringFilter<"Recu"> | string
+    formatImprime?: StringNullableFilter<"Recu"> | string | null
+    cheminPDF_A4?: StringNullableFilter<"Recu"> | string | null
+    cheminPDF_A5?: StringNullableFilter<"Recu"> | string | null
+    cheminPDF_80MM?: StringNullableFilter<"Recu"> | string | null
+    nombreImpressions?: IntFilter<"Recu"> | number
+    derniereImpression?: DateTimeNullableFilter<"Recu"> | Date | string | null
+    urlVerification?: StringNullableFilter<"Recu"> | string | null
     createdAt?: DateTimeFilter<"Recu"> | Date | string
     updatedAt?: DateTimeFilter<"Recu"> | Date | string
     paiement?: XOR<PaiementScalarRelationFilter, PaiementWhereInput>
     eleve?: XOR<EleveScalarRelationFilter, EleveWhereInput>
     generateur?: XOR<UtilisateurScalarRelationFilter, UtilisateurWhereInput>
-  }, "id" | "numeroRecu" | "paiementId">
+  }, "id" | "numeroRecu" | "paiementId" | "codeVerification">
 
   export type RecuOrderByWithAggregationInput = {
     id?: SortOrder
@@ -94756,6 +95346,40 @@ export namespace Prisma {
     soldeApres?: SortOrder
     generePar?: SortOrder
     cheminPDF?: SortOrderInput | SortOrder
+    detailsFinanciers?: SortOrderInput | SortOrder
+    etablissementNom?: SortOrder
+    etablissementLogo?: SortOrderInput | SortOrder
+    etablissementAdresse?: SortOrderInput | SortOrder
+    etablissementVille?: SortOrderInput | SortOrder
+    etablissementPays?: SortOrderInput | SortOrder
+    etablissementTelephone?: SortOrderInput | SortOrder
+    etablissementEmail?: SortOrderInput | SortOrder
+    etablissementSiteWeb?: SortOrderInput | SortOrder
+    etablissementCode?: SortOrder
+    etablissementAgrement?: SortOrderInput | SortOrder
+    etablissementDevise?: SortOrder
+    eleveMatricule?: SortOrder
+    elevePrenom?: SortOrder
+    eleveNom?: SortOrder
+    eleveSexe?: SortOrderInput | SortOrder
+    classeNom?: SortOrderInput | SortOrder
+    classeCode?: SortOrderInput | SortOrder
+    niveauNom?: SortOrderInput | SortOrder
+    anneeScolaireNom?: SortOrderInput | SortOrder
+    montantPaye?: SortOrder
+    montantReduction?: SortOrder
+    montantRestant?: SortOrder
+    devise?: SortOrder
+    referencePaiement?: SortOrder
+    moyenPaiementLabel?: SortOrder
+    formatImprime?: SortOrderInput | SortOrder
+    cheminPDF_A4?: SortOrderInput | SortOrder
+    cheminPDF_A5?: SortOrderInput | SortOrder
+    cheminPDF_80MM?: SortOrderInput | SortOrder
+    nombreImpressions?: SortOrder
+    derniereImpression?: SortOrderInput | SortOrder
+    codeVerification?: SortOrder
+    urlVerification?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     _count?: RecuCountOrderByAggregateInput
@@ -94782,6 +95406,40 @@ export namespace Prisma {
     soldeApres?: FloatWithAggregatesFilter<"Recu"> | number
     generePar?: StringWithAggregatesFilter<"Recu"> | string
     cheminPDF?: StringNullableWithAggregatesFilter<"Recu"> | string | null
+    detailsFinanciers?: JsonNullableWithAggregatesFilter<"Recu">
+    etablissementNom?: StringWithAggregatesFilter<"Recu"> | string
+    etablissementLogo?: StringNullableWithAggregatesFilter<"Recu"> | string | null
+    etablissementAdresse?: StringNullableWithAggregatesFilter<"Recu"> | string | null
+    etablissementVille?: StringNullableWithAggregatesFilter<"Recu"> | string | null
+    etablissementPays?: StringNullableWithAggregatesFilter<"Recu"> | string | null
+    etablissementTelephone?: StringNullableWithAggregatesFilter<"Recu"> | string | null
+    etablissementEmail?: StringNullableWithAggregatesFilter<"Recu"> | string | null
+    etablissementSiteWeb?: StringNullableWithAggregatesFilter<"Recu"> | string | null
+    etablissementCode?: StringWithAggregatesFilter<"Recu"> | string
+    etablissementAgrement?: StringNullableWithAggregatesFilter<"Recu"> | string | null
+    etablissementDevise?: StringWithAggregatesFilter<"Recu"> | string
+    eleveMatricule?: StringWithAggregatesFilter<"Recu"> | string
+    elevePrenom?: StringWithAggregatesFilter<"Recu"> | string
+    eleveNom?: StringWithAggregatesFilter<"Recu"> | string
+    eleveSexe?: StringNullableWithAggregatesFilter<"Recu"> | string | null
+    classeNom?: StringNullableWithAggregatesFilter<"Recu"> | string | null
+    classeCode?: StringNullableWithAggregatesFilter<"Recu"> | string | null
+    niveauNom?: StringNullableWithAggregatesFilter<"Recu"> | string | null
+    anneeScolaireNom?: StringNullableWithAggregatesFilter<"Recu"> | string | null
+    montantPaye?: FloatWithAggregatesFilter<"Recu"> | number
+    montantReduction?: FloatWithAggregatesFilter<"Recu"> | number
+    montantRestant?: FloatWithAggregatesFilter<"Recu"> | number
+    devise?: StringWithAggregatesFilter<"Recu"> | string
+    referencePaiement?: StringWithAggregatesFilter<"Recu"> | string
+    moyenPaiementLabel?: StringWithAggregatesFilter<"Recu"> | string
+    formatImprime?: StringNullableWithAggregatesFilter<"Recu"> | string | null
+    cheminPDF_A4?: StringNullableWithAggregatesFilter<"Recu"> | string | null
+    cheminPDF_A5?: StringNullableWithAggregatesFilter<"Recu"> | string | null
+    cheminPDF_80MM?: StringNullableWithAggregatesFilter<"Recu"> | string | null
+    nombreImpressions?: IntWithAggregatesFilter<"Recu"> | number
+    derniereImpression?: DateTimeNullableWithAggregatesFilter<"Recu"> | Date | string | null
+    codeVerification?: StringWithAggregatesFilter<"Recu"> | string
+    urlVerification?: StringNullableWithAggregatesFilter<"Recu"> | string | null
     createdAt?: DateTimeWithAggregatesFilter<"Recu"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Recu"> | Date | string
   }
@@ -101635,6 +102293,40 @@ export namespace Prisma {
     echeancesCouvertes: JsonNullValueInput | InputJsonValue
     soldeApres: number
     cheminPDF?: string | null
+    detailsFinanciers?: NullableJsonNullValueInput | InputJsonValue
+    etablissementNom: string
+    etablissementLogo?: string | null
+    etablissementAdresse?: string | null
+    etablissementVille?: string | null
+    etablissementPays?: string | null
+    etablissementTelephone?: string | null
+    etablissementEmail?: string | null
+    etablissementSiteWeb?: string | null
+    etablissementCode: string
+    etablissementAgrement?: string | null
+    etablissementDevise?: string
+    eleveMatricule: string
+    elevePrenom: string
+    eleveNom: string
+    eleveSexe?: string | null
+    classeNom?: string | null
+    classeCode?: string | null
+    niveauNom?: string | null
+    anneeScolaireNom?: string | null
+    montantPaye: number
+    montantReduction?: number
+    montantRestant?: number
+    devise?: string
+    referencePaiement: string
+    moyenPaiementLabel: string
+    formatImprime?: string | null
+    cheminPDF_A4?: string | null
+    cheminPDF_A5?: string | null
+    cheminPDF_80MM?: string | null
+    nombreImpressions?: number
+    derniereImpression?: Date | string | null
+    codeVerification: string
+    urlVerification?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     paiement: PaiementCreateNestedOneWithoutRecuInput
@@ -101656,6 +102348,40 @@ export namespace Prisma {
     soldeApres: number
     generePar: string
     cheminPDF?: string | null
+    detailsFinanciers?: NullableJsonNullValueInput | InputJsonValue
+    etablissementNom: string
+    etablissementLogo?: string | null
+    etablissementAdresse?: string | null
+    etablissementVille?: string | null
+    etablissementPays?: string | null
+    etablissementTelephone?: string | null
+    etablissementEmail?: string | null
+    etablissementSiteWeb?: string | null
+    etablissementCode: string
+    etablissementAgrement?: string | null
+    etablissementDevise?: string
+    eleveMatricule: string
+    elevePrenom: string
+    eleveNom: string
+    eleveSexe?: string | null
+    classeNom?: string | null
+    classeCode?: string | null
+    niveauNom?: string | null
+    anneeScolaireNom?: string | null
+    montantPaye: number
+    montantReduction?: number
+    montantRestant?: number
+    devise?: string
+    referencePaiement: string
+    moyenPaiementLabel: string
+    formatImprime?: string | null
+    cheminPDF_A4?: string | null
+    cheminPDF_A5?: string | null
+    cheminPDF_80MM?: string | null
+    nombreImpressions?: number
+    derniereImpression?: Date | string | null
+    codeVerification: string
+    urlVerification?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -101671,6 +102397,40 @@ export namespace Prisma {
     echeancesCouvertes?: JsonNullValueInput | InputJsonValue
     soldeApres?: FloatFieldUpdateOperationsInput | number
     cheminPDF?: NullableStringFieldUpdateOperationsInput | string | null
+    detailsFinanciers?: NullableJsonNullValueInput | InputJsonValue
+    etablissementNom?: StringFieldUpdateOperationsInput | string
+    etablissementLogo?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementAdresse?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementVille?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementPays?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementTelephone?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementSiteWeb?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementCode?: StringFieldUpdateOperationsInput | string
+    etablissementAgrement?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementDevise?: StringFieldUpdateOperationsInput | string
+    eleveMatricule?: StringFieldUpdateOperationsInput | string
+    elevePrenom?: StringFieldUpdateOperationsInput | string
+    eleveNom?: StringFieldUpdateOperationsInput | string
+    eleveSexe?: NullableStringFieldUpdateOperationsInput | string | null
+    classeNom?: NullableStringFieldUpdateOperationsInput | string | null
+    classeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    niveauNom?: NullableStringFieldUpdateOperationsInput | string | null
+    anneeScolaireNom?: NullableStringFieldUpdateOperationsInput | string | null
+    montantPaye?: FloatFieldUpdateOperationsInput | number
+    montantReduction?: FloatFieldUpdateOperationsInput | number
+    montantRestant?: FloatFieldUpdateOperationsInput | number
+    devise?: StringFieldUpdateOperationsInput | string
+    referencePaiement?: StringFieldUpdateOperationsInput | string
+    moyenPaiementLabel?: StringFieldUpdateOperationsInput | string
+    formatImprime?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_A4?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_A5?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_80MM?: NullableStringFieldUpdateOperationsInput | string | null
+    nombreImpressions?: IntFieldUpdateOperationsInput | number
+    derniereImpression?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    codeVerification?: StringFieldUpdateOperationsInput | string
+    urlVerification?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     paiement?: PaiementUpdateOneRequiredWithoutRecuNestedInput
@@ -101692,6 +102452,40 @@ export namespace Prisma {
     soldeApres?: FloatFieldUpdateOperationsInput | number
     generePar?: StringFieldUpdateOperationsInput | string
     cheminPDF?: NullableStringFieldUpdateOperationsInput | string | null
+    detailsFinanciers?: NullableJsonNullValueInput | InputJsonValue
+    etablissementNom?: StringFieldUpdateOperationsInput | string
+    etablissementLogo?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementAdresse?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementVille?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementPays?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementTelephone?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementSiteWeb?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementCode?: StringFieldUpdateOperationsInput | string
+    etablissementAgrement?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementDevise?: StringFieldUpdateOperationsInput | string
+    eleveMatricule?: StringFieldUpdateOperationsInput | string
+    elevePrenom?: StringFieldUpdateOperationsInput | string
+    eleveNom?: StringFieldUpdateOperationsInput | string
+    eleveSexe?: NullableStringFieldUpdateOperationsInput | string | null
+    classeNom?: NullableStringFieldUpdateOperationsInput | string | null
+    classeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    niveauNom?: NullableStringFieldUpdateOperationsInput | string | null
+    anneeScolaireNom?: NullableStringFieldUpdateOperationsInput | string | null
+    montantPaye?: FloatFieldUpdateOperationsInput | number
+    montantReduction?: FloatFieldUpdateOperationsInput | number
+    montantRestant?: FloatFieldUpdateOperationsInput | number
+    devise?: StringFieldUpdateOperationsInput | string
+    referencePaiement?: StringFieldUpdateOperationsInput | string
+    moyenPaiementLabel?: StringFieldUpdateOperationsInput | string
+    formatImprime?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_A4?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_A5?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_80MM?: NullableStringFieldUpdateOperationsInput | string | null
+    nombreImpressions?: IntFieldUpdateOperationsInput | number
+    derniereImpression?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    codeVerification?: StringFieldUpdateOperationsInput | string
+    urlVerification?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -101710,6 +102504,40 @@ export namespace Prisma {
     soldeApres: number
     generePar: string
     cheminPDF?: string | null
+    detailsFinanciers?: NullableJsonNullValueInput | InputJsonValue
+    etablissementNom: string
+    etablissementLogo?: string | null
+    etablissementAdresse?: string | null
+    etablissementVille?: string | null
+    etablissementPays?: string | null
+    etablissementTelephone?: string | null
+    etablissementEmail?: string | null
+    etablissementSiteWeb?: string | null
+    etablissementCode: string
+    etablissementAgrement?: string | null
+    etablissementDevise?: string
+    eleveMatricule: string
+    elevePrenom: string
+    eleveNom: string
+    eleveSexe?: string | null
+    classeNom?: string | null
+    classeCode?: string | null
+    niveauNom?: string | null
+    anneeScolaireNom?: string | null
+    montantPaye: number
+    montantReduction?: number
+    montantRestant?: number
+    devise?: string
+    referencePaiement: string
+    moyenPaiementLabel: string
+    formatImprime?: string | null
+    cheminPDF_A4?: string | null
+    cheminPDF_A5?: string | null
+    cheminPDF_80MM?: string | null
+    nombreImpressions?: number
+    derniereImpression?: Date | string | null
+    codeVerification: string
+    urlVerification?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -101725,6 +102553,40 @@ export namespace Prisma {
     echeancesCouvertes?: JsonNullValueInput | InputJsonValue
     soldeApres?: FloatFieldUpdateOperationsInput | number
     cheminPDF?: NullableStringFieldUpdateOperationsInput | string | null
+    detailsFinanciers?: NullableJsonNullValueInput | InputJsonValue
+    etablissementNom?: StringFieldUpdateOperationsInput | string
+    etablissementLogo?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementAdresse?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementVille?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementPays?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementTelephone?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementSiteWeb?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementCode?: StringFieldUpdateOperationsInput | string
+    etablissementAgrement?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementDevise?: StringFieldUpdateOperationsInput | string
+    eleveMatricule?: StringFieldUpdateOperationsInput | string
+    elevePrenom?: StringFieldUpdateOperationsInput | string
+    eleveNom?: StringFieldUpdateOperationsInput | string
+    eleveSexe?: NullableStringFieldUpdateOperationsInput | string | null
+    classeNom?: NullableStringFieldUpdateOperationsInput | string | null
+    classeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    niveauNom?: NullableStringFieldUpdateOperationsInput | string | null
+    anneeScolaireNom?: NullableStringFieldUpdateOperationsInput | string | null
+    montantPaye?: FloatFieldUpdateOperationsInput | number
+    montantReduction?: FloatFieldUpdateOperationsInput | number
+    montantRestant?: FloatFieldUpdateOperationsInput | number
+    devise?: StringFieldUpdateOperationsInput | string
+    referencePaiement?: StringFieldUpdateOperationsInput | string
+    moyenPaiementLabel?: StringFieldUpdateOperationsInput | string
+    formatImprime?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_A4?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_A5?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_80MM?: NullableStringFieldUpdateOperationsInput | string | null
+    nombreImpressions?: IntFieldUpdateOperationsInput | number
+    derniereImpression?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    codeVerification?: StringFieldUpdateOperationsInput | string
+    urlVerification?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -101743,6 +102605,40 @@ export namespace Prisma {
     soldeApres?: FloatFieldUpdateOperationsInput | number
     generePar?: StringFieldUpdateOperationsInput | string
     cheminPDF?: NullableStringFieldUpdateOperationsInput | string | null
+    detailsFinanciers?: NullableJsonNullValueInput | InputJsonValue
+    etablissementNom?: StringFieldUpdateOperationsInput | string
+    etablissementLogo?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementAdresse?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementVille?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementPays?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementTelephone?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementSiteWeb?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementCode?: StringFieldUpdateOperationsInput | string
+    etablissementAgrement?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementDevise?: StringFieldUpdateOperationsInput | string
+    eleveMatricule?: StringFieldUpdateOperationsInput | string
+    elevePrenom?: StringFieldUpdateOperationsInput | string
+    eleveNom?: StringFieldUpdateOperationsInput | string
+    eleveSexe?: NullableStringFieldUpdateOperationsInput | string | null
+    classeNom?: NullableStringFieldUpdateOperationsInput | string | null
+    classeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    niveauNom?: NullableStringFieldUpdateOperationsInput | string | null
+    anneeScolaireNom?: NullableStringFieldUpdateOperationsInput | string | null
+    montantPaye?: FloatFieldUpdateOperationsInput | number
+    montantReduction?: FloatFieldUpdateOperationsInput | number
+    montantRestant?: FloatFieldUpdateOperationsInput | number
+    devise?: StringFieldUpdateOperationsInput | string
+    referencePaiement?: StringFieldUpdateOperationsInput | string
+    moyenPaiementLabel?: StringFieldUpdateOperationsInput | string
+    formatImprime?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_A4?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_A5?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_80MM?: NullableStringFieldUpdateOperationsInput | string | null
+    nombreImpressions?: IntFieldUpdateOperationsInput | number
+    derniereImpression?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    codeVerification?: StringFieldUpdateOperationsInput | string
+    urlVerification?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -107931,6 +108827,40 @@ export namespace Prisma {
     soldeApres?: SortOrder
     generePar?: SortOrder
     cheminPDF?: SortOrder
+    detailsFinanciers?: SortOrder
+    etablissementNom?: SortOrder
+    etablissementLogo?: SortOrder
+    etablissementAdresse?: SortOrder
+    etablissementVille?: SortOrder
+    etablissementPays?: SortOrder
+    etablissementTelephone?: SortOrder
+    etablissementEmail?: SortOrder
+    etablissementSiteWeb?: SortOrder
+    etablissementCode?: SortOrder
+    etablissementAgrement?: SortOrder
+    etablissementDevise?: SortOrder
+    eleveMatricule?: SortOrder
+    elevePrenom?: SortOrder
+    eleveNom?: SortOrder
+    eleveSexe?: SortOrder
+    classeNom?: SortOrder
+    classeCode?: SortOrder
+    niveauNom?: SortOrder
+    anneeScolaireNom?: SortOrder
+    montantPaye?: SortOrder
+    montantReduction?: SortOrder
+    montantRestant?: SortOrder
+    devise?: SortOrder
+    referencePaiement?: SortOrder
+    moyenPaiementLabel?: SortOrder
+    formatImprime?: SortOrder
+    cheminPDF_A4?: SortOrder
+    cheminPDF_A5?: SortOrder
+    cheminPDF_80MM?: SortOrder
+    nombreImpressions?: SortOrder
+    derniereImpression?: SortOrder
+    codeVerification?: SortOrder
+    urlVerification?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -107938,6 +108868,10 @@ export namespace Prisma {
   export type RecuAvgOrderByAggregateInput = {
     montant?: SortOrder
     soldeApres?: SortOrder
+    montantPaye?: SortOrder
+    montantReduction?: SortOrder
+    montantRestant?: SortOrder
+    nombreImpressions?: SortOrder
   }
 
   export type RecuMaxOrderByAggregateInput = {
@@ -107953,6 +108887,39 @@ export namespace Prisma {
     soldeApres?: SortOrder
     generePar?: SortOrder
     cheminPDF?: SortOrder
+    etablissementNom?: SortOrder
+    etablissementLogo?: SortOrder
+    etablissementAdresse?: SortOrder
+    etablissementVille?: SortOrder
+    etablissementPays?: SortOrder
+    etablissementTelephone?: SortOrder
+    etablissementEmail?: SortOrder
+    etablissementSiteWeb?: SortOrder
+    etablissementCode?: SortOrder
+    etablissementAgrement?: SortOrder
+    etablissementDevise?: SortOrder
+    eleveMatricule?: SortOrder
+    elevePrenom?: SortOrder
+    eleveNom?: SortOrder
+    eleveSexe?: SortOrder
+    classeNom?: SortOrder
+    classeCode?: SortOrder
+    niveauNom?: SortOrder
+    anneeScolaireNom?: SortOrder
+    montantPaye?: SortOrder
+    montantReduction?: SortOrder
+    montantRestant?: SortOrder
+    devise?: SortOrder
+    referencePaiement?: SortOrder
+    moyenPaiementLabel?: SortOrder
+    formatImprime?: SortOrder
+    cheminPDF_A4?: SortOrder
+    cheminPDF_A5?: SortOrder
+    cheminPDF_80MM?: SortOrder
+    nombreImpressions?: SortOrder
+    derniereImpression?: SortOrder
+    codeVerification?: SortOrder
+    urlVerification?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -107970,6 +108937,39 @@ export namespace Prisma {
     soldeApres?: SortOrder
     generePar?: SortOrder
     cheminPDF?: SortOrder
+    etablissementNom?: SortOrder
+    etablissementLogo?: SortOrder
+    etablissementAdresse?: SortOrder
+    etablissementVille?: SortOrder
+    etablissementPays?: SortOrder
+    etablissementTelephone?: SortOrder
+    etablissementEmail?: SortOrder
+    etablissementSiteWeb?: SortOrder
+    etablissementCode?: SortOrder
+    etablissementAgrement?: SortOrder
+    etablissementDevise?: SortOrder
+    eleveMatricule?: SortOrder
+    elevePrenom?: SortOrder
+    eleveNom?: SortOrder
+    eleveSexe?: SortOrder
+    classeNom?: SortOrder
+    classeCode?: SortOrder
+    niveauNom?: SortOrder
+    anneeScolaireNom?: SortOrder
+    montantPaye?: SortOrder
+    montantReduction?: SortOrder
+    montantRestant?: SortOrder
+    devise?: SortOrder
+    referencePaiement?: SortOrder
+    moyenPaiementLabel?: SortOrder
+    formatImprime?: SortOrder
+    cheminPDF_A4?: SortOrder
+    cheminPDF_A5?: SortOrder
+    cheminPDF_80MM?: SortOrder
+    nombreImpressions?: SortOrder
+    derniereImpression?: SortOrder
+    codeVerification?: SortOrder
+    urlVerification?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -107977,6 +108977,10 @@ export namespace Prisma {
   export type RecuSumOrderByAggregateInput = {
     montant?: SortOrder
     soldeApres?: SortOrder
+    montantPaye?: SortOrder
+    montantReduction?: SortOrder
+    montantRestant?: SortOrder
+    nombreImpressions?: SortOrder
   }
 
   export type EnumTypeEvaluationFilter<$PrismaModel = never> = {
@@ -120729,6 +121733,40 @@ export namespace Prisma {
     echeancesCouvertes: JsonNullValueInput | InputJsonValue
     soldeApres: number
     cheminPDF?: string | null
+    detailsFinanciers?: NullableJsonNullValueInput | InputJsonValue
+    etablissementNom: string
+    etablissementLogo?: string | null
+    etablissementAdresse?: string | null
+    etablissementVille?: string | null
+    etablissementPays?: string | null
+    etablissementTelephone?: string | null
+    etablissementEmail?: string | null
+    etablissementSiteWeb?: string | null
+    etablissementCode: string
+    etablissementAgrement?: string | null
+    etablissementDevise?: string
+    eleveMatricule: string
+    elevePrenom: string
+    eleveNom: string
+    eleveSexe?: string | null
+    classeNom?: string | null
+    classeCode?: string | null
+    niveauNom?: string | null
+    anneeScolaireNom?: string | null
+    montantPaye: number
+    montantReduction?: number
+    montantRestant?: number
+    devise?: string
+    referencePaiement: string
+    moyenPaiementLabel: string
+    formatImprime?: string | null
+    cheminPDF_A4?: string | null
+    cheminPDF_A5?: string | null
+    cheminPDF_80MM?: string | null
+    nombreImpressions?: number
+    derniereImpression?: Date | string | null
+    codeVerification: string
+    urlVerification?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     paiement: PaiementCreateNestedOneWithoutRecuInput
@@ -120748,6 +121786,40 @@ export namespace Prisma {
     echeancesCouvertes: JsonNullValueInput | InputJsonValue
     soldeApres: number
     cheminPDF?: string | null
+    detailsFinanciers?: NullableJsonNullValueInput | InputJsonValue
+    etablissementNom: string
+    etablissementLogo?: string | null
+    etablissementAdresse?: string | null
+    etablissementVille?: string | null
+    etablissementPays?: string | null
+    etablissementTelephone?: string | null
+    etablissementEmail?: string | null
+    etablissementSiteWeb?: string | null
+    etablissementCode: string
+    etablissementAgrement?: string | null
+    etablissementDevise?: string
+    eleveMatricule: string
+    elevePrenom: string
+    eleveNom: string
+    eleveSexe?: string | null
+    classeNom?: string | null
+    classeCode?: string | null
+    niveauNom?: string | null
+    anneeScolaireNom?: string | null
+    montantPaye: number
+    montantReduction?: number
+    montantRestant?: number
+    devise?: string
+    referencePaiement: string
+    moyenPaiementLabel: string
+    formatImprime?: string | null
+    cheminPDF_A4?: string | null
+    cheminPDF_A5?: string | null
+    cheminPDF_80MM?: string | null
+    nombreImpressions?: number
+    derniereImpression?: Date | string | null
+    codeVerification: string
+    urlVerification?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -122652,6 +123724,40 @@ export namespace Prisma {
     soldeApres?: FloatFilter<"Recu"> | number
     generePar?: StringFilter<"Recu"> | string
     cheminPDF?: StringNullableFilter<"Recu"> | string | null
+    detailsFinanciers?: JsonNullableFilter<"Recu">
+    etablissementNom?: StringFilter<"Recu"> | string
+    etablissementLogo?: StringNullableFilter<"Recu"> | string | null
+    etablissementAdresse?: StringNullableFilter<"Recu"> | string | null
+    etablissementVille?: StringNullableFilter<"Recu"> | string | null
+    etablissementPays?: StringNullableFilter<"Recu"> | string | null
+    etablissementTelephone?: StringNullableFilter<"Recu"> | string | null
+    etablissementEmail?: StringNullableFilter<"Recu"> | string | null
+    etablissementSiteWeb?: StringNullableFilter<"Recu"> | string | null
+    etablissementCode?: StringFilter<"Recu"> | string
+    etablissementAgrement?: StringNullableFilter<"Recu"> | string | null
+    etablissementDevise?: StringFilter<"Recu"> | string
+    eleveMatricule?: StringFilter<"Recu"> | string
+    elevePrenom?: StringFilter<"Recu"> | string
+    eleveNom?: StringFilter<"Recu"> | string
+    eleveSexe?: StringNullableFilter<"Recu"> | string | null
+    classeNom?: StringNullableFilter<"Recu"> | string | null
+    classeCode?: StringNullableFilter<"Recu"> | string | null
+    niveauNom?: StringNullableFilter<"Recu"> | string | null
+    anneeScolaireNom?: StringNullableFilter<"Recu"> | string | null
+    montantPaye?: FloatFilter<"Recu"> | number
+    montantReduction?: FloatFilter<"Recu"> | number
+    montantRestant?: FloatFilter<"Recu"> | number
+    devise?: StringFilter<"Recu"> | string
+    referencePaiement?: StringFilter<"Recu"> | string
+    moyenPaiementLabel?: StringFilter<"Recu"> | string
+    formatImprime?: StringNullableFilter<"Recu"> | string | null
+    cheminPDF_A4?: StringNullableFilter<"Recu"> | string | null
+    cheminPDF_A5?: StringNullableFilter<"Recu"> | string | null
+    cheminPDF_80MM?: StringNullableFilter<"Recu"> | string | null
+    nombreImpressions?: IntFilter<"Recu"> | number
+    derniereImpression?: DateTimeNullableFilter<"Recu"> | Date | string | null
+    codeVerification?: StringFilter<"Recu"> | string
+    urlVerification?: StringNullableFilter<"Recu"> | string | null
     createdAt?: DateTimeFilter<"Recu"> | Date | string
     updatedAt?: DateTimeFilter<"Recu"> | Date | string
   }
@@ -128223,6 +129329,40 @@ export namespace Prisma {
     echeancesCouvertes: JsonNullValueInput | InputJsonValue
     soldeApres: number
     cheminPDF?: string | null
+    detailsFinanciers?: NullableJsonNullValueInput | InputJsonValue
+    etablissementNom: string
+    etablissementLogo?: string | null
+    etablissementAdresse?: string | null
+    etablissementVille?: string | null
+    etablissementPays?: string | null
+    etablissementTelephone?: string | null
+    etablissementEmail?: string | null
+    etablissementSiteWeb?: string | null
+    etablissementCode: string
+    etablissementAgrement?: string | null
+    etablissementDevise?: string
+    eleveMatricule: string
+    elevePrenom: string
+    eleveNom: string
+    eleveSexe?: string | null
+    classeNom?: string | null
+    classeCode?: string | null
+    niveauNom?: string | null
+    anneeScolaireNom?: string | null
+    montantPaye: number
+    montantReduction?: number
+    montantRestant?: number
+    devise?: string
+    referencePaiement: string
+    moyenPaiementLabel: string
+    formatImprime?: string | null
+    cheminPDF_A4?: string | null
+    cheminPDF_A5?: string | null
+    cheminPDF_80MM?: string | null
+    nombreImpressions?: number
+    derniereImpression?: Date | string | null
+    codeVerification: string
+    urlVerification?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     paiement: PaiementCreateNestedOneWithoutRecuInput
@@ -128242,6 +129382,40 @@ export namespace Prisma {
     soldeApres: number
     generePar: string
     cheminPDF?: string | null
+    detailsFinanciers?: NullableJsonNullValueInput | InputJsonValue
+    etablissementNom: string
+    etablissementLogo?: string | null
+    etablissementAdresse?: string | null
+    etablissementVille?: string | null
+    etablissementPays?: string | null
+    etablissementTelephone?: string | null
+    etablissementEmail?: string | null
+    etablissementSiteWeb?: string | null
+    etablissementCode: string
+    etablissementAgrement?: string | null
+    etablissementDevise?: string
+    eleveMatricule: string
+    elevePrenom: string
+    eleveNom: string
+    eleveSexe?: string | null
+    classeNom?: string | null
+    classeCode?: string | null
+    niveauNom?: string | null
+    anneeScolaireNom?: string | null
+    montantPaye: number
+    montantReduction?: number
+    montantRestant?: number
+    devise?: string
+    referencePaiement: string
+    moyenPaiementLabel: string
+    formatImprime?: string | null
+    cheminPDF_A4?: string | null
+    cheminPDF_A5?: string | null
+    cheminPDF_80MM?: string | null
+    nombreImpressions?: number
+    derniereImpression?: Date | string | null
+    codeVerification: string
+    urlVerification?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -137741,6 +138915,40 @@ export namespace Prisma {
     echeancesCouvertes: JsonNullValueInput | InputJsonValue
     soldeApres: number
     cheminPDF?: string | null
+    detailsFinanciers?: NullableJsonNullValueInput | InputJsonValue
+    etablissementNom: string
+    etablissementLogo?: string | null
+    etablissementAdresse?: string | null
+    etablissementVille?: string | null
+    etablissementPays?: string | null
+    etablissementTelephone?: string | null
+    etablissementEmail?: string | null
+    etablissementSiteWeb?: string | null
+    etablissementCode: string
+    etablissementAgrement?: string | null
+    etablissementDevise?: string
+    eleveMatricule: string
+    elevePrenom: string
+    eleveNom: string
+    eleveSexe?: string | null
+    classeNom?: string | null
+    classeCode?: string | null
+    niveauNom?: string | null
+    anneeScolaireNom?: string | null
+    montantPaye: number
+    montantReduction?: number
+    montantRestant?: number
+    devise?: string
+    referencePaiement: string
+    moyenPaiementLabel: string
+    formatImprime?: string | null
+    cheminPDF_A4?: string | null
+    cheminPDF_A5?: string | null
+    cheminPDF_80MM?: string | null
+    nombreImpressions?: number
+    derniereImpression?: Date | string | null
+    codeVerification: string
+    urlVerification?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     eleve: EleveCreateNestedOneWithoutRecusInput
@@ -137760,6 +138968,40 @@ export namespace Prisma {
     soldeApres: number
     generePar: string
     cheminPDF?: string | null
+    detailsFinanciers?: NullableJsonNullValueInput | InputJsonValue
+    etablissementNom: string
+    etablissementLogo?: string | null
+    etablissementAdresse?: string | null
+    etablissementVille?: string | null
+    etablissementPays?: string | null
+    etablissementTelephone?: string | null
+    etablissementEmail?: string | null
+    etablissementSiteWeb?: string | null
+    etablissementCode: string
+    etablissementAgrement?: string | null
+    etablissementDevise?: string
+    eleveMatricule: string
+    elevePrenom: string
+    eleveNom: string
+    eleveSexe?: string | null
+    classeNom?: string | null
+    classeCode?: string | null
+    niveauNom?: string | null
+    anneeScolaireNom?: string | null
+    montantPaye: number
+    montantReduction?: number
+    montantRestant?: number
+    devise?: string
+    referencePaiement: string
+    moyenPaiementLabel: string
+    formatImprime?: string | null
+    cheminPDF_A4?: string | null
+    cheminPDF_A5?: string | null
+    cheminPDF_80MM?: string | null
+    nombreImpressions?: number
+    derniereImpression?: Date | string | null
+    codeVerification: string
+    urlVerification?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -138217,6 +139459,40 @@ export namespace Prisma {
     echeancesCouvertes?: JsonNullValueInput | InputJsonValue
     soldeApres?: FloatFieldUpdateOperationsInput | number
     cheminPDF?: NullableStringFieldUpdateOperationsInput | string | null
+    detailsFinanciers?: NullableJsonNullValueInput | InputJsonValue
+    etablissementNom?: StringFieldUpdateOperationsInput | string
+    etablissementLogo?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementAdresse?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementVille?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementPays?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementTelephone?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementSiteWeb?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementCode?: StringFieldUpdateOperationsInput | string
+    etablissementAgrement?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementDevise?: StringFieldUpdateOperationsInput | string
+    eleveMatricule?: StringFieldUpdateOperationsInput | string
+    elevePrenom?: StringFieldUpdateOperationsInput | string
+    eleveNom?: StringFieldUpdateOperationsInput | string
+    eleveSexe?: NullableStringFieldUpdateOperationsInput | string | null
+    classeNom?: NullableStringFieldUpdateOperationsInput | string | null
+    classeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    niveauNom?: NullableStringFieldUpdateOperationsInput | string | null
+    anneeScolaireNom?: NullableStringFieldUpdateOperationsInput | string | null
+    montantPaye?: FloatFieldUpdateOperationsInput | number
+    montantReduction?: FloatFieldUpdateOperationsInput | number
+    montantRestant?: FloatFieldUpdateOperationsInput | number
+    devise?: StringFieldUpdateOperationsInput | string
+    referencePaiement?: StringFieldUpdateOperationsInput | string
+    moyenPaiementLabel?: StringFieldUpdateOperationsInput | string
+    formatImprime?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_A4?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_A5?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_80MM?: NullableStringFieldUpdateOperationsInput | string | null
+    nombreImpressions?: IntFieldUpdateOperationsInput | number
+    derniereImpression?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    codeVerification?: StringFieldUpdateOperationsInput | string
+    urlVerification?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     eleve?: EleveUpdateOneRequiredWithoutRecusNestedInput
@@ -138236,6 +139512,40 @@ export namespace Prisma {
     soldeApres?: FloatFieldUpdateOperationsInput | number
     generePar?: StringFieldUpdateOperationsInput | string
     cheminPDF?: NullableStringFieldUpdateOperationsInput | string | null
+    detailsFinanciers?: NullableJsonNullValueInput | InputJsonValue
+    etablissementNom?: StringFieldUpdateOperationsInput | string
+    etablissementLogo?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementAdresse?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementVille?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementPays?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementTelephone?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementSiteWeb?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementCode?: StringFieldUpdateOperationsInput | string
+    etablissementAgrement?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementDevise?: StringFieldUpdateOperationsInput | string
+    eleveMatricule?: StringFieldUpdateOperationsInput | string
+    elevePrenom?: StringFieldUpdateOperationsInput | string
+    eleveNom?: StringFieldUpdateOperationsInput | string
+    eleveSexe?: NullableStringFieldUpdateOperationsInput | string | null
+    classeNom?: NullableStringFieldUpdateOperationsInput | string | null
+    classeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    niveauNom?: NullableStringFieldUpdateOperationsInput | string | null
+    anneeScolaireNom?: NullableStringFieldUpdateOperationsInput | string | null
+    montantPaye?: FloatFieldUpdateOperationsInput | number
+    montantReduction?: FloatFieldUpdateOperationsInput | number
+    montantRestant?: FloatFieldUpdateOperationsInput | number
+    devise?: StringFieldUpdateOperationsInput | string
+    referencePaiement?: StringFieldUpdateOperationsInput | string
+    moyenPaiementLabel?: StringFieldUpdateOperationsInput | string
+    formatImprime?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_A4?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_A5?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_80MM?: NullableStringFieldUpdateOperationsInput | string | null
+    nombreImpressions?: IntFieldUpdateOperationsInput | number
+    derniereImpression?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    codeVerification?: StringFieldUpdateOperationsInput | string
+    urlVerification?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -155209,6 +156519,40 @@ export namespace Prisma {
     echeancesCouvertes: JsonNullValueInput | InputJsonValue
     soldeApres: number
     cheminPDF?: string | null
+    detailsFinanciers?: NullableJsonNullValueInput | InputJsonValue
+    etablissementNom: string
+    etablissementLogo?: string | null
+    etablissementAdresse?: string | null
+    etablissementVille?: string | null
+    etablissementPays?: string | null
+    etablissementTelephone?: string | null
+    etablissementEmail?: string | null
+    etablissementSiteWeb?: string | null
+    etablissementCode: string
+    etablissementAgrement?: string | null
+    etablissementDevise?: string
+    eleveMatricule: string
+    elevePrenom: string
+    eleveNom: string
+    eleveSexe?: string | null
+    classeNom?: string | null
+    classeCode?: string | null
+    niveauNom?: string | null
+    anneeScolaireNom?: string | null
+    montantPaye: number
+    montantReduction?: number
+    montantRestant?: number
+    devise?: string
+    referencePaiement: string
+    moyenPaiementLabel: string
+    formatImprime?: string | null
+    cheminPDF_A4?: string | null
+    cheminPDF_A5?: string | null
+    cheminPDF_80MM?: string | null
+    nombreImpressions?: number
+    derniereImpression?: Date | string | null
+    codeVerification: string
+    urlVerification?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -156811,6 +158155,40 @@ export namespace Prisma {
     echeancesCouvertes?: JsonNullValueInput | InputJsonValue
     soldeApres?: FloatFieldUpdateOperationsInput | number
     cheminPDF?: NullableStringFieldUpdateOperationsInput | string | null
+    detailsFinanciers?: NullableJsonNullValueInput | InputJsonValue
+    etablissementNom?: StringFieldUpdateOperationsInput | string
+    etablissementLogo?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementAdresse?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementVille?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementPays?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementTelephone?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementSiteWeb?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementCode?: StringFieldUpdateOperationsInput | string
+    etablissementAgrement?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementDevise?: StringFieldUpdateOperationsInput | string
+    eleveMatricule?: StringFieldUpdateOperationsInput | string
+    elevePrenom?: StringFieldUpdateOperationsInput | string
+    eleveNom?: StringFieldUpdateOperationsInput | string
+    eleveSexe?: NullableStringFieldUpdateOperationsInput | string | null
+    classeNom?: NullableStringFieldUpdateOperationsInput | string | null
+    classeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    niveauNom?: NullableStringFieldUpdateOperationsInput | string | null
+    anneeScolaireNom?: NullableStringFieldUpdateOperationsInput | string | null
+    montantPaye?: FloatFieldUpdateOperationsInput | number
+    montantReduction?: FloatFieldUpdateOperationsInput | number
+    montantRestant?: FloatFieldUpdateOperationsInput | number
+    devise?: StringFieldUpdateOperationsInput | string
+    referencePaiement?: StringFieldUpdateOperationsInput | string
+    moyenPaiementLabel?: StringFieldUpdateOperationsInput | string
+    formatImprime?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_A4?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_A5?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_80MM?: NullableStringFieldUpdateOperationsInput | string | null
+    nombreImpressions?: IntFieldUpdateOperationsInput | number
+    derniereImpression?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    codeVerification?: StringFieldUpdateOperationsInput | string
+    urlVerification?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     paiement?: PaiementUpdateOneRequiredWithoutRecuNestedInput
@@ -156830,6 +158208,40 @@ export namespace Prisma {
     echeancesCouvertes?: JsonNullValueInput | InputJsonValue
     soldeApres?: FloatFieldUpdateOperationsInput | number
     cheminPDF?: NullableStringFieldUpdateOperationsInput | string | null
+    detailsFinanciers?: NullableJsonNullValueInput | InputJsonValue
+    etablissementNom?: StringFieldUpdateOperationsInput | string
+    etablissementLogo?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementAdresse?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementVille?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementPays?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementTelephone?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementSiteWeb?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementCode?: StringFieldUpdateOperationsInput | string
+    etablissementAgrement?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementDevise?: StringFieldUpdateOperationsInput | string
+    eleveMatricule?: StringFieldUpdateOperationsInput | string
+    elevePrenom?: StringFieldUpdateOperationsInput | string
+    eleveNom?: StringFieldUpdateOperationsInput | string
+    eleveSexe?: NullableStringFieldUpdateOperationsInput | string | null
+    classeNom?: NullableStringFieldUpdateOperationsInput | string | null
+    classeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    niveauNom?: NullableStringFieldUpdateOperationsInput | string | null
+    anneeScolaireNom?: NullableStringFieldUpdateOperationsInput | string | null
+    montantPaye?: FloatFieldUpdateOperationsInput | number
+    montantReduction?: FloatFieldUpdateOperationsInput | number
+    montantRestant?: FloatFieldUpdateOperationsInput | number
+    devise?: StringFieldUpdateOperationsInput | string
+    referencePaiement?: StringFieldUpdateOperationsInput | string
+    moyenPaiementLabel?: StringFieldUpdateOperationsInput | string
+    formatImprime?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_A4?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_A5?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_80MM?: NullableStringFieldUpdateOperationsInput | string | null
+    nombreImpressions?: IntFieldUpdateOperationsInput | number
+    derniereImpression?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    codeVerification?: StringFieldUpdateOperationsInput | string
+    urlVerification?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -156847,6 +158259,40 @@ export namespace Prisma {
     echeancesCouvertes?: JsonNullValueInput | InputJsonValue
     soldeApres?: FloatFieldUpdateOperationsInput | number
     cheminPDF?: NullableStringFieldUpdateOperationsInput | string | null
+    detailsFinanciers?: NullableJsonNullValueInput | InputJsonValue
+    etablissementNom?: StringFieldUpdateOperationsInput | string
+    etablissementLogo?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementAdresse?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementVille?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementPays?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementTelephone?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementSiteWeb?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementCode?: StringFieldUpdateOperationsInput | string
+    etablissementAgrement?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementDevise?: StringFieldUpdateOperationsInput | string
+    eleveMatricule?: StringFieldUpdateOperationsInput | string
+    elevePrenom?: StringFieldUpdateOperationsInput | string
+    eleveNom?: StringFieldUpdateOperationsInput | string
+    eleveSexe?: NullableStringFieldUpdateOperationsInput | string | null
+    classeNom?: NullableStringFieldUpdateOperationsInput | string | null
+    classeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    niveauNom?: NullableStringFieldUpdateOperationsInput | string | null
+    anneeScolaireNom?: NullableStringFieldUpdateOperationsInput | string | null
+    montantPaye?: FloatFieldUpdateOperationsInput | number
+    montantReduction?: FloatFieldUpdateOperationsInput | number
+    montantRestant?: FloatFieldUpdateOperationsInput | number
+    devise?: StringFieldUpdateOperationsInput | string
+    referencePaiement?: StringFieldUpdateOperationsInput | string
+    moyenPaiementLabel?: StringFieldUpdateOperationsInput | string
+    formatImprime?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_A4?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_A5?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_80MM?: NullableStringFieldUpdateOperationsInput | string | null
+    nombreImpressions?: IntFieldUpdateOperationsInput | number
+    derniereImpression?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    codeVerification?: StringFieldUpdateOperationsInput | string
+    urlVerification?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -160623,6 +162069,40 @@ export namespace Prisma {
     soldeApres: number
     generePar: string
     cheminPDF?: string | null
+    detailsFinanciers?: NullableJsonNullValueInput | InputJsonValue
+    etablissementNom: string
+    etablissementLogo?: string | null
+    etablissementAdresse?: string | null
+    etablissementVille?: string | null
+    etablissementPays?: string | null
+    etablissementTelephone?: string | null
+    etablissementEmail?: string | null
+    etablissementSiteWeb?: string | null
+    etablissementCode: string
+    etablissementAgrement?: string | null
+    etablissementDevise?: string
+    eleveMatricule: string
+    elevePrenom: string
+    eleveNom: string
+    eleveSexe?: string | null
+    classeNom?: string | null
+    classeCode?: string | null
+    niveauNom?: string | null
+    anneeScolaireNom?: string | null
+    montantPaye: number
+    montantReduction?: number
+    montantRestant?: number
+    devise?: string
+    referencePaiement: string
+    moyenPaiementLabel: string
+    formatImprime?: string | null
+    cheminPDF_A4?: string | null
+    cheminPDF_A5?: string | null
+    cheminPDF_80MM?: string | null
+    nombreImpressions?: number
+    derniereImpression?: Date | string | null
+    codeVerification: string
+    urlVerification?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -161057,6 +162537,40 @@ export namespace Prisma {
     echeancesCouvertes?: JsonNullValueInput | InputJsonValue
     soldeApres?: FloatFieldUpdateOperationsInput | number
     cheminPDF?: NullableStringFieldUpdateOperationsInput | string | null
+    detailsFinanciers?: NullableJsonNullValueInput | InputJsonValue
+    etablissementNom?: StringFieldUpdateOperationsInput | string
+    etablissementLogo?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementAdresse?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementVille?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementPays?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementTelephone?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementSiteWeb?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementCode?: StringFieldUpdateOperationsInput | string
+    etablissementAgrement?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementDevise?: StringFieldUpdateOperationsInput | string
+    eleveMatricule?: StringFieldUpdateOperationsInput | string
+    elevePrenom?: StringFieldUpdateOperationsInput | string
+    eleveNom?: StringFieldUpdateOperationsInput | string
+    eleveSexe?: NullableStringFieldUpdateOperationsInput | string | null
+    classeNom?: NullableStringFieldUpdateOperationsInput | string | null
+    classeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    niveauNom?: NullableStringFieldUpdateOperationsInput | string | null
+    anneeScolaireNom?: NullableStringFieldUpdateOperationsInput | string | null
+    montantPaye?: FloatFieldUpdateOperationsInput | number
+    montantReduction?: FloatFieldUpdateOperationsInput | number
+    montantRestant?: FloatFieldUpdateOperationsInput | number
+    devise?: StringFieldUpdateOperationsInput | string
+    referencePaiement?: StringFieldUpdateOperationsInput | string
+    moyenPaiementLabel?: StringFieldUpdateOperationsInput | string
+    formatImprime?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_A4?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_A5?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_80MM?: NullableStringFieldUpdateOperationsInput | string | null
+    nombreImpressions?: IntFieldUpdateOperationsInput | number
+    derniereImpression?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    codeVerification?: StringFieldUpdateOperationsInput | string
+    urlVerification?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     paiement?: PaiementUpdateOneRequiredWithoutRecuNestedInput
@@ -161076,6 +162590,40 @@ export namespace Prisma {
     soldeApres?: FloatFieldUpdateOperationsInput | number
     generePar?: StringFieldUpdateOperationsInput | string
     cheminPDF?: NullableStringFieldUpdateOperationsInput | string | null
+    detailsFinanciers?: NullableJsonNullValueInput | InputJsonValue
+    etablissementNom?: StringFieldUpdateOperationsInput | string
+    etablissementLogo?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementAdresse?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementVille?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementPays?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementTelephone?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementSiteWeb?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementCode?: StringFieldUpdateOperationsInput | string
+    etablissementAgrement?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementDevise?: StringFieldUpdateOperationsInput | string
+    eleveMatricule?: StringFieldUpdateOperationsInput | string
+    elevePrenom?: StringFieldUpdateOperationsInput | string
+    eleveNom?: StringFieldUpdateOperationsInput | string
+    eleveSexe?: NullableStringFieldUpdateOperationsInput | string | null
+    classeNom?: NullableStringFieldUpdateOperationsInput | string | null
+    classeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    niveauNom?: NullableStringFieldUpdateOperationsInput | string | null
+    anneeScolaireNom?: NullableStringFieldUpdateOperationsInput | string | null
+    montantPaye?: FloatFieldUpdateOperationsInput | number
+    montantReduction?: FloatFieldUpdateOperationsInput | number
+    montantRestant?: FloatFieldUpdateOperationsInput | number
+    devise?: StringFieldUpdateOperationsInput | string
+    referencePaiement?: StringFieldUpdateOperationsInput | string
+    moyenPaiementLabel?: StringFieldUpdateOperationsInput | string
+    formatImprime?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_A4?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_A5?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_80MM?: NullableStringFieldUpdateOperationsInput | string | null
+    nombreImpressions?: IntFieldUpdateOperationsInput | number
+    derniereImpression?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    codeVerification?: StringFieldUpdateOperationsInput | string
+    urlVerification?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -161093,6 +162641,40 @@ export namespace Prisma {
     soldeApres?: FloatFieldUpdateOperationsInput | number
     generePar?: StringFieldUpdateOperationsInput | string
     cheminPDF?: NullableStringFieldUpdateOperationsInput | string | null
+    detailsFinanciers?: NullableJsonNullValueInput | InputJsonValue
+    etablissementNom?: StringFieldUpdateOperationsInput | string
+    etablissementLogo?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementAdresse?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementVille?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementPays?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementTelephone?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementSiteWeb?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementCode?: StringFieldUpdateOperationsInput | string
+    etablissementAgrement?: NullableStringFieldUpdateOperationsInput | string | null
+    etablissementDevise?: StringFieldUpdateOperationsInput | string
+    eleveMatricule?: StringFieldUpdateOperationsInput | string
+    elevePrenom?: StringFieldUpdateOperationsInput | string
+    eleveNom?: StringFieldUpdateOperationsInput | string
+    eleveSexe?: NullableStringFieldUpdateOperationsInput | string | null
+    classeNom?: NullableStringFieldUpdateOperationsInput | string | null
+    classeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    niveauNom?: NullableStringFieldUpdateOperationsInput | string | null
+    anneeScolaireNom?: NullableStringFieldUpdateOperationsInput | string | null
+    montantPaye?: FloatFieldUpdateOperationsInput | number
+    montantReduction?: FloatFieldUpdateOperationsInput | number
+    montantRestant?: FloatFieldUpdateOperationsInput | number
+    devise?: StringFieldUpdateOperationsInput | string
+    referencePaiement?: StringFieldUpdateOperationsInput | string
+    moyenPaiementLabel?: StringFieldUpdateOperationsInput | string
+    formatImprime?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_A4?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_A5?: NullableStringFieldUpdateOperationsInput | string | null
+    cheminPDF_80MM?: NullableStringFieldUpdateOperationsInput | string | null
+    nombreImpressions?: IntFieldUpdateOperationsInput | number
+    derniereImpression?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    codeVerification?: StringFieldUpdateOperationsInput | string
+    urlVerification?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }

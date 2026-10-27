@@ -41,13 +41,144 @@ async function generateMatricule(client: any): Promise<string> {
 }
 
 // ──────────────────────────────────────────
+// HELPERS EMPLOI DU TEMPS
+// ──────────────────────────────────────────
+
+const JOURS_ORDER: Record<string, number> = {
+  LUNDI: 1,
+  MARDI: 2,
+  MERCREDI: 3,
+  JEUDI: 4,
+  VENDREDI: 5,
+  SAMEDI: 6,
+  DIMANCHE: 7,
+};
+
+const JOURS_JS_TO_KEY = [
+  'DIMANCHE', // 0
+  'LUNDI',
+  'MARDI',
+  'MERCREDI',
+  'JEUDI',
+  'VENDREDI',
+  'SAMEDI',
+];
+
+const parseTime = (hhmm: string): number => {
+  const [h, m] = hhmm.split(':').map((x) => parseInt(x, 10));
+  return (h ?? 0) * 60 + (m ?? 0);
+};
+
+interface CoursCalcule {
+  id: string;
+  jour: string;
+  heureDebut: string;
+  heureFin: string;
+  statut: 'EN_COURS' | 'PROCHAIN' | 'TERMINE' | 'A_VENIR';
+  minutesRestantes?: number;
+  minutesAvant?: number;
+  minutesAvantGlobal?: number;
+}
+
+/**
+ * Enrichit l'emploi du temps avec des statuts calculés :
+ * EN_COURS, PROCHAIN, TERMINE, A_VENIR
+ */
+function enrichirEmploiTemps(
+  emploisTemps: any[],
+  now: Date
+): {
+  enrichis: CoursCalcule[];
+  coursEnCours: CoursCalcule | null;
+  prochainCours: CoursCalcule | null;
+  dernierCoursTermine: CoursCalcule | null;
+} {
+  if (!emploisTemps || emploisTemps.length === 0) {
+    return {
+      enrichis: [],
+      coursEnCours: null,
+      prochainCours: null,
+      dernierCoursTermine: null,
+    };
+  }
+
+  const jourActuel = JOURS_JS_TO_KEY[now.getDay()];
+  const minutesActuelles = now.getHours() * 60 + now.getMinutes();
+  const coursActifs = emploisTemps.filter((e) => e.estActive !== false);
+
+  const enrichis: CoursCalcule[] = coursActifs.map((e) => {
+    const debut = parseTime(e.heureDebut);
+    const fin = parseTime(e.heureFin);
+    let statut: CoursCalcule['statut'] = 'A_VENIR';
+    let minutesRestantes: number | undefined;
+    let minutesAvant: number | undefined;
+    let minutesAvantGlobal: number | undefined;
+
+    if (e.jour === jourActuel) {
+      if (minutesActuelles >= debut && minutesActuelles < fin) {
+        statut = 'EN_COURS';
+        minutesRestantes = fin - minutesActuelles;
+      } else if (minutesActuelles < debut) {
+        statut = 'A_VENIR';
+        minutesAvant = debut - minutesActuelles;
+      } else {
+        statut = 'TERMINE';
+      }
+    } else {
+      const jourCours = JOURS_ORDER[e.jour] ?? 7;
+      const jourNow = JOURS_ORDER[jourActuel] ?? 7;
+      let diffJours = jourCours - jourNow;
+      if (diffJours <= 0) diffJours += 7;
+      minutesAvantGlobal = diffJours * 24 * 60 + debut - minutesActuelles;
+    }
+
+    return {
+      id: e.id,
+      jour: e.jour,
+      heureDebut: e.heureDebut,
+      heureFin: e.heureFin,
+      statut,
+      minutesRestantes,
+      minutesAvant,
+      minutesAvantGlobal,
+    };
+  });
+
+  const coursEnCours = enrichis.find((c) => c.statut === 'EN_COURS') ?? null;
+
+  // Prochain cours
+  const candidatsProchains = enrichis
+    .filter((c) => c.statut === 'A_VENIR' || c.statut === 'EN_COURS')
+    .map((c) => {
+      const debut = parseTime(c.heureDebut);
+      let minutesDepuisNow: number;
+      if (c.jour === jourActuel && c.statut !== 'EN_COURS') {
+        minutesDepuisNow = debut - minutesActuelles;
+      } else if (c.statut === 'EN_COURS') {
+        minutesDepuisNow = 0;
+      } else {
+        minutesDepuisNow = c.minutesAvantGlobal ?? Number.MAX_SAFE_INTEGER;
+      }
+      return { cours: c, minutesDepuisNow };
+    })
+    .sort((a, b) => a.minutesDepuisNow - b.minutesDepuisNow);
+
+  const prochainCours =
+    coursEnCours ?? (candidatsProchains[0]?.cours ?? null);
+
+  // Dernier cours terminé aujourd'hui
+  const dernierCoursTermine =
+    enrichis
+      .filter((c) => c.jour === jourActuel && c.statut === 'TERMINE')
+      .sort((a, b) => parseTime(b.heureFin) - parseTime(a.heureFin))[0] ?? null;
+
+  return { enrichis, coursEnCours, prochainCours, dernierCoursTermine };
+}
+
+// ──────────────────────────────────────────
 // INCLUDES PARTAGÉS
 // ──────────────────────────────────────────
 
-/**
- * Include de base : utilisé par findAll, findById, create, update.
- * Contient utilisateur + tous les compteurs.
- */
 const enseignantInclude = {
   utilisateur: {
     select: {
@@ -60,14 +191,12 @@ const enseignantInclude = {
   },
   _count: {
     select: {
-      // Existants
       affectations: true,
       emploisTemps: true,
       notes: true,
       absences: true,
       heuresSupp: true,
       paies: true,
-      // 🆕 ajoutés
       presences: true,
       avances: true,
       reclamations: true,
@@ -85,16 +214,14 @@ const enseignantInclude = {
 
 export class EnseignantService {
   // ──────────────────────────────────────────
-  // CREATE
+  // CREATE (inchangé)
   // ──────────────────────────────────────────
 
   async create(ctx: EnseignantContext, input: CreateEnseignantInput) {
     const client = await getClient(ctx.schemaName);
 
-    // 1. Générer le matricule
     const matricule = await generateMatricule(client);
 
-    // 2. Créer ou lier l'utilisateur
     const compteResult = await compteService.createOrLinkUser(ctx, {
       email: input.email,
       motDePasse: input.motDePasse,
@@ -107,7 +234,6 @@ export class EnseignantService {
       hasProfilCheck: (u) => !!u.enseignant,
     });
 
-    // 3. Créer le profil enseignant
     try {
       const enseignant = await client.enseignant.create({
         data: {
@@ -134,14 +260,12 @@ export class EnseignantService {
 
       return {
         ...enseignant,
-        // ℹ️ Info utile pour l'admin : faut-il communiquer le mot de passe ?
         motDePasseTemporaire:
           compteResult.created && !input.motDePasse
             ? '⚠️ Mot de passe généré — communiquez-le manuellement'
             : null,
       };
     } catch (err: any) {
-      // Rollback : si le profil échoue, supprimer l'utilisateur créé
       if (compteResult.created && compteResult.utilisateurId) {
         await compteService.deleteLinkedUser(ctx, compteResult.utilisateurId);
       }
@@ -158,7 +282,7 @@ export class EnseignantService {
   }
 
   // ──────────────────────────────────────────
-  // LIST
+  // LIST (inchangé)
   // ──────────────────────────────────────────
 
   async findAll(ctx: EnseignantContext, q: ListEnseignantsQuery) {
@@ -166,7 +290,6 @@ export class EnseignantService {
 
     const where: any = {};
 
-    // Recherche
     if (q.search) {
       where.OR = [
         { nom: { contains: q.search, mode: 'insensitive' } },
@@ -177,14 +300,12 @@ export class EnseignantService {
       ];
     }
 
-    // Filtres
     if (q.estActif !== undefined) where.estActif = q.estActif;
     if (q.estArchive !== undefined) where.estArchive = q.estArchive;
     if (q.typeContrat) where.typeContrat = q.typeContrat;
     if (q.hasCompte === true) where.utilisateurId = { not: null };
     if (q.hasCompte === false) where.utilisateurId = null;
 
-    // Tri sécurisé
     const allowedSort = [
       'nom',
       'prenom',
@@ -218,18 +339,19 @@ export class EnseignantService {
   }
 
   // ──────────────────────────────────────────
-  // GET BY ID (détail complet)
+  // GET BY ID — VUE COMPLÈTE (emploi du temps, cours, paie, présence)
   // ──────────────────────────────────────────
 
   async findById(ctx: EnseignantContext, id: string) {
     const client = await getClient(ctx.schemaName);
+    const now = new Date();
 
+    // 1. Charger l'enseignant avec TOUTES les relations
     const enseignant = await client.enseignant.findUnique({
       where: { id },
       include: {
-        // ✅ Tout ce qui est dans enseignantInclude
         ...enseignantInclude,
-        // ✅ Utilisateur détaillé
+
         utilisateur: {
           select: {
             id: true,
@@ -241,77 +363,247 @@ export class EnseignantService {
             updatedAt: true,
           },
         },
-        // ✅ Affectations détaillées (avec classe et matière)
+
+        // Affectations (classes + matières)
         affectations: {
           include: {
-            classe: { select: { id: true, nom: true, code: true } },
+            classe: {
+              select: { id: true, nom: true, code: true, salle: true },
+            },
             matiere: { select: { id: true, nom: true, code: true } },
-            anneeScolaire: { select: { id: true, nom: true } },
+            anneeScolaire: {
+              select: { id: true, nom: true, estActive: true },
+            },
           },
           orderBy: { createdAt: 'desc' },
-          take: 10,
         },
-        // ✅ Emploi du temps
+
+        // Emploi du temps complet
         emploisTemps: {
+          where: { estActive: true },
           include: {
             classe: { select: { id: true, nom: true, code: true } },
             matiere: { select: { id: true, nom: true, code: true } },
           },
           orderBy: [{ jour: 'asc' }, { heureDebut: 'asc' }],
-          take: 20,
         },
-        // ✅ 5 dernières absences
+
+        // Absences (5 dernières)
         absences: {
           take: 5,
           orderBy: { dateDebut: 'desc' },
         },
-        // ✅ 5 dernières heures supp
+
+        // Heures supp (5 dernières)
         heuresSupp: {
           take: 5,
           orderBy: { date: 'desc' },
         },
-        // ✅ 5 dernières avances
+
+        // Avances (5 dernières)
         avances: {
           take: 5,
           orderBy: { dateDemandee: 'desc' },
         },
-        // ✅ 5 dernières réclamations
+
+        // Réclamations (5 dernières)
         reclamations: {
           take: 5,
           orderBy: { createdAt: 'desc' },
         },
-        // ✅ 5 dernières paies
+
+        // 🆕 Paies (10 dernières pour historique + analyse)
         paies: {
-          take: 5,
+          take: 10,
           orderBy: { createdAt: 'desc' },
           include: {
             periode: { select: { id: true, nom: true } },
+            approbateur: { select: { id: true, prenom: true, nom: true } },
           },
         },
-        // ✅ 5 derniers historiques salaire
+
+        // Historique salaire
         historiquesSalaire: {
           take: 5,
           orderBy: { dateEffet: 'desc' },
         },
-        // ✅ 5 derniers groupes TD
+
+        // Groupes TD
         groupesTD: {
           take: 5,
           orderBy: { createdAt: 'desc' },
         },
-        // ✅ 5 derniers documents
+
+        // Documents
         documents: {
           take: 5,
           orderBy: { createdAt: 'desc' },
+        },
+
+        // 🆕 Présences (10 dernières) pour calcul taux
+        presences: {
+          take: 30,
+          orderBy: { date: 'desc' },
         },
       },
     });
 
     if (!enseignant) throw new AppError('Enseignant introuvable', 404);
-    return enseignant;
+
+    // 2. Enrichir l'emploi du temps avec les statuts calculés
+    const { enrichis, coursEnCours, prochainCours, dernierCoursTermine } =
+      enrichirEmploiTemps((enseignant as any).emploisTemps ?? [], now);
+
+    const emploisTempsEnrichis = ((enseignant as any).emploisTemps ?? []).map(
+      (e: any) => {
+        const calc = enrichis.find((c) => c.id === e.id);
+        return {
+          ...e,
+          _statut: calc?.statut ?? 'A_VENIR',
+          _minutesRestantes: calc?.minutesRestantes,
+          _minutesAvant: calc?.minutesAvant,
+        };
+      }
+    );
+
+    // 3. Statistiques heures supp
+    const heuresSupp = (enseignant as any).heuresSupp ?? [];
+    const totalHeuresSupp = heuresSupp
+      .filter((h: any) => h.statut === 'APPROUVEE')
+      .reduce((s: number, h: any) => s + (h.heures ?? 0), 0);
+    const heuresSuppEnAttente = heuresSupp
+      .filter(
+        (h: any) => h.statut === 'BROUILLON' || h.statut === 'SOUMISE'
+      )
+      .reduce((s: number, h: any) => s + (h.heures ?? 0), 0);
+
+    // 4. Statistiques présence (30 derniers jours)
+    const presences = (enseignant as any).presences ?? [];
+    const presencesPresentes = presences.filter(
+      (p: any) => p.statut === 'PRESENT'
+    ).length;
+    const presencesRetard = presences.filter(
+      (p: any) => p.statut === 'RETARD'
+    ).length;
+    const presencesAbsent = presences.filter(
+      (p: any) => p.statut === 'ABSENT'
+    ).length;
+    const tauxPresence =
+      presences.length > 0
+        ? Math.round((presencesPresentes / presences.length) * 100)
+        : 100;
+
+    // 5. Analyse des paies
+    const paies = (enseignant as any).paies ?? [];
+
+    // Dernière paie
+    const dernierePaie = paies[0] ?? null;
+
+    // Paie en cours (BROUILLON / CALCULEE / APPROUVEE mais pas encore PAYEE)
+    const paieEnCours =
+      paies.find((p: any) =>
+        ['BROUILLON', 'CALCULEE', 'APPROUVEE'].includes(p.statut)
+      ) ?? null;
+
+    // Cumul sur l'année
+    const paiesPayees = paies.filter((p: any) => p.statut === 'PAYEE');
+    const totalPaieAnne = paiesPayees.reduce(
+      (s: number, p: any) => s + (p.totalNet ?? 0),
+      0
+    );
+    const nombreMoisPayes = paiesPayees.length;
+
+    // 6. Résumé salaire (dernière paie ou prévisionnelle)
+    let resumeSalaire: any = null;
+    if (dernierePaie) {
+      const primes = dernierePaie.primes ?? {};
+      const retenues = dernierePaie.retenues ?? {};
+      const totalPrimes = Object.values(primes).reduce(
+        (s: number, v: any) => s + (Number(v) || 0),
+        0
+      );
+      const totalRetenues = Object.values(retenues).reduce(
+        (s: number, v: any) => s + (Number(v) || 0),
+        0
+      );
+
+      resumeSalaire = {
+        salaireBase: dernierePaie.salaireBase,
+        heuresSupp: dernierePaie.heuresSupp,
+        montantHeuresSupp: dernierePaie.montantHeuresSupp,
+        primes: totalPrimes,
+        retenues: totalRetenues,
+        avances: dernierePaie.avances,
+        totalBrut: dernierePaie.totalBrut,
+        totalNet: dernierePaie.totalNet,
+        statut: dernierePaie.statut,
+        periode: dernierePaie.periode,
+        payeLe: dernierePaie.payeLe,
+      };
+    } else {
+      // Pas encore de paie → prévisionnel basé sur salaireBase
+      resumeSalaire = {
+        salaireBase: enseignant.salaireBase,
+        heuresSupp: 0,
+        montantHeuresSupp: 0,
+        primes: 0,
+        retenues: 0,
+        avances: 0,
+        totalBrut: enseignant.salaireBase,
+        totalNet: enseignant.salaireBase,
+        statut: 'PREVISIONNEL',
+        periode: null,
+        payeLe: null,
+      };
+    }
+
+    // 7. Calcul heures hebdomadaires (emploi du temps)
+    const heuresHebdo = ((enseignant as any).emploisTemps ?? [])
+      .filter((e: any) => e.estActive !== false)
+      .reduce((sum: number, e: any) => {
+        return sum + (parseTime(e.heureFin) - parseTime(e.heureDebut));
+      }, 0);
+
+    // 8. Retour enrichi
+    return {
+      ...enseignant,
+      emploisTemps: emploisTempsEnrichis,
+
+      // 🆕 Cours en cours / prochain
+      coursEnCours,
+      prochainCours,
+      dernierCoursTermine,
+
+      // 🆕 Statistiques heures
+      _statsHeures: {
+        heuresSemaine: Math.round(heuresHebdo / 60),
+        totalHeuresSupp,
+        heuresSuppEnAttente,
+      },
+
+      // 🆕 Statistiques présence
+      _statsPresence: {
+        tauxPresence,
+        presencesPresentes,
+        presencesRetard,
+        presencesAbsent,
+        totalJours: presences.length,
+      },
+
+      // 🆕 Paie
+      dernierePaie,
+      paieEnCours,
+      resumeSalaire,
+      _statsPaie: {
+        totalPaieAnne,
+        nombreMoisPayes,
+        derniereDatePaiement: dernierePaie?.payeLe ?? null,
+      },
+    };
   }
 
   // ──────────────────────────────────────────
-  // UPDATE
+  // UPDATE (inchangé)
   // ──────────────────────────────────────────
 
   async update(
@@ -332,7 +624,6 @@ export class EnseignantService {
     });
     if (!existing) throw new AppError('Enseignant introuvable', 404);
 
-    // Cas particulier : création de compte a posteriori
     let utilisateurId = existing.utilisateurId;
 
     if (!utilisateurId && input.createCompte) {
@@ -358,7 +649,6 @@ export class EnseignantService {
       utilisateurId = compteResult.utilisateurId;
     }
 
-    // Mettre à jour l'utilisateur lié
     if (utilisateurId) {
       await compteService.updateLinkedUser(ctx, utilisateurId, {
         email: input.email,
@@ -371,7 +661,6 @@ export class EnseignantService {
       });
     }
 
-    // Mettre à jour le profil enseignant
     const patch: any = {};
     if (input.prenom !== undefined) patch.prenom = input.prenom.trim();
     if (input.nom !== undefined) patch.nom = input.nom.trim();
@@ -401,12 +690,11 @@ export class EnseignantService {
     }
 
     try {
-      const updated = await client.enseignant.update({
+      return await client.enseignant.update({
         where: { id },
         data: patch,
         include: enseignantInclude,
       });
-      return updated;
     } catch (err: any) {
       if (err?.code === 'P2002') {
         throw new AppError(
@@ -421,7 +709,7 @@ export class EnseignantService {
   }
 
   // ──────────────────────────────────────────
-  // SOFT DELETE (archive)
+  // SOFT DELETE
   // ──────────────────────────────────────────
 
   async softDelete(ctx: EnseignantContext, id: string) {
@@ -437,13 +725,11 @@ export class EnseignantService {
       return { id, message: 'Enseignant déjà archivé' };
     }
 
-    // Archiver le profil
     await client.enseignant.update({
       where: { id },
       data: { estActif: false, estArchive: true },
     });
 
-    // Désactiver l'utilisateur lié
     if (existing.utilisateurId) {
       await client.utilisateur.update({
         where: { id: existing.utilisateurId },
@@ -467,7 +753,6 @@ export class EnseignantService {
     });
     if (!existing) throw new AppError('Enseignant introuvable', 404);
 
-    // Vérifications étendues (10 dépendances)
     const [
       nbAffectations,
       nbNotes,
@@ -517,12 +802,10 @@ export class EnseignantService {
       );
     }
 
-    // Supprimer le profil
     const utilisateurId = existing.utilisateurId;
 
     await client.enseignant.delete({ where: { id } });
 
-    // Supprimer l'utilisateur lié
     if (utilisateurId) {
       await compteService.deleteLinkedUser(ctx, utilisateurId);
     }
