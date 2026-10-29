@@ -22,11 +22,16 @@ import {
   XMarkIcon,
   CalendarDaysIcon,
   ClockIcon,
+  BuildingOfficeIcon,
 } from '@heroicons/react/24/outline';
 import {
   usePlansScolarite,
   useHardDeletePlanScolarite,
 } from '../../../../hooks/usePlanScolarite';
+// ─── Référentiels (à adapter selon tes hooks existants) ───
+import { useClasses } from '../../../../hooks/useClasses';
+import { useNiveaux } from '../../../../hooks/useNiveaux';
+import { useAnneesScolaires } from '../../../../hooks/useAnneesScolaires';
 import type {
   PlanScolarite,
   ListPlansScolariteParams,
@@ -38,10 +43,27 @@ import type {
 
 type SortOption = NonNullable<ListPlansScolariteParams['sortBy']>;
 
-const formatMoney = (amount: number, devise: string) =>
-  new Intl.NumberFormat('fr-FR', {
+const formatMoney = (
+  amount: number | null | undefined,
+  devise: string = 'F CFA'
+): string => {
+  if (amount == null) return '—';
+  const value = new Intl.NumberFormat('fr-FR', {
     maximumFractionDigits: 0,
-  }).format(amount) + ` ${devise}`;
+  }).format(amount);
+
+  const upper = (devise || '').toUpperCase();
+  if (upper === 'XOF' || upper === 'XAF') return `${value} F CFA`;
+  if (upper === 'EUR') return `${value} €`;
+  if (upper === 'USD') return `${value} $`;
+  if (upper === 'GBP') return `${value} £`;
+  if (upper === 'MAD') return `${value} DH`;
+  if (upper === 'NGN') return `${value} ₦`;
+  if (upper === 'GHS') return `${value} GH₵`;
+  if (upper === 'CAD') return `${value} $ CA`;
+
+  return devise ? `${value} ${devise}` : `${value} F CFA`;
+};
 
 const formatDate = (date: string | null | undefined) => {
   if (!date) return '—';
@@ -200,7 +222,7 @@ const PlanCard: React.FC<PlanCardProps> = ({
         )}
         {plan.classe && (
           <div className="flex items-center gap-1.5 text-gray-600">
-            <AcademicCapIcon className="w-3.5 h-3.5 text-gray-400" />
+            <BuildingOfficeIcon className="w-3.5 h-3.5 text-gray-400" />
             <span>Classe : {plan.classe.nom}</span>
           </div>
         )}
@@ -261,18 +283,31 @@ const PlanCard: React.FC<PlanCardProps> = ({
 // ============================================
 
 const PlansScolaritePage: React.FC = () => {
-  // Filtres
+  // ─── Filtres ───
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [statutFilter, setStatutFilter] = useState<
     'all' | 'actif' | 'inactif'
   >('all');
+  const [classeId, setClasseId] = useState<string>('');
+  const [niveauId, setNiveauId] = useState<string>('');
+  const [anneeScolaireId, setAnneeScolaireId] = useState<string>('');
   const [sortBy, setSortBy] = useState<SortOption>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [showFilters, setShowFilters] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Params API
+  // ─── Référentiels ───
+  const { data: classesData } = useClasses({ limit: 500 });
+  const { data: niveauxData } = useNiveaux({ limit: 200 });
+  const { data: anneesData } = useAnneesScolaires({ limit: 50 });
+
+  // ✅ Après
+const classes = classesData?.classes ?? [];
+const niveaux = niveauxData?.niveaux ?? [];
+const annees = anneesData?.annees ?? [];
+
+  // ─── Params API (🆕 inclut classe/niveau/année) ───
   const params = useMemo<ListPlansScolariteParams>(
     () => ({
       page,
@@ -280,10 +315,22 @@ const PlansScolaritePage: React.FC = () => {
       search: search.trim() || undefined,
       estActif:
         statutFilter === 'all' ? undefined : statutFilter === 'actif',
+      classeId: classeId || undefined,
+      niveauId: niveauId || undefined,
+      anneeScolaireId: anneeScolaireId || undefined,
       sortBy,
       sortOrder,
     }),
-    [page, search, statutFilter, sortBy, sortOrder]
+    [
+      page,
+      search,
+      statutFilter,
+      classeId,
+      niveauId,
+      anneeScolaireId,
+      sortBy,
+      sortOrder,
+    ]
   );
 
   const { data, isLoading, isFetching, isError, error, refetch } =
@@ -291,22 +338,18 @@ const PlansScolaritePage: React.FC = () => {
 
   const hardDeleteMutation = useHardDeletePlanScolarite();
 
-  // Données normalisées
-  const plans: PlanScolarite[] = useMemo(
-    () => data?.plans ?? [],
-    [data]
-  );
+  const plans: PlanScolarite[] = useMemo(() => data?.plans ?? [], [data]);
   const pagination = data?.pagination;
 
-  // Statistiques
+  // ─── Statistiques ───
   const stats = useMemo(() => {
     const actifs = plans.filter((p) => p.estActif).length;
     const totalMontant = plans.reduce((sum, p) => sum + p.montantTotal, 0);
-    const devise = plans[0]?.devise ?? 'XOF';
+    const devise = plans[0]?.devise ?? 'F CFA';
     return { actifs, totalMontant, devise };
   }, [plans]);
 
-  // Handlers
+  // ─── Handlers ───
   const handleHardDelete = async (plan: PlanScolarite) => {
     const confirmed = confirm(
       `⚠️ SUPPRESSION DÉFINITIVE\n\nPlan : ${plan.nom}\nMontant : ${formatMoney(
@@ -329,15 +372,27 @@ const PlansScolaritePage: React.FC = () => {
   const resetFilters = () => {
     setSearch('');
     setStatutFilter('all');
+    setClasseId('');
+    setNiveauId('');
+    setAnneeScolaireId('');
     setSortBy('createdAt');
     setSortOrder('desc');
     setPage(1);
   };
 
+  // Compte des filtres actifs (🆕 inclut les 3 nouveaux)
   const activeFiltersCount = [
     search,
     statutFilter !== 'all' ? 'x' : '',
+    classeId ? 'x' : '',
+    niveauId ? 'x' : '',
+    anneeScolaireId ? 'x' : '',
   ].filter(Boolean).length;
+
+  // Labels utiles pour les badges
+  const classeLabel = classes.find((c: any) => c.id === classeId)?.nom;
+  const niveauLabel = niveaux.find((n: any) => n.id === niveauId)?.nom;
+  const anneeLabel = annees.find((a: any) => a.id === anneeScolaireId)?.nom;
 
   return (
     <div className="p-6 space-y-5">
@@ -437,7 +492,7 @@ const PlansScolaritePage: React.FC = () => {
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Rechercher un plan…"
+              placeholder="Rechercher (nom, description, classe, niveau…)"
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -537,6 +592,54 @@ const PlansScolaritePage: React.FC = () => {
                 </button>
               </span>
             )}
+            {/* 🆕 Badge classe */}
+            {classeId && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 text-xs font-medium rounded-full">
+                🏫 Classe : {classeLabel ?? '—'}
+                <button
+                  onClick={() => {
+                    setClasseId('');
+                    setPage(1);
+                  }}
+                  className="hover:text-purple-900"
+                  title="Retirer"
+                >
+                  <XMarkIcon className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+            {/* 🆕 Badge niveau */}
+            {niveauId && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 text-indigo-700 text-xs font-medium rounded-full">
+                🎓 Niveau : {niveauLabel ?? '—'}
+                <button
+                  onClick={() => {
+                    setNiveauId('');
+                    setPage(1);
+                  }}
+                  className="hover:text-indigo-900"
+                  title="Retirer"
+                >
+                  <XMarkIcon className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+            {/* 🆕 Badge année */}
+            {anneeScolaireId && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 text-xs font-medium rounded-full">
+                📅 Année : {anneeLabel ?? '—'}
+                <button
+                  onClick={() => {
+                    setAnneeScolaireId('');
+                    setPage(1);
+                  }}
+                  className="hover:text-amber-900"
+                  title="Retirer"
+                >
+                  <XMarkIcon className="h-3 w-3" />
+                </button>
+              </span>
+            )}
             <button
               onClick={resetFilters}
               className="text-xs text-gray-500 hover:text-gray-700 underline"
@@ -555,7 +658,8 @@ const PlansScolaritePage: React.FC = () => {
               exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden"
             >
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 pt-3 border-t border-gray-100">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3 pt-3 border-t border-gray-100">
+                {/* Statut */}
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">
                     Statut
@@ -571,6 +675,75 @@ const PlansScolaritePage: React.FC = () => {
                     <option value="all">Tous</option>
                     <option value="actif">Actifs</option>
                     <option value="inactif">Inactifs</option>
+                  </select>
+                </div>
+
+                {/* 🆕 Classe */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Classe
+                  </label>
+                  <select
+                    value={classeId}
+                    onChange={(e) => {
+                      setClasseId(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    <option value="">Toutes les classes</option>
+                    {classes.map((c: any) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nom}
+                        {c.code ? ` (${c.code})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 🆕 Niveau */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Niveau
+                  </label>
+                  <select
+                    value={niveauId}
+                    onChange={(e) => {
+                      setNiveauId(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    <option value="">Tous les niveaux</option>
+                    {niveaux.map((n: any) => (
+                      <option key={n.id} value={n.id}>
+                        {n.nom}
+                        {n.code ? ` (${n.code})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 🆕 Année scolaire */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Année scolaire
+                  </label>
+                  <select
+                    value={anneeScolaireId}
+                    onChange={(e) => {
+                      setAnneeScolaireId(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    <option value="">Toutes les années</option>
+                    {annees.map((a: any) => (
+                      <option key={a.id} value={a.id}>
+                        {a.nom}
+                        {a.estActive ? ' (active)' : ''}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -631,7 +804,7 @@ const PlansScolaritePage: React.FC = () => {
           <p className="text-gray-500 mb-6 max-w-md mx-auto">
             {activeFiltersCount > 0
               ? 'Aucun plan ne correspond à vos critères de recherche.'
-              : 'Commencez par créer votre premier plan (frais d\'inscription, scolarité, échéances).'}
+              : "Commencez par créer votre premier plan (frais d'inscription, scolarité, échéances)."}
           </p>
           {activeFiltersCount > 0 ? (
             <button

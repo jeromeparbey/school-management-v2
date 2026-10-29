@@ -10,6 +10,21 @@ type FormatImpression = 'A4' | 'A5' | '80MM';
 // TYPES
 // ──────────────────────────────────────────
 
+type EcheanceItem = {
+  echeanceId: string;
+  nom: string;
+  ordre: number;
+  montant: number;
+  montantPaye: number;
+  montantPayeApres: number;
+  montantRestant: number;
+  dateLimite: string;
+  estPayee: boolean;
+  estPartielle: boolean;
+  estEnRetard: boolean;
+  joursRestants: number;
+};
+
 interface DetailsFinanciers {
   planNom?: string;
   montantTotalPlan?: number;
@@ -31,20 +46,7 @@ interface DetailsFinanciers {
     dateLimite: string;
     joursRestants: number;
   } | null;
-  echeances?: Array<{
-    echeanceId: string;
-    nom: string;
-    ordre: number;
-    montant: number;
-    montantPaye: number;
-    montantPayeApres: number;
-    montantRestant: number;
-    dateLimite: string;
-    estPayee: boolean;
-    estPartielle: boolean;
-    estEnRetard: boolean;
-    joursRestants: number;
-  }>;
+  echeances?: EcheanceItem[];
 }
 
 interface RecuData {
@@ -75,28 +77,27 @@ interface RecuData {
   moyenPaiementLabel: string;
   referencePaiement: string;
   datePaiement: Date;
-  echeancesCouvertes: any[];
+  echeancesCouvertes: unknown[];
   codeVerification: string;
   urlVerification: string | null;
   generateur: { prenom: string; nom: string };
   detailsFinanciers?: DetailsFinanciers | null;
 }
-// backend/src/modules/recu/recu-pdf.service.ts
 
-type EcheanceItem = {
-  echeanceId: string;
-  nom: string;
-  ordre: number;
-  montant: number;
-  montantPaye: number;
-  montantPayeApres: number;
-  montantRestant: number;
-  dateLimite: string;
-  estPayee: boolean;
-  estPartielle: boolean;
-  estEnRetard: boolean;
-  joursRestants: number;
-};
+// ──────────────────────────────────────────
+// CONTEXTE INTERNE
+// ──────────────────────────────────────────
+
+interface PdfContext {
+  doc: PDFKit.PDFDocument;
+  recu: RecuData;
+  config: (typeof FORMAT_CONFIG)[FormatImpression];
+  contentX: number;
+  contentW: number;
+  /** ✅ devise résolue une fois pour toutes (ex: "F CFA") */
+  devise: string;
+}
+
 // ──────────────────────────────────────────
 // CONFIG FORMATS
 // ──────────────────────────────────────────
@@ -157,17 +158,46 @@ const COLORS = {
 // HELPERS
 // ──────────────────────────────────────────
 
-const fmtMoney = (amount: number, devise: string) =>
-  `${new Intl.NumberFormat('fr-FR').format(Math.round(amount))} ${devise}`;
+/**
+ * Formate un montant avec sa devise.
+ * - Codes ISO connus (XOF/XAF/EUR/USD…) → symbole/code court ("F CFA", "€", "$"…)
+ * - Sinon → suffixe avec la devise fournie
+ */
+const fmtMoney = (amount: number, devise: string): string => {
+  const value = new Intl.NumberFormat('fr-FR').format(Math.round(amount));
+  const upper = (devise || '').toUpperCase();
 
-const fmtDate = (date: Date | string) =>
+  if (upper === 'XOF' || upper === 'XAF') return `${value} F CFA`;
+  if (upper === 'EUR') return `${value} €`;
+  if (upper === 'USD') return `${value} $`;
+  if (upper === 'GBP') return `${value} £`;
+  if (upper === 'MAD') return `${value} DH`;
+  if (upper === 'NGN') return `${value} ₦`;
+  if (upper === 'GHS') return `${value} GH₵`;
+  if (upper === 'CAD') return `${value} $ CA`;
+
+  // Fallback : affiche la devise telle que fournie, sinon F CFA
+  return devise ? `${value} ${devise}` : `${value} F CFA`;
+};
+
+/**
+ * Résout la devise finale pour le PDF.
+ * Priorité : detailsFinanciers.devise > recu.devise > etablissementDevise > 'F CFA'
+ */
+const resolveDevise = (recu: RecuData): string =>
+  recu.detailsFinanciers?.devise ||
+  recu.devise ||
+  recu.etablissementDevise ||
+  'F CFA';
+
+const fmtDate = (date: Date | string): string =>
   new Date(date).toLocaleDateString('fr-FR', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
   });
 
-const fmtDateTime = (date: Date | string) =>
+const fmtDateTime = (date: Date | string): string =>
   new Date(date).toLocaleString('fr-FR', {
     day: '2-digit',
     month: '2-digit',
@@ -176,8 +206,7 @@ const fmtDateTime = (date: Date | string) =>
     minute: '2-digit',
   });
 
-/** Raccourcit un texte trop long (ellipsis manuel) */
-const truncate = (text: string, maxChars: number) =>
+const truncate = (text: string, maxChars: number): string =>
   text.length <= maxChars ? text : text.slice(0, maxChars - 1) + '…';
 
 // ──────────────────────────────────────────
@@ -199,13 +228,13 @@ export class RecuPDFService {
     const fileName = `${recu.numeroRecu}-${format}.pdf`;
     const filePath = path.join(outputDir, fileName);
 
-    return new Promise((resolve, reject) => {
+    return new Promise<string>((resolve, reject) => {
       try {
         const doc = new PDFDocument({
           size: [config.width, config.height],
           margin: 0,
           autoFirstPage: true,
-          bufferPages: true, // ✅ nécessaire pour numéroter les pages
+          bufferPages: true,
           info: {
             Title: `Reçu ${recu.numeroRecu}`,
             Author: recu.etablissementNom,
@@ -218,15 +247,15 @@ export class RecuPDFService {
         const stream = fs.createWriteStream(filePath);
         doc.pipe(stream);
 
-        const ctx = {
+        const ctx: PdfContext = {
           doc,
           recu,
           config,
           contentX: config.margin,
           contentW: config.width - config.margin * 2,
+          devise: resolveDevise(recu), // ✅ devise résolue une seule fois
         };
 
-        // Rendu séquentiel — chaque bloc lit/écrit doc.y
         doc.y = config.margin;
 
         this.drawHeader(ctx);
@@ -236,8 +265,6 @@ export class RecuPDFService {
         this.drawFinancierBlock(ctx);
         this.drawEcheancesTable(ctx);
         this.drawProchaineEcheance(ctx);
-
-        // Footer ancré en bas sur chaque page
         this.drawFootersOnAllPages(ctx);
 
         doc.end();
@@ -253,15 +280,12 @@ export class RecuPDFService {
   // UTILITAIRES DE MISE EN PAGE
   // ══════════════════════════════════════════
 
-  /** Réserve `needed` pts de hauteur. Si insuffisant → nouvelle page + header rappelé. */
-  private ensureSpace(ctx: any, needed: number) {
+  private ensureSpace(ctx: PdfContext, needed: number): void {
     const { doc, config } = ctx;
     const bottomLimit = config.height - config.margin - config.footerHeight;
     if (doc.y + needed > bottomLimit) {
       doc.addPage({ size: [config.width, config.height], margin: 0 });
       doc.y = config.margin;
-      // Sur les pages suivantes, on ne redessine pas le header complet,
-      // juste un mini rappel pour l'identification du document.
       if (!config.isThermique) {
         doc
           .fontSize(config.fontSize.small)
@@ -284,8 +308,7 @@ export class RecuPDFService {
     }
   }
 
-  /** Titre de section avec filet de séparation. */
-  private sectionTitle(ctx: any, title: string) {
+  private sectionTitle(ctx: PdfContext, title: string): void {
     const { doc, config, contentX, contentW } = ctx;
     this.ensureSpace(ctx, 24);
 
@@ -305,15 +328,14 @@ export class RecuPDFService {
     doc.moveDown(0.4);
   }
 
-  /** Ligne label / valeur sur une colonne. */
   private fieldRow(
-    ctx: any,
+    ctx: PdfContext,
     label: string,
     value: string,
     x: number,
     y: number,
     w: number
-  ) {
+  ): void {
     const { doc, config } = ctx;
     const labelW = Math.min(80, w * 0.45);
 
@@ -321,7 +343,7 @@ export class RecuPDFService {
       .fontSize(config.fontSize.body)
       .font('Helvetica-Bold')
       .fillColor(COLORS.textMuted)
-      .text(`${label}`, x, y, { width: labelW, lineBreak: false });
+      .text(label, x, y, { width: labelW, lineBreak: false });
 
     doc
       .font('Helvetica')
@@ -337,11 +359,10 @@ export class RecuPDFService {
   // HEADER — Établissement
   // ══════════════════════════════════════════
 
-  private drawHeader(ctx: any) {
+  private drawHeader(ctx: PdfContext): void {
     const { doc, recu, config, contentX, contentW } = ctx;
 
     if (config.isThermique) {
-      // ─── Format thermique : centré, minimal ───
       let y = config.margin;
       doc
         .fontSize(config.fontSize.h1)
@@ -353,11 +374,8 @@ export class RecuPDFService {
         });
       y = doc.y + 2;
 
-      const adresse = [
-        recu.etablissementAdresse,
-        recu.etablissementVille,
-      ]
-        .filter(Boolean)
+      const adresse = [recu.etablissementAdresse, recu.etablissementVille]
+        .filter((v): v is string => Boolean(v))
         .join(', ');
       if (adresse) {
         doc
@@ -382,7 +400,6 @@ export class RecuPDFService {
       return;
     }
 
-    // ─── A4 / A5 : bandeau structuré ───
     const headerH = 90;
     const headerY = config.margin;
 
@@ -391,7 +408,6 @@ export class RecuPDFService {
       .fill(COLORS.primaryLight)
       .stroke(COLORS.primary);
 
-    // Logo
     let textX = contentX + 12;
     const logoSize = 54;
     if (recu.etablissementLogo) {
@@ -431,7 +447,7 @@ export class RecuPDFService {
       recu.etablissementVille,
       recu.etablissementPays,
     ]
-      .filter(Boolean)
+      .filter((v): v is string => Boolean(v))
       .join(', ');
     if (adresse) {
       doc
@@ -451,7 +467,7 @@ export class RecuPDFService {
       recu.etablissementEmail,
       recu.etablissementSiteWeb,
     ]
-      .filter(Boolean)
+      .filter((v): v is string => Boolean(v))
       .join('   ·   ');
     if (contacts) {
       doc
@@ -470,7 +486,11 @@ export class RecuPDFService {
         .fontSize(config.fontSize.small - 0.5)
         .fillColor(COLORS.textMuted)
         .text(
-          `${recu.etablissementAgrement ? `Agrément : ${recu.etablissementAgrement}  ·  ` : ''}Code : ${recu.etablissementCode}`,
+          `${
+            recu.etablissementAgrement
+              ? `Agrément : ${recu.etablissementAgrement}  ·  `
+              : ''
+          }Code : ${recu.etablissementCode}`,
           textX,
           y,
           { width: textW, lineBreak: false, ellipsis: true }
@@ -484,13 +504,15 @@ export class RecuPDFService {
   // TITRE + N° + DATE
   // ══════════════════════════════════════════
 
-  private drawTitleBlock(ctx: any) {
+  private drawTitleBlock(ctx: PdfContext): void {
     const { doc, recu, config, contentX, contentW } = ctx;
 
     this.ensureSpace(ctx, 70);
 
     doc
-      .fontSize(config.isThermique ? config.fontSize.h1 : config.fontSize.title)
+      .fontSize(
+        config.isThermique ? config.fontSize.h1 : config.fontSize.title
+      )
       .font('Helvetica-Bold')
       .fillColor(COLORS.text)
       .text('REÇU DE PAIEMENT', contentX, doc.y, {
@@ -532,8 +554,8 @@ export class RecuPDFService {
   // BLOC ÉLÈVE
   // ══════════════════════════════════════════
 
-  private drawEleveBlock(ctx: any) {
-    const { doc, recu, config, contentX, contentW } = ctx;
+  private drawEleveBlock(ctx: PdfContext): void {
+    const { doc, recu, config, contentX, contentW, devise } = ctx;
 
     this.sectionTitle(ctx, 'ÉLÈVE');
 
@@ -545,13 +567,12 @@ export class RecuPDFService {
         ['Année', recu.anneeScolaireNom ?? '—'],
       ];
       this.ensureSpace(ctx, rows.length * config.rowHeight + 6);
-      rows.forEach(([l, v]) => {
+      rows.forEach(([label, value]: [string, string]) => {
         const y = doc.y;
-        this.fieldRow(ctx, l, v, contentX, y, contentW);
+        this.fieldRow(ctx, label, value, contentX, y, contentW);
         doc.y = y + config.rowHeight;
       });
     } else {
-      // 2 colonnes × 3 lignes
       const colW = (contentW - 12) / 2;
       const leftX = contentX;
       const rightX = contentX + colW + 12;
@@ -573,14 +594,14 @@ export class RecuPDFService {
       const right: Array<[string, string]> = [
         ['Niveau', recu.niveauNom ?? '—'],
         ['Année scolaire', recu.anneeScolaireNom ?? '—'],
-        ['Devise', recu.devise],
+        ['Devise', devise], // ✅ devise résolue (ex: "F CFA")
       ];
 
-      left.forEach(([l, v], i) => {
-        this.fieldRow(ctx, l, v, leftX, startY + i * rowH, colW);
+      left.forEach((item: [string, string], i: number) => {
+        this.fieldRow(ctx, item[0], item[1], leftX, startY + i * rowH, colW);
       });
-      right.forEach(([l, v], i) => {
-        this.fieldRow(ctx, l, v, rightX, startY + i * rowH, colW);
+      right.forEach((item: [string, string], i: number) => {
+        this.fieldRow(ctx, item[0], item[1], rightX, startY + i * rowH, colW);
       });
 
       doc.y = startY + rowH * 3;
@@ -593,7 +614,7 @@ export class RecuPDFService {
   // BLOC PAIEMENT
   // ══════════════════════════════════════════
 
-  private drawPaiementBlock(ctx: any) {
+  private drawPaiementBlock(ctx: PdfContext): void {
     const { doc, recu, config, contentX, contentW } = ctx;
 
     this.sectionTitle(ctx, 'DÉTAILS DU PAIEMENT');
@@ -606,9 +627,9 @@ export class RecuPDFService {
         ['Caissier', `${recu.generateur.prenom} ${recu.generateur.nom}`],
       ];
       this.ensureSpace(ctx, rows.length * config.rowHeight + 6);
-      rows.forEach(([l, v]) => {
+      rows.forEach(([label, value]: [string, string]) => {
         const y = doc.y;
-        this.fieldRow(ctx, l, v, contentX, y, contentW);
+        this.fieldRow(ctx, label, value, contentX, y, contentW);
         doc.y = y + config.rowHeight;
       });
     } else {
@@ -629,11 +650,11 @@ export class RecuPDFService {
         ['Caissier', `${recu.generateur.prenom} ${recu.generateur.nom}`],
       ];
 
-      left.forEach(([l, v], i) => {
-        this.fieldRow(ctx, l, v, leftX, startY + i * rowH, colW);
+      left.forEach((item: [string, string], i: number) => {
+        this.fieldRow(ctx, item[0], item[1], leftX, startY + i * rowH, colW);
       });
-      right.forEach(([l, v], i) => {
-        this.fieldRow(ctx, l, v, rightX, startY + i * rowH, colW);
+      right.forEach((item: [string, string], i: number) => {
+        this.fieldRow(ctx, item[0], item[1], rightX, startY + i * rowH, colW);
       });
 
       doc.y = startY + rowH * 2;
@@ -646,13 +667,12 @@ export class RecuPDFService {
   // BLOC FINANCIER
   // ══════════════════════════════════════════
 
-  private drawFinancierBlock(ctx: any) {
-    const { doc, recu, config, contentX, contentW } = ctx;
+  private drawFinancierBlock(ctx: PdfContext): void {
+    const { doc, recu, config, contentX, contentW, devise } = ctx;
     const details = recu.detailsFinanciers;
 
     this.sectionTitle(ctx, 'DÉTAILS FINANCIERS');
 
-    // Bandeau "MONTANT PAYÉ"
     const bandH = config.isThermique ? 42 : 56;
     this.ensureSpace(ctx, bandH + 8);
     const bandY = doc.y;
@@ -663,10 +683,12 @@ export class RecuPDFService {
       .stroke(COLORS.success);
 
     doc
-      .fontSize(config.isThermique ? config.fontSize.h1 : config.fontSize.title - 4)
+      .fontSize(
+        config.isThermique ? config.fontSize.h1 : config.fontSize.title - 4
+      )
       .font('Helvetica-Bold')
       .fillColor(COLORS.success)
-      .text(fmtMoney(recu.montantPaye, recu.devise), contentX, bandY + 10, {
+      .text(fmtMoney(recu.montantPaye, devise), contentX, bandY + 10, {
         width: contentW,
         align: 'center',
         lineBreak: false,
@@ -684,28 +706,30 @@ export class RecuPDFService {
 
     doc.y = bandY + bandH + 10;
 
-    // Tableau montants
     const rows: Array<[string, string, string?]> = [];
     if (details?.montantTotalPlan != null) {
-      rows.push(['Total du plan', fmtMoney(details.montantTotalPlan, recu.devise)]);
+      rows.push([
+        'Total du plan',
+        fmtMoney(details.montantTotalPlan, devise),
+      ]);
     }
     if (recu.montantReduction > 0) {
       rows.push([
         'Réduction appliquée',
-        `- ${fmtMoney(recu.montantReduction, recu.devise)}`,
+        `- ${fmtMoney(recu.montantReduction, devise)}`,
         'warning',
       ]);
     }
     if (details?.montantPayeApres != null) {
       rows.push([
         'Total payé (cumulé)',
-        fmtMoney(details.montantPayeApres, recu.devise),
+        fmtMoney(details.montantPayeApres, devise),
         'success',
       ]);
     }
     rows.push([
       'Solde restant',
-      fmtMoney(recu.montantRestant, recu.devise),
+      fmtMoney(recu.montantRestant, devise),
       recu.montantRestant <= 0.01 ? 'success' : 'danger',
     ]);
     if (details?.pourcentagePaye != null) {
@@ -713,84 +737,224 @@ export class RecuPDFService {
     }
 
     this.drawSimpleTable(ctx, rows);
-
-    // Bandeau statut global
     this.drawStatutBadge(ctx);
   }
 
   // ══════════════════════════════════════════
   // TABLEAU ÉCHÉANCES
   // ══════════════════════════════════════════
-private drawEcheancesTable(ctx: any) {
-  const { doc, recu, config, contentX, contentW } = ctx;
-  const echeances: EcheanceItem[] | undefined =
-    recu.detailsFinanciers?.echeances;
-  if (!echeances || echeances.length === 0) return;
 
-  // ⇩ cast local pour que TypeScript sache que c'est bien un tableau
-  // (évite le "possibly undefined" dans les closures imbriquées)
-  const list: EcheanceItem[] = echeances;
+  private drawEcheancesTable(ctx: PdfContext): void {
+    const { doc, recu, config, contentX, contentW, devise } = ctx;
+    const echeances = recu.detailsFinanciers?.echeances;
+    if (!echeances || echeances.length === 0) return;
 
-  this.sectionTitle(ctx, 'ÉCHÉANCES DU PLAN');
+    const list: EcheanceItem[] = echeances;
 
-  if (config.isThermique) {
-    // ─── 80 MM : format vertical compact ───
-    for (const e of list) {  // ✅ e typé automatiquement
-      const blockH = config.rowHeight * 3 + 4;
-      this.ensureSpace(ctx, blockH);
-      const y0 = doc.y;
+    this.sectionTitle(ctx, 'ÉCHÉANCES DU PLAN');
 
+    if (config.isThermique) {
+      for (const e of list) {
+        const blockH = config.rowHeight * 3 + 4;
+        this.ensureSpace(ctx, blockH);
+        const y0 = doc.y;
+
+        doc
+          .fontSize(config.fontSize.body)
+          .font('Helvetica-Bold')
+          .fillColor(COLORS.text)
+          .text(truncate(`${e.ordre}. ${e.nom}`, 32), contentX, y0, {
+            width: contentW,
+            lineBreak: false,
+            ellipsis: true,
+          });
+
+        doc
+          .fontSize(config.fontSize.small)
+          .font('Helvetica')
+          .fillColor(COLORS.textMuted)
+          .text(
+            `Dû : ${fmtMoney(e.montant, devise)}   Payé : ${fmtMoney(
+              e.montantPayeApres,
+              devise
+            )}`,
+            contentX,
+            y0 + config.rowHeight,
+            { width: contentW, lineBreak: false }
+          );
+
+        const statutLabel = this.getEcheanceStatutLabel(e);
+        const statutColor = this.getStatutColor(e);
+        doc
+          .fontSize(config.fontSize.small)
+          .fillColor(statutColor)
+          .text(
+            e.montantRestant > 0.01
+              ? `${statutLabel} · Reste ${fmtMoney(e.montantRestant, devise)}`
+              : statutLabel,
+            contentX,
+            y0 + config.rowHeight * 2,
+            { width: contentW, lineBreak: false, ellipsis: true }
+          );
+
+        doc.y = y0 + blockH;
+        doc
+          .strokeColor(COLORS.border)
+          .lineWidth(0.3)
+          .moveTo(contentX, doc.y)
+          .lineTo(contentX + contentW, doc.y)
+          .stroke();
+        doc.y += 4;
+      }
+
+      this.ensureSpace(ctx, 18);
+      const totalDu = list.reduce(
+        (s: number, e: EcheanceItem) => s + e.montant,
+        0
+      );
+      const totalPaye = list.reduce(
+        (s: number, e: EcheanceItem) => s + e.montantPayeApres,
+        0
+      );
+      const totalReste = list.reduce(
+        (s: number, e: EcheanceItem) => s + e.montantRestant,
+        0
+      );
       doc
-        .fontSize(config.fontSize.body)
+        .fontSize(config.fontSize.small)
         .font('Helvetica-Bold')
         .fillColor(COLORS.text)
         .text(
-          truncate(`${e.ordre}. ${e.nom}`, 32),
+          `TOTAL · Dû ${fmtMoney(totalDu, devise)} · Payé ${fmtMoney(
+            totalPaye,
+            devise
+          )} · Reste ${fmtMoney(totalReste, devise)}`,
           contentX,
-          y0,
-          { width: contentW, lineBreak: false, ellipsis: true }
+          doc.y,
+          { width: contentW, align: 'right', lineBreak: false }
         );
+      doc.moveDown(0.6);
+      return;
+    }
 
+    const headerH = 22;
+    const rowH = config.rowHeight;
+    const cols = [
+      { key: 'ordre', label: '#', width: 24, align: 'center' as const },
+      { key: 'nom', label: 'Échéance', width: 0, align: 'left' as const },
+      {
+        key: 'montant',
+        label: 'Montant',
+        width: 72,
+        align: 'right' as const,
+      },
+      { key: 'paye', label: 'Payé', width: 72, align: 'right' as const },
+      { key: 'reste', label: 'Reste', width: 72, align: 'right' as const },
+      { key: 'statut', label: 'Statut', width: 66, align: 'center' as const },
+    ];
+    const fixed = cols
+      .filter((c) => c.width > 0)
+      .reduce((s: number, c: (typeof cols)[number]) => s + c.width, 0);
+    cols[1].width = contentW - fixed;
+
+    this.ensureSpace(ctx, headerH + rowH * Math.min(list.length, 4) + 30);
+
+    const headerY = doc.y;
+    doc.rect(contentX, headerY, contentW, headerH).fill(COLORS.primary);
+    let cx = contentX;
+    doc
+      .fillColor(COLORS.white)
+      .fontSize(config.fontSize.small)
+      .font('Helvetica-Bold');
+    cols.forEach((col: (typeof cols)[number]) => {
+      doc.text(col.label, cx + 4, headerY + 7, {
+        width: col.width - 8,
+        align: col.align,
+        lineBreak: false,
+      });
+      cx += col.width;
+    });
+    doc.y = headerY + headerH;
+
+    list.forEach((e: EcheanceItem, idx: number) => {
+      if (
+        doc.y + rowH >
+        config.height - config.margin - config.footerHeight - 20
+      ) {
+        doc.addPage({ size: [config.width, config.height], margin: 0 });
+        doc.y = config.margin;
+        if (!config.isThermique) {
+          doc
+            .fontSize(config.fontSize.small)
+            .font('Helvetica-Bold')
+            .fillColor(COLORS.primary)
+            .text(
+              `${recu.etablissementNom} · Reçu N° ${recu.numeroRecu} (suite)`,
+              config.margin,
+              config.margin,
+              { width: contentW, align: 'right' }
+            );
+          doc.y += 12;
+        }
+        const newHeaderY = doc.y;
+        doc
+          .rect(contentX, newHeaderY, contentW, headerH)
+          .fill(COLORS.primary);
+        let chx = contentX;
+        doc
+          .fillColor(COLORS.white)
+          .fontSize(config.fontSize.small)
+          .font('Helvetica-Bold');
+        cols.forEach((col: (typeof cols)[number]) => {
+          doc.text(col.label, chx + 4, newHeaderY + 7, {
+            width: col.width - 8,
+            align: col.align,
+            lineBreak: false,
+          });
+          chx += col.width;
+        });
+        doc.y = newHeaderY + headerH;
+      }
+
+      const rowY = doc.y;
+      const bg = idx % 2 === 0 ? COLORS.white : COLORS.bgLight;
       doc
-        .fontSize(config.fontSize.small)
-        .font('Helvetica')
-        .fillColor(COLORS.textMuted)
-        .text(
-          `Dû : ${fmtMoney(e.montant, recu.devise)}   Payé : ${fmtMoney(
-            e.montantPayeApres,
-            recu.devise
-          )}`,
-          contentX,
-          y0 + config.rowHeight,
-          { width: contentW, lineBreak: false }
-        );
+        .rect(contentX, rowY, contentW, rowH)
+        .fill(bg)
+        .stroke(COLORS.border)
+        .lineWidth(0.3);
 
       const statutLabel = this.getEcheanceStatutLabel(e);
       const statutColor = this.getStatutColor(e);
-      doc
-        .fontSize(config.fontSize.small)
-        .fillColor(statutColor)
-        .text(
-          e.montantRestant > 0.01
-            ? `${statutLabel} · Reste ${fmtMoney(e.montantRestant, recu.devise)}`
-            : statutLabel,
-          contentX,
-          y0 + config.rowHeight * 2,
-          { width: contentW, lineBreak: false, ellipsis: true }
-        );
+      const values = [
+        String(e.ordre),
+        e.nom,
+        fmtMoney(e.montant, devise),
+        fmtMoney(e.montantPayeApres, devise),
+        fmtMoney(e.montantRestant, devise),
+        statutLabel,
+      ];
 
-      doc.y = y0 + blockH;
-      doc
-        .strokeColor(COLORS.border)
-        .lineWidth(0.3)
-        .moveTo(contentX, doc.y)
-        .lineTo(contentX + contentW, doc.y)
-        .stroke();
-      doc.y += 4;
-    }
+      let cellX = contentX;
+      cols.forEach((col: (typeof cols)[number], ci: number) => {
+        const isStatut = ci === 5;
+        doc
+          .fontSize(config.fontSize.small)
+          .font(isStatut ? 'Helvetica-Bold' : 'Helvetica')
+          .fillColor(isStatut ? statutColor : COLORS.text)
+          .text(values[ci], cellX + 4, rowY + 5, {
+            width: col.width - 8,
+            align: col.align,
+            lineBreak: false,
+            ellipsis: true,
+          });
+        cellX += col.width;
+      });
 
-    // Totaux — ✅ typage explicite de (s, e)
-    this.ensureSpace(ctx, 18);
+      doc.y = rowY + rowH;
+    });
+
+    doc.y += 4;
     const totalDu = list.reduce(
       (s: number, e: EcheanceItem) => s + e.montant,
       0
@@ -808,173 +972,24 @@ private drawEcheancesTable(ctx: any) {
       .font('Helvetica-Bold')
       .fillColor(COLORS.text)
       .text(
-        `TOTAL · Dû ${fmtMoney(totalDu, recu.devise)} · Payé ${fmtMoney(
+        `TOTAL · Dû : ${fmtMoney(totalDu, devise)}   ·   Payé : ${fmtMoney(
           totalPaye,
-          recu.devise
-        )} · Reste ${fmtMoney(totalReste, recu.devise)}`,
+          devise
+        )}   ·   Reste : ${fmtMoney(totalReste, devise)}`,
         contentX,
         doc.y,
         { width: contentW, align: 'right', lineBreak: false }
       );
-    doc.moveDown(0.6);
-    return;
+
+    doc.moveDown(0.7);
   }
-
-  // ─── A4 / A5 : vrai tableau ───
-  const headerH = 22;
-  const rowH = config.rowHeight;
-  const cols = [
-    { key: 'ordre', label: '#', width: 24, align: 'center' as const },
-    { key: 'nom', label: 'Échéance', width: 0, align: 'left' as const },
-    { key: 'montant', label: 'Montant', width: 72, align: 'right' as const },
-    { key: 'paye', label: 'Payé', width: 72, align: 'right' as const },
-    { key: 'reste', label: 'Reste', width: 72, align: 'right' as const },
-    { key: 'statut', label: 'Statut', width: 66, align: 'center' as const },
-  ];
-  const fixed = cols
-    .filter((c) => c.width > 0)
-    .reduce((s: number, c) => s + c.width, 0);
-  cols[1].width = contentW - fixed;
-
-  // Header
-  this.ensureSpace(
-    ctx,
-    headerH + rowH * Math.min(list.length, 4) + 30
-  );
-
-  const headerY = doc.y;
-  doc.rect(contentX, headerY, contentW, headerH).fill(COLORS.primary);
-  let cx = contentX;
-  doc
-    .fillColor(COLORS.white)
-    .fontSize(config.fontSize.small)
-    .font('Helvetica-Bold');
-  cols.forEach((col) => {
-    doc.text(col.label, cx + 4, headerY + 7, {
-      width: col.width - 8,
-      align: col.align,
-      lineBreak: false,
-    });
-    cx += col.width;
-  });
-  doc.y = headerY + headerH;
-
-  // Lignes — ✅ (e, idx) typés explicitement
-  list.forEach((e: EcheanceItem, idx: number) => {
-    if (
-      doc.y + rowH >
-      config.height - config.margin - config.footerHeight - 20
-    ) {
-      doc.addPage({ size: [config.width, config.height], margin: 0 });
-      doc.y = config.margin;
-      if (!config.isThermique) {
-        doc
-          .fontSize(config.fontSize.small)
-          .font('Helvetica-Bold')
-          .fillColor(COLORS.primary)
-          .text(
-            `${recu.etablissementNom} · Reçu N° ${recu.numeroRecu} (suite)`,
-            config.margin,
-            config.margin,
-            { width: contentW, align: 'right' }
-          );
-        doc.y += 12;
-      }
-      const newHeaderY = doc.y;
-      doc
-        .rect(contentX, newHeaderY, contentW, headerH)
-        .fill(COLORS.primary);
-      let chx = contentX;
-      doc
-        .fillColor(COLORS.white)
-        .fontSize(config.fontSize.small)
-        .font('Helvetica-Bold');
-      cols.forEach((col) => {
-        doc.text(col.label, chx + 4, newHeaderY + 7, {
-          width: col.width - 8,
-          align: col.align,
-          lineBreak: false,
-        });
-        chx += col.width;
-      });
-      doc.y = newHeaderY + headerH;
-    }
-
-    const rowY = doc.y;
-    const bg = idx % 2 === 0 ? COLORS.white : COLORS.bgLight;
-    doc
-      .rect(contentX, rowY, contentW, rowH)
-      .fill(bg)
-      .stroke(COLORS.border)
-      .lineWidth(0.3);
-
-    const statutLabel = this.getEcheanceStatutLabel(e);
-    const statutColor = this.getStatutColor(e);
-    const values = [
-      String(e.ordre),
-      e.nom,
-      fmtMoney(e.montant, recu.devise),
-      fmtMoney(e.montantPayeApres, recu.devise),
-      fmtMoney(e.montantRestant, recu.devise),
-      statutLabel,
-    ];
-
-    let cellX = contentX;
-    cols.forEach((col, ci) => {
-      const isStatut = ci === 5;
-      doc
-        .fontSize(config.fontSize.small)
-        .font(isStatut ? 'Helvetica-Bold' : 'Helvetica')
-        .fillColor(isStatut ? statutColor : COLORS.text)
-        .text(values[ci], cellX + 4, rowY + 5, {
-          width: col.width - 8,
-          align: col.align,
-          lineBreak: false,
-          ellipsis: true,
-        });
-      cellX += col.width;
-    });
-
-    doc.y = rowY + rowH;
-  });
-
-  // Total — ✅ typage explicite
-  doc.y += 4;
-  const totalDu = list.reduce(
-    (s: number, e: EcheanceItem) => s + e.montant,
-    0
-  );
-  const totalPaye = list.reduce(
-    (s: number, e: EcheanceItem) => s + e.montantPayeApres,
-    0
-  );
-  const totalReste = list.reduce(
-    (s: number, e: EcheanceItem) => s + e.montantRestant,
-    0
-  );
-  doc
-    .fontSize(config.fontSize.small)
-    .font('Helvetica-Bold')
-    .fillColor(COLORS.text)
-    .text(
-      `TOTAL · Dû : ${fmtMoney(totalDu, recu.devise)}   ·   Payé : ${fmtMoney(
-        totalPaye,
-        recu.devise
-      )}   ·   Reste : ${fmtMoney(totalReste, recu.devise)}`,
-      contentX,
-      doc.y,
-      { width: contentW, align: 'right', lineBreak: false }
-    );
-
-  doc.moveDown(0.7);
-}
 
   // ══════════════════════════════════════════
   // PROCHAINE ÉCHÉANCE
   // ══════════════════════════════════════════
 
-  private drawProchaineEcheance(ctx: any) {
-    const { doc, recu, config, contentX, contentW } = ctx;
+  private drawProchaineEcheance(ctx: PdfContext): void {
+    const { doc, recu, config, contentX, contentW, devise } = ctx;
     const prochaine = recu.detailsFinanciers?.prochaineEcheance;
     if (!prochaine) return;
 
@@ -1022,7 +1037,7 @@ private drawEcheancesTable(ctx: any) {
       .font('Helvetica')
       .fillColor(fg)
       .text(
-        `${fmtMoney(prochaine.montant, recu.devise)} · ${joursLabel} · ${fmtDate(
+        `${fmtMoney(prochaine.montant, devise)} · ${joursLabel} · ${fmtDate(
           prochaine.dateLimite
         )}`,
         contentX + 10,
@@ -1037,7 +1052,7 @@ private drawEcheancesTable(ctx: any) {
   // FOOTER (ancré en bas de chaque page)
   // ══════════════════════════════════════════
 
-  private drawFootersOnAllPages(ctx: any) {
+  private drawFootersOnAllPages(ctx: PdfContext): void {
     const { doc, recu, config, contentX, contentW } = ctx;
     const range = doc.bufferedPageRange();
 
@@ -1047,19 +1062,17 @@ private drawEcheancesTable(ctx: any) {
       const isLast = i === range.start + range.count - 1;
 
       if (config.isThermique) {
-        // Thermique : juste un mini footer sur la dernière page
         if (isLast) {
           doc.y = doc.page.height - 30;
           doc
             .fontSize(config.fontSize.small - 1)
             .font('Helvetica')
             .fillColor(COLORS.textMuted)
-            .text(
-              `Code : ${recu.codeVerification}`,
-              contentX,
-              doc.y,
-              { width: contentW, align: 'center', lineBreak: false }
-            );
+            .text(`Code : ${recu.codeVerification}`, contentX, doc.y, {
+              width: contentW,
+              align: 'center',
+              lineBreak: false,
+            });
           doc.y += 8;
           doc
             .fontSize(config.fontSize.small - 1)
@@ -1073,11 +1086,9 @@ private drawEcheancesTable(ctx: any) {
         continue;
       }
 
-      // ─── A4 / A5 : footer pro ancré ───
       const footerH = config.footerHeight;
       const footerY = config.height - config.margin - footerH;
 
-      // Filet séparateur
       doc
         .strokeColor(COLORS.border)
         .lineWidth(0.5)
@@ -1085,7 +1096,6 @@ private drawEcheancesTable(ctx: any) {
         .lineTo(contentX + contentW, footerY - 4)
         .stroke();
 
-      // Bloc vérification
       doc
         .rect(contentX, footerY, contentW, 32)
         .fill(COLORS.infoLight)
@@ -1111,7 +1121,6 @@ private drawEcheancesTable(ctx: any) {
           lineBreak: false,
         });
 
-      // Ligne mention
       let mentionY = footerY + 36;
       if (recu.urlVerification) {
         doc
@@ -1138,7 +1147,6 @@ private drawEcheancesTable(ctx: any) {
         );
       mentionY += 9;
 
-      // Mention copyright + pagination
       const pageLabel =
         range.count > 1 ? ` · Page ${i - range.start + 1}/${range.count}` : '';
       doc.text(
@@ -1155,9 +1163,9 @@ private drawEcheancesTable(ctx: any) {
   // ══════════════════════════════════════════
 
   private drawSimpleTable(
-    ctx: any,
+    ctx: PdfContext,
     rows: Array<[string, string, string?]>
-  ) {
+  ): void {
     const { doc, config, contentX, contentW } = ctx;
     const rowH = config.rowHeight;
     const labelW = contentW * 0.6;
@@ -1165,7 +1173,8 @@ private drawEcheancesTable(ctx: any) {
 
     this.ensureSpace(ctx, rowH * rows.length + 4);
 
-    rows.forEach(([label, value, colorKey], idx) => {
+    rows.forEach((row: [string, string, string?], idx: number) => {
+      const [label, value, colorKey] = row;
       const rowY = doc.y;
       const bg = idx % 2 === 0 ? COLORS.white : COLORS.bgLight;
       doc
@@ -1211,7 +1220,7 @@ private drawEcheancesTable(ctx: any) {
   // BANDEAU STATUT GLOBAL
   // ══════════════════════════════════════════
 
-  private drawStatutBadge(ctx: any) {
+  private drawStatutBadge(ctx: PdfContext): void {
     const { doc, recu, config, contentX, contentW } = ctx;
     const details = recu.detailsFinanciers;
     if (!details) return;
@@ -1231,7 +1240,9 @@ private drawEcheancesTable(ctx: any) {
       border = COLORS.success;
       fg = COLORS.success;
     } else if (details.estEnRetard) {
-      label = `EN RETARD · ${details.echeancesEnRetard ?? 0} échéance(s) dépassée(s)`;
+      label = `EN RETARD · ${
+        details.echeancesEnRetard ?? 0
+      } échéance(s) dépassée(s)`;
       bg = COLORS.dangerLight;
       border = COLORS.danger;
       fg = COLORS.danger;
@@ -1255,19 +1266,19 @@ private drawEcheancesTable(ctx: any) {
   // HELPERS STATUT ÉCHÉANCE
   // ══════════════════════════════════════════
 
-private getEcheanceStatutLabel(e: EcheanceItem): string {
-  if (e.estPayee) return 'Payée';
-  if (e.estEnRetard) return 'Retard';
-  if (e.estPartielle) return 'Partielle';
-  return 'Impayée';
-}
+  private getEcheanceStatutLabel(e: EcheanceItem): string {
+    if (e.estPayee) return 'Payée';
+    if (e.estEnRetard) return 'Retard';
+    if (e.estPartielle) return 'Partielle';
+    return 'Impayée';
+  }
 
-private getStatutColor(e: EcheanceItem): string {
-  if (e.estPayee) return COLORS.success;
-  if (e.estEnRetard) return COLORS.danger;
-  if (e.estPartielle) return COLORS.warning;
-  return COLORS.textMuted;
-}
+  private getStatutColor(e: EcheanceItem): string {
+    if (e.estPayee) return COLORS.success;
+    if (e.estEnRetard) return COLORS.danger;
+    if (e.estPartielle) return COLORS.warning;
+    return COLORS.textMuted;
+  }
 }
 
 export const recuPDFService = new RecuPDFService();

@@ -13,6 +13,8 @@ import type {
   CreateEcheancePayload,
   UpdateEcheancePayload,
   EcheancesListResult,
+  EcheanceElevesResponse,
+  ListElevesEcheanceParams,
 } from '../types/echeance.types';
 
 // ═══════════════════════════════════════════════════════════
@@ -28,6 +30,11 @@ export const echeanceKeys = {
     [...echeanceKeys.all, 'by-plan', planScolariteId] as const,
   details: () => [...echeanceKeys.all, 'detail'] as const,
   detail: (id: string) => [...echeanceKeys.details(), id] as const,
+  // 🆕 Vue classe
+  eleves: (id: string, params?: ListElevesEcheanceParams) =>
+    [...echeanceKeys.detail(id), 'eleves', params ?? {}] as const,
+  elevesAll: (id: string) =>
+    [...echeanceKeys.detail(id), 'eleves'] as const,
 };
 
 // ═══════════════════════════════════════════════════════════
@@ -73,6 +80,19 @@ function normalizeListResponse(res: any): EcheancesListResult {
     echeances: [],
     pagination: { page: 1, limit: 50, total: 0, totalPages: 1 },
   };
+}
+
+/**
+ * 🆕 Normalise la réponse de `/echeances/:id/eleves`.
+ * Gère : { data: {...} } et { ... } (déjà unwrappé).
+ */
+function normalizeElevesResponse(
+  res: any
+): EcheanceElevesResponse | undefined {
+  if (!res) return undefined;
+  if (res.data && res.data.echeance && res.data.eleves) return res.data;
+  if (res.echeance && res.eleves) return res as EcheanceElevesResponse;
+  return undefined;
 }
 
 function getErrorMessage(err: unknown, fallback = 'Erreur'): string {
@@ -212,6 +232,56 @@ export function useEcheance(id: string | undefined) {
   });
 }
 
+/**
+ * 🆕 Vue classe — tous les élèves d'une échéance avec stats globales.
+ *
+ * Chaque élève du plan est renvoyé avec :
+ *  - montant dû théorique (après réductions)
+ *  - montant payé sur CETTE échéance
+ *  - restant
+ *  - statut personnel (PAYEE / PARTIELLE / IMPAYEE / EN_RETARD)
+ *  - liste détaillée de ses paiements
+ *
+ * Et globalement :
+ *  - stats agrégées (attendu / encaissé / restant / taux)
+ *  - statut global de l'échéance (SOLDE / EN_COURS / IMPAYE / EN_RETARD)
+ */
+export function useEcheanceEleves(
+  id: string | undefined,
+  params: ListElevesEcheanceParams = {}
+) {
+  return useQuery<EcheanceElevesResponse>({
+    queryKey: echeanceKeys.eleves(id ?? '', params),
+    queryFn: async () => {
+      logStart('useEcheanceEleves', { id, params });
+      try {
+        const res = await echeanceApi.listEleves(id!, params);
+        const normalized = normalizeElevesResponse(res);
+
+        if (!normalized) {
+          throw new Error('Réponse invalide pour la vue classe');
+        }
+
+        logSuccess('useEcheanceEleves', {
+          echeance: normalized.echeance?.nom,
+          statutGlobal: normalized.echeance?.statutGlobal,
+          nombreEleves: normalized.stats?.nombreEleves,
+          tauxRecouvrement: normalized.stats?.tauxRecouvrement,
+          elevesPage: normalized.eleves?.length,
+        });
+
+        return normalized;
+      } catch (err) {
+        logError('useEcheanceEleves', err, 'Échec chargement vue classe');
+        throw err;
+      }
+    },
+    enabled: !!id,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+  });
+}
+
 // ═══════════════════════════════════════════════════════════
 // MUTATIONS
 // ═══════════════════════════════════════════════════════════
@@ -244,6 +314,12 @@ export function useCreateEcheance() {
       if (created?.planScolariteId) {
         qc.invalidateQueries({
           queryKey: echeanceKeys.byPlan(created.planScolariteId),
+        });
+      }
+      // 🆕 Invalider la vue classe de cette nouvelle échéance
+      if (created?.id) {
+        qc.invalidateQueries({
+          queryKey: echeanceKeys.elevesAll(created.id),
         });
       }
       toast.success(`Échéance créée : ${created?.nom ?? '—'}`);
@@ -283,6 +359,10 @@ export function useUpdateEcheance() {
       qc.invalidateQueries({
         queryKey: echeanceKeys.detail(variables.id),
       });
+      // 🆕 Invalider la vue classe (montant/dateLimite peuvent changer)
+      qc.invalidateQueries({
+        queryKey: echeanceKeys.elevesAll(variables.id),
+      });
       if (updated?.planScolariteId) {
         qc.invalidateQueries({
           queryKey: echeanceKeys.byPlan(updated.planScolariteId),
@@ -312,8 +392,9 @@ export function useHardDeleteEcheance() {
     onSuccess: (_res, id) => {
       logSuccess('useHardDeleteEcheance', { id });
       qc.removeQueries({ queryKey: echeanceKeys.detail(id) });
+      // 🆕 Nettoyer la vue classe
+      qc.removeQueries({ queryKey: echeanceKeys.elevesAll(id) });
       qc.invalidateQueries({ queryKey: echeanceKeys.lists() });
-      // Invalider tous les plans (car on ne connaît pas le planScolariteId ici)
       qc.invalidateQueries({ queryKey: echeanceKeys.all });
       toast.success('Échéance supprimée définitivement');
     },

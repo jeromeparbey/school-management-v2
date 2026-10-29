@@ -4,12 +4,21 @@ import { Request, Response, NextFunction } from 'express';
 import { matiereService } from './matiere.service';
 import { AppError } from '../../utils/AppError';
 
+// ══════════════════════════════════════════
+// TYPES & HELPERS
+// ══════════════════════════════════════════
+
 interface Ctx {
   schemaName: string;
   etablissementId: string;
 }
 
-function sendSuccess<T>(res: Response, data?: T, message?: string, status = 200) {
+function sendSuccess<T>(
+  res: Response,
+  data?: T,
+  message?: string,
+  status = 200
+) {
   return res.status(status).json({
     success: true,
     status,
@@ -36,19 +45,42 @@ function getParam(req: Request, name: string): string {
   return v;
 }
 
+// ══════════════════════════════════════════
+// CONTROLLER
+// ══════════════════════════════════════════
+
 export class MatiereController {
-  create = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  // ══════════════════════════════════════════
+  // CREATE
+  // ══════════════════════════════════════════
+
+  create = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const ctx = requireAuthContext(req);
       const data = await matiereService.create(ctx, req.body);
       sendSuccess(res, data, 'Matière créée avec succès', 201);
-    } catch (e) { next(e); }
+    } catch (e) {
+      next(e);
+    }
   };
 
-  list = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  // ══════════════════════════════════════════
+  // LIST
+  // ══════════════════════════════════════════
+
+  list = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const ctx = requireAuthContext(req);
       const q: any = (req as any).validated?.query ?? req.query;
+
       const result = await matiereService.findAll(ctx, {
         page: q.page ?? 1,
         limit: q.limit ?? 50,
@@ -59,40 +91,116 @@ export class MatiereController {
         sortBy: q.sortBy ?? 'nom',
         sortOrder: q.sortOrder ?? 'asc',
       });
+
       res.json({ success: true, ...result });
-    } catch (e) { next(e); }
+    } catch (e) {
+      next(e);
+    }
   };
 
-  getById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  // ══════════════════════════════════════════
+  // GET BY ID
+  // ══════════════════════════════════════════
+
+  getById = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const ctx = requireAuthContext(req);
       const data = await matiereService.findById(ctx, getParam(req, 'id'));
       sendSuccess(res, data);
-    } catch (e) { next(e); }
+    } catch (e) {
+      next(e);
+    }
   };
 
-  update = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  // ══════════════════════════════════════════
+  // UPDATE
+  // ══════════════════════════════════════════
+
+  update = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const ctx = requireAuthContext(req);
-      const data = await matiereService.update(ctx, getParam(req, 'id'), req.body);
+      const data = await matiereService.update(
+        ctx,
+        getParam(req, 'id'),
+        req.body
+      );
       sendSuccess(res, data, 'Matière mise à jour');
-    } catch (e) { next(e); }
+    } catch (e) {
+      next(e);
+    }
   };
 
-  softDelete = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  // ══════════════════════════════════════════
+  // 🆕 AFFECTER UN ENSEIGNANT
+  // POST /matieres/:id/affecter-enseignant
+  // ══════════════════════════════════════════
+
+  affecterEnseignant = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const ctx = requireAuthContext(req);
-      const result = await matiereService.softDelete(ctx, getParam(req, 'id'));
+      const data = await matiereService.affecterEnseignant(
+        ctx,
+        getParam(req, 'id'),
+        req.body
+      );
+      sendSuccess(res, data, 'Enseignant affecté à la matière', 201);
+    } catch (e) {
+      next(e);
+    }
+  };
+
+  // ══════════════════════════════════════════
+  // SOFT DELETE
+  // ══════════════════════════════════════════
+
+  softDelete = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const ctx = requireAuthContext(req);
+      const result = await matiereService.softDelete(
+        ctx,
+        getParam(req, 'id')
+      );
       sendSuccess(res, result, 'Matière archivée');
-    } catch (e) { next(e); }
+    } catch (e) {
+      next(e);
+    }
   };
 
-  hardDelete = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  // ══════════════════════════════════════════
+  // HARD DELETE
+  // ══════════════════════════════════════════
+
+  hardDelete = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const ctx = requireAuthContext(req);
-      const result = await matiereService.hardDelete(ctx, getParam(req, 'id'));
+      const result = await matiereService.hardDelete(
+        ctx,
+        getParam(req, 'id')
+      );
       sendSuccess(res, result, 'Matière supprimée définitivement');
-    } catch (e) { next(e); }
+    } catch (e) {
+      next(e);
+    }
   };
 }
 

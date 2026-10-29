@@ -12,32 +12,76 @@ import {
   CheckCircleIcon,
   ExclamationCircleIcon,
   AcademicCapIcon,
+  ShieldCheckIcon,
+  BoltIcon,
+  ChartBarIcon,
+  UsersIcon,
+  BanknotesIcon,
+  DocumentTextIcon,
+  CalendarDaysIcon,
+  ArrowLeftIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../hooks/AuthContext';
+
+// ═══════════════════════════════════════════════
+// ARGUMENTS POUR LA COLONNE GAUCHE
+// ═══════════════════════════════════════════════
+
+const FEATURES = [
+  {
+    icon: UsersIcon,
+    title: 'Gestion des élèves',
+    description: 'Inscriptions, dossiers, bulletins, présences — centralisés.',
+  },
+  {
+    icon: BanknotesIcon,
+    title: 'Suivi financier précis',
+    description: 'Paiements, tranches, reçus et relances en quelques clics.',
+  },
+  {
+    icon: DocumentTextIcon,
+    title: 'Notes & évaluations',
+    description: 'Saisie, moyennes, classements et bulletins automatiques.',
+  },
+  {
+    icon: CalendarDaysIcon,
+    title: 'Emplois du temps',
+    description: 'Planification claire pour enseignants et élèves.',
+  },
+];
+
+const STATS = [
+  { value: '5 000+', label: 'élèves gérés' },
+  { value: '200+', label: 'établissements' },
+  { value: '99.9%', label: 'de disponibilité' },
+];
+
+// ═══════════════════════════════════════════════
+// PAGE
+// ═══════════════════════════════════════════════
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ⚠️ On récupère TOUT depuis le context — pas de state local pour l'erreur
-  const { login, user, isAuthenticated, isLoading, error, clearError } = useAuth();
+  const { login, user, isAuthenticated, isLoading, error, clearError } =
+    useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
-  // Redirection après connexion (vers la page demandée initialement ou /dashboard)
-  const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? '/dashboard';
+  const from =
+    (location.state as { from?: { pathname: string } } | null)?.from
+      ?.pathname ?? '/dashboard';
 
-  // Rediriger si déjà connecté
   useEffect(() => {
     if (isAuthenticated && user) {
       navigate(from, { replace: true });
     }
   }, [isAuthenticated, user, navigate, from]);
 
-  // Nettoyer l'erreur quand on quitte la page
   useEffect(() => {
     return () => clearError();
   }, [clearError]);
@@ -47,110 +91,206 @@ const LoginPage: React.FC = () => {
     clearError();
 
     try {
-      // ⚠️ On passe un OBJET LoginPayload, pas deux arguments
       await login({ email, motDePasse: password });
 
-      // Si "se souvenir de moi" est coché, on persiste le flag
       if (rememberMe) {
         localStorage.setItem('rememberMe', 'true');
       } else {
         localStorage.removeItem('rememberMe');
       }
-
-      // Le useEffect ci-dessus gère la redirection
     } catch {
-      // L'erreur est déjà dans le context via `error`
+      /* erreur gérée par le context */
     }
   };
 
-  // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.2,
-      },
+      transition: { staggerChildren: 0.08, delayChildren: 0.1 },
     },
   };
 
   const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
+    hidden: { opacity: 0, y: 16 },
     visible: { opacity: 1, y: 0 },
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background decorations */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000" />
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-pink-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000" />
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 flex items-center justify-center p-4 sm:p-6">
+      {/* Décors de fond */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-emerald-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30" />
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-teal-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30" />
       </div>
 
+      {/* Conteneur principal compact et centré */}
       <motion.div
         initial="hidden"
         animate="visible"
         variants={containerVariants}
-        className="w-full max-w-md relative z-10"
+        className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden relative z-10 grid grid-cols-1 lg:grid-cols-2"
       >
-        {/* Logo */}
-        <motion.div variants={itemVariants} className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center space-x-3 group">
+        {/* ═══════════════════════════════════════════════════════════
+            COLONNE GAUCHE — Présentation (VERTE)
+            ═══════════════════════════════════════════════════════════ */}
+        <div className="hidden lg:flex flex-col justify-between bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-800 p-10 xl:p-12 relative overflow-hidden text-white">
+          {/* Décors animés */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <motion.div
-              className="w-14 h-14 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-xl shadow-blue-500/30"
-              whileHover={{ rotate: 10, scale: 1.05 }}
-            >
-              <AcademicCapIcon className="w-8 h-8 text-white" />
-            </motion.div>
-            <div>
-              <span className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-                EduManage
-              </span>
-              <span className="text-xs text-gray-400 block -mt-0.5">Connexion</span>
-            </div>
-          </Link>
-        </motion.div>
-
-        {/* Card */}
-        <motion.div
-          variants={itemVariants}
-          className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/50"
-        >
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900">Bienvenue !</h2>
-            <p className="text-gray-600 mt-1">Connectez-vous pour accéder à votre espace</p>
+              animate={{ scale: [1, 1.2, 1], rotate: [0, 90, 0] }}
+              transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}
+              className="absolute -top-32 -right-32 w-64 h-64 bg-white/10 rounded-full blur-3xl"
+            />
+            <motion.div
+              animate={{ scale: [1, 1.3, 1] }}
+              transition={{ duration: 20, repeat: Infinity }}
+              className="absolute -bottom-32 -left-32 w-64 h-64 bg-teal-300/20 rounded-full blur-3xl"
+            />
           </div>
 
-          {/* Error message — vient du context */}
+          <div className="relative z-10">
+            {/* Logo */}
+            <Link to="/" className="inline-flex items-center gap-3 group">
+              <motion.div
+                className="w-12 h-12 bg-white/20 backdrop-blur-lg rounded-xl flex items-center justify-center border border-white/30"
+                whileHover={{ rotate: 8, scale: 1.05 }}
+              >
+                <AcademicCapIcon className="w-7 h-7 text-white" />
+              </motion.div>
+              <div>
+                <span className="text-xl font-bold text-white">EduManage</span>
+                <span className="text-xs text-emerald-200 block -mt-0.5">
+                  Plateforme scolaire
+                </span>
+              </div>
+            </Link>
+
+            {/* Titre */}
+            <div className="mt-10">
+              <motion.h1
+                variants={itemVariants}
+                className="text-3xl xl:text-4xl font-bold leading-tight"
+              >
+                Toute votre école,
+                <br />
+                <span className="text-emerald-200">dans une seule plateforme.</span>
+              </motion.h1>
+              <motion.p
+                variants={itemVariants}
+                className="mt-4 text-emerald-100 text-sm leading-relaxed"
+              >
+                Gérez élèves, enseignants, notes, paiements et emplois du temps
+                depuis un espace unique, sécurisé et intuitif.
+              </motion.p>
+            </div>
+
+            {/* Features */}
+            <div className="mt-8 space-y-4">
+              {FEATURES.map((feature, i) => (
+                <motion.div
+                  key={feature.title}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.3 + i * 0.1 }}
+                  className="flex items-start gap-3"
+                >
+                  <div className="w-9 h-9 bg-white/15 backdrop-blur-lg rounded-lg flex items-center justify-center shrink-0 border border-white/20">
+                    <feature.icon className="w-5 h-5 text-emerald-100" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-white">
+                      {feature.title}
+                    </p>
+                    <p className="text-xs text-emerald-100/80 leading-relaxed">
+                      {feature.description}
+                    </p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+
+          {/* Stats footer */}
+          <motion.div
+            variants={itemVariants}
+            className="relative z-10 mt-10 pt-6 border-t border-white/20 grid grid-cols-3 gap-3"
+          >
+            {STATS.map((stat) => (
+              <div key={stat.label}>
+                <p className="text-xl xl:text-2xl font-bold text-white">
+                  {stat.value}
+                </p>
+                <p className="text-[11px] text-emerald-200 mt-0.5">
+                  {stat.label}
+                </p>
+              </div>
+            ))}
+          </motion.div>
+        </div>
+
+        {/* ═══════════════════════════════════════════════════════════
+            COLONNE DROITE — Formulaire (BLANC)
+            ═══════════════════════════════════════════════════════════ */}
+        <div className="p-8 sm:p-10 xl:p-12 flex flex-col justify-center">
+          {/* Header mobile */}
+          <div className="lg:hidden mb-8">
+            <Link to="/" className="inline-flex items-center gap-2">
+              <div className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                <AcademicCapIcon className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <span className="text-lg font-bold text-gray-900">
+                  EduManage
+                </span>
+                <span className="text-xs text-gray-400 block -mt-0.5">
+                  Connexion
+                </span>
+              </div>
+            </Link>
+          </div>
+
+          {/* Titre */}
+          <motion.div variants={itemVariants} className="mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">
+              Bon retour ! 👋
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Connectez-vous à votre espace établissement.
+            </p>
+          </motion.div>
+
+          {/* Erreur */}
           {error && (
             <motion.div
-              initial={{ opacity: 0, y: -10 }}
+              initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3"
+              className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2"
             >
-              <ExclamationCircleIcon className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-red-800">Erreur de connexion</p>
-                <p className="text-sm text-red-600">{error}</p>
+              <ExclamationCircleIcon className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-red-800">
+                  Erreur de connexion
+                </p>
+                <p className="text-xs text-red-600">{error}</p>
               </div>
             </motion.div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Formulaire */}
+          <form onSubmit={handleSubmit} className="space-y-4">
             {/* Email */}
             <motion.div variants={itemVariants}>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                 Adresse email
               </label>
               <div className="relative">
-                <EnvelopeIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <EnvelopeIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 outline-none"
+                  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
                   placeholder="exemple@email.com"
                   required
                   autoComplete="email"
@@ -159,26 +299,26 @@ const LoginPage: React.FC = () => {
               </div>
             </motion.div>
 
-            {/* Password */}
+            {/* Mot de passe */}
             <motion.div variants={itemVariants}>
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-gray-700">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold text-gray-700">
                   Mot de passe
                 </label>
                 <Link
                   to="/forgot-password"
-                  className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                  className="text-xs text-emerald-600 hover:text-emerald-700 font-medium"
                 >
-                  Mot de passe oublié ?
+                  Oublié ?
                 </Link>
               </div>
               <div className="relative">
-                <LockClosedIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <LockClosedIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-12 pr-12 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 outline-none"
+                  className="w-full pl-10 pr-11 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
                   placeholder="••••••••"
                   required
                   autoComplete="current-password"
@@ -187,8 +327,10 @@ const LoginPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                  aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  aria-label={
+                    showPassword ? 'Masquer' : 'Afficher'
+                  }
                 >
                   {showPassword ? (
                     <EyeSlashIcon className="w-5 h-5" />
@@ -200,98 +342,93 @@ const LoginPage: React.FC = () => {
             </motion.div>
 
             {/* Remember me */}
-            <motion.div variants={itemVariants} className="flex items-center justify-between">
-              <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+            <motion.div variants={itemVariants}>
+              <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
                 />
                 Se souvenir de moi
               </label>
             </motion.div>
 
-            {/* Submit button */}
+            {/* Submit */}
             <motion.div variants={itemVariants}>
               <motion.button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all duration-300 flex items-center justify-center gap-3 group relative overflow-hidden disabled:opacity-60 disabled:cursor-not-allowed"
-                whileHover={{ scale: isLoading ? 1 : 1.02 }}
-                whileTap={{ scale: isLoading ? 1 : 0.98 }}
+                whileHover={{ scale: isLoading ? 1 : 1.01 }}
+                whileTap={{ scale: isLoading ? 1 : 0.99 }}
+                className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-semibold rounded-xl text-sm shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed group"
               >
-                <span className="relative z-10 flex items-center gap-3">
-                  {isLoading ? (
-                    <>
-                      <svg
-                        className="animate-spin h-5 w-5 text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        />
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        />
-                      </svg>
-                      Connexion en cours...
-                    </>
-                  ) : (
-                    <>
-                      Se connecter
-                      <ArrowRightIcon className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                    </>
-                  )}
-                </span>
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                {isLoading ? (
+                  <>
+                    <svg
+                      className="animate-spin h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    Connexion en cours…
+                  </>
+                ) : (
+                  <>
+                    Se connecter
+                    <ArrowRightIcon className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                  </>
+                )}
               </motion.button>
             </motion.div>
           </form>
 
-          {/* Divider */}
-          <motion.div variants={itemVariants} className="relative my-8">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200" />
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-gray-500">ou</span>
-            </div>
-          </motion.div>
-
-
+         
+          
           {/* Trust badges */}
           <motion.div
             variants={itemVariants}
-            className="mt-8 flex justify-center gap-6 text-xs text-gray-400"
+            className="mt-6 flex flex-wrap justify-center gap-3 text-[11px] text-gray-400"
           >
-            <div className="flex items-center gap-1.5">
-              <CheckCircleIcon className="w-4 h-4 text-green-500" />
+            <div className="flex items-center gap-1">
+              <CheckCircleIcon className="w-3.5 h-3.5 text-emerald-500" />
               <span>Chiffré SSL</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <CheckCircleIcon className="w-4 h-4 text-green-500" />
-              <span>Conforme RGPD</span>
+            <div className="flex items-center gap-1">
+              <CheckCircleIcon className="w-3.5 h-3.5 text-emerald-500" />
+              <span>RGPD</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <CheckCircleIcon className="w-4 h-4 text-green-500" />
+            <div className="flex items-center gap-1">
+              <CheckCircleIcon className="w-3.5 h-3.5 text-emerald-500" />
               <span>Support 24/7</span>
             </div>
           </motion.div>
-        </motion.div>
+
+          {/* Footer */}
+          <motion.p
+            variants={itemVariants}
+            className="mt-6 text-center text-[11px] text-gray-400"
+          >
+            © {new Date().getFullYear()} EduManage — Tous droits réservés
+          </motion.p>
+        </div>
       </motion.div>
     </div>
   );
 };
-
 
 export default LoginPage;

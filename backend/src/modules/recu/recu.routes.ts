@@ -81,10 +81,4 @@ export default router;
 
 export const publicRoute = false;
 export const basePath = '/recus';
-export const roles: string[] = [
-  'DIRECTEUR',
-  'ADMIN',
-  'SECRETAIRE',
-  'PARENT',
-  'ELEVE',
-];
+export const roles: string[] = ['DIRECTEUR', 'ADMIN', 'SECRETAIRE', 'ENSEIGNANT', 'ELEVE', 'PARENT'];

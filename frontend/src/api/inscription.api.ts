@@ -9,6 +9,9 @@ import type {
   ListInscriptionsParams,
   ListInscriptionsResult,
   DeleteInscriptionResult,
+  PreviewInscriptionResult,
+  InscrireEtPayerPayload,
+  InscrireEtPayerResult,
 } from '../types/inscription.types';
 
 // ============================================
@@ -22,16 +25,37 @@ export const inscriptionApi = {
       .get<ApiResponse<ListInscriptionsResult>>('/inscriptions', { params })
       .then((r) => r.data),
 
+  /** 🆕 GET /inscriptions/preview — 🔒 Aperçu avant inscription */
+  preview: (params: {
+    eleveId: string;
+    classeId: string;
+    anneeScolaireId: string;
+  }) =>
+    apiClient
+      .get<ApiResponse<PreviewInscriptionResult>>('/inscriptions/preview', {
+        params,
+      })
+      .then((r) => r.data),
+
   /** GET /inscriptions/:id — 🔒 Détail */
   getById: (id: string) =>
     apiClient
       .get<ApiResponse<Inscription>>(`/inscriptions/${id}`)
       .then((r) => r.data),
 
-  /** POST /inscriptions — 🔒 Création */
+  /** POST /inscriptions — 🔒 Création simple (sans paiement) */
   create: (payload: CreateInscriptionPayload) =>
     apiClient
       .post<ApiResponse<Inscription>>('/inscriptions', payload)
+      .then((r) => r.data),
+
+  /** 🆕 POST /inscriptions/inscrire-et-payer — 🔒 Inscription + paiement atomique */
+  inscrireEtPayer: (payload: InscrireEtPayerPayload) =>
+    apiClient
+      .post<ApiResponse<InscrireEtPayerResult>>(
+        '/inscriptions/inscrire-et-payer',
+        payload
+      )
       .then((r) => r.data),
 
   /** PUT /inscriptions/:id — 🔒 Mise à jour */

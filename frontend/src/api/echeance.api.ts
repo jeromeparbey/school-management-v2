@@ -10,6 +10,8 @@ import type {
   ListEcheancesResult,
   EcheancesByPlanResult,
   DeleteEcheanceResult,
+  EcheanceElevesResponse,
+  ListElevesEcheanceParams,
 } from '../types/echeance.types';
 
 // ============================================
@@ -29,6 +31,14 @@ export const echeanceApi = {
       .get<ApiResponse<EcheancesByPlanResult>>(
         `/echeances/by-plan/${planScolariteId}`
       )
+      .then((r) => r.data),
+
+  /** 🆕 GET /echeances/:id/eleves — 🔒 Vue classe : tous les élèves + stats */
+  listEleves: (id: string, params?: ListElevesEcheanceParams) =>
+    apiClient
+      .get<ApiResponse<EcheanceElevesResponse>>(`/echeances/${id}/eleves`, {
+        params,
+      })
       .then((r) => r.data),
 
   /** GET /echeances/:id — 🔒 Détail */

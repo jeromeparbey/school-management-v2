@@ -20,6 +20,9 @@ export type RoleGlobal = 'SUPER_ADMIN' | 'ADMIN_SYSTEME';
 /**
  * Payload du token d'accès JWT.
  * ⚠️ Doit rester SYNCHRONISÉ avec `types/express.d.ts` (AuthUserPayload).
+ *
+ * ⭐ Ajout : identifiants métier (enseignant, élève, parent, …) pour permettre
+ * au frontend de charger le bon profil sans requête supplémentaire.
  */
 export interface AccessTokenPayload {
   userId: string;
@@ -35,6 +38,14 @@ export interface AccessTokenPayload {
 
   /** Nom du schéma PostgreSQL du tenant (uniquement si scope = 'TENANT') */
   schemaName?: string;
+
+  // ⭐ Identifiants métier (facultatifs, null si non applicable)
+  enseignantId?: string | null;
+  eleveId?: string | null;
+  parentId?: string | null;
+  surveillantId?: string | null;
+  directeurId?: string | null;
+  adminId?: string | null;
 }
 
 /**
@@ -56,6 +67,9 @@ export interface PasswordValidationResult {
 
 /**
  * Input pour générer un access token.
+ *
+ * ⭐ Ajout : enseignantId, eleveId, parentId, surveillantId, directeurId,
+ * adminId (tous facultatifs).
  */
 export interface GenerateAccessTokenInput {
   userId: string;
@@ -64,6 +78,14 @@ export interface GenerateAccessTokenInput {
   scope: UserScope;
   etablissementId?: string;
   schemaName?: string;
+
+  // ⭐ Identifiants métier (facultatifs)
+  enseignantId?: string | null;
+  eleveId?: string | null;
+  parentId?: string | null;
+  surveillantId?: string | null;
+  directeurId?: string | null;
+  adminId?: string | null;
 }
 
 /**
@@ -192,7 +214,8 @@ export class AuthUtils {
    * Générer un token d'accès JWT.
    *
    * ⚠️ Signature : accepte un objet (userId, email, role, scope, ...).
-   * Permet d'injecter `scope`, `etablissementId` et `schemaName`.
+   * ⭐ Inclut désormais les identifiants métier :
+   *    enseignantId, eleveId, parentId, surveillantId, directeurId, adminId.
    */
   static generateAccessToken(input: GenerateAccessTokenInput): string {
     const payload: AccessTokenPayload = {
@@ -203,6 +226,13 @@ export class AuthUtils {
       scope: input.scope,
       ...(input.etablissementId && { etablissementId: input.etablissementId }),
       ...(input.schemaName && { schemaName: input.schemaName }),
+      // ⭐ Identifiants métier (null autorisé pour normaliser le payload)
+      enseignantId: input.enseignantId ?? null,
+      eleveId: input.eleveId ?? null,
+      parentId: input.parentId ?? null,
+      surveillantId: input.surveillantId ?? null,
+      directeurId: input.directeurId ?? null,
+      adminId: input.adminId ?? null,
     };
 
     return jwt.sign(payload, JWT_CONFIG.accessSecret(), {
@@ -235,6 +265,9 @@ export class AuthUtils {
 
   /**
    * Générer les deux tokens en une seule fois.
+   *
+   * ⭐ Accepte aussi les identifiants métier pour cohérence avec
+   * `generateAccessToken`.
    */
   static generateTokenPair(input: {
     userId: string;
@@ -243,9 +276,30 @@ export class AuthUtils {
     scope: UserScope;
     etablissementId?: string;
     schemaName?: string;
+    // ⭐ Identifiants métier
+    enseignantId?: string | null;
+    eleveId?: string | null;
+    parentId?: string | null;
+    surveillantId?: string | null;
+    directeurId?: string | null;
+    adminId?: string | null;
   }): TokensResponse {
     return {
-      accessToken: this.generateAccessToken(input),
+      accessToken: this.generateAccessToken({
+        userId: input.userId,
+        email: input.email,
+        role: input.role,
+        scope: input.scope,
+        etablissementId: input.etablissementId,
+        schemaName: input.schemaName,
+        // ⭐ On propage les identifiants métier
+        enseignantId: input.enseignantId,
+        eleveId: input.eleveId,
+        parentId: input.parentId,
+        surveillantId: input.surveillantId,
+        directeurId: input.directeurId,
+        adminId: input.adminId,
+      }),
       refreshToken: this.generateRefreshToken({
         userId: input.userId,
         scope: input.scope,

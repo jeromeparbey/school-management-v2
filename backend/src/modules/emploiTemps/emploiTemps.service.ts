@@ -9,11 +9,39 @@ import type {
   ListEmploisTempsQuery,
 } from './emploiTemps.validation';
 
+// ═══════════════════════════════════════════════════════════
+// TYPES
+// ═══════════════════════════════════════════════════════════
+
 export interface EmploiTempsContext {
   schemaName: string;
   etablissementId: string;
   userId: string;
 }
+
+type ConflitType = 'CLASSE' | 'ENSEIGNANT' | 'SALLE';
+
+interface Conflit {
+  type: ConflitType;
+  message: string;
+  slot: any;
+}
+
+interface DetectConflitsData {
+  jour: string;
+  heureDebut: string;
+  heureFin: string;
+  classeId: string;
+  enseignantId: string;
+  salle?: string | null;
+  valableDu: Date;
+  valableAu?: Date | null;
+  excludeId?: string;
+}
+
+// ═══════════════════════════════════════════════════════════
+// CLIENT
+// ═══════════════════════════════════════════════════════════
 
 async function getClient(schemaName: string) {
   const client = await getTenantClient(schemaName);
@@ -21,112 +49,50 @@ async function getClient(schemaName: string) {
   return client;
 }
 
-// ──────────────────────────────────────────
-// HELPERS
-// ──────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+// HELPERS TEMPS
+// ═══════════════════════════════════════════════════════════
 
-/**
- * Détecte les conflits pour un créneau donné.
- * Retourne un tableau de conflits (vide si aucun).
- */
-async function detectConflits(
-  client: any,
-  data: {
-    jour: string;
-    heureDebut: string;
-    heureFin: string;
-    classeId: string;
-    enseignantId: string;
-    salle?: string | null;
-    valableDu: Date;
-    valableAu?: Date | null;
-    excludeId?: string;
-  }
-): Promise<Array<{ type: string; message: string; slot: any }>> {
-  const where: any = {
-    jour: data.jour,
-    estActive: true,
-    // Chevauchement des plages de validité
-    valableDu: { lte: data.valableAu ?? new Date('9999-12-31') },
-    OR: [
-      { valableAu: null },
-      { valableAu: { gte: data.valableDu } },
-    ],
-    // Chevauchement horaire (comparaison string "HH:mm")
-    heureDebut: { lt: data.heureFin },
-    heureFin: { gt: data.heureDebut },
-    // Exclusions
-    ...(data.excludeId && { NOT: { id: data.excludeId } }),
-    // Conflits potentiels
-    OR2: undefined, // (on va gérer séparément pour chaque type)
-  };
-
-  // Retirer OR2 (on va faire 3 requêtes)
-  delete where.OR2;
-
-  const conflits: Array<{ type: string; message: string; slot: any }> = [];
-
-  // 1. Conflit de CLASSE (une classe ne peut avoir qu'un cours à la fois)
-  const conflitsClasse = await client.emploiTemps.findMany({
-    where: { ...where, classeId: data.classeId },
-    include: {
-      matiere: { select: { nom: true, code: true } },
-      enseignant: { select: { prenom: true, nom: true } },
-      classe: { select: { nom: true, code: true } },
-    },
-  });
-
-  for (const c of conflitsClasse) {
-    conflits.push({
-      type: 'CLASSE',
-      message: `La classe ${c.classe.nom} a déjà un cours de ${c.matiere.nom} (${c.heureDebut}-${c.heureFin}) avec ${c.enseignant.prenom} ${c.enseignant.nom}`,
-      slot: c,
-    });
-  }
-
-  // 2. Conflit d'ENSEIGNANT
-  const conflitsEnseignant = await client.emploiTemps.findMany({
-    where: { ...where, enseignantId: data.enseignantId },
-    include: {
-      matiere: { select: { nom: true, code: true } },
-      classe: { select: { nom: true, code: true } },
-    },
-  });
-
-  for (const c of conflitsEnseignant) {
-    conflits.push({
-      type: 'ENSEIGNANT',
-      message: `L'enseignant a déjà un cours de ${c.matiere.nom} en ${c.classe.nom} (${c.heureDebut}-${c.heureFin})`,
-      slot: c,
-    });
-  }
-
-  // 3. Conflit de SALLE (si fournie)
-  if (data.salle) {
-    const conflitsSalle = await client.emploiTemps.findMany({
-      where: { ...where, salle: data.salle },
-      include: {
-        matiere: { select: { nom: true, code: true } },
-        classe: { select: { nom: true, code: true } },
-        enseignant: { select: { prenom: true, nom: true } },
-      },
-    });
-
-    for (const c of conflitsSalle) {
-      conflits.push({
-        type: 'SALLE',
-        message: `La salle ${data.salle} est déjà occupée par ${c.classe.nom} - ${c.matiere.nom} (${c.heureDebut}-${c.heureFin})`,
-        slot: c,
-      });
-    }
-  }
-
-  return conflits;
+function timeToMinutes(t: string): number {
+  const [h, m] = t.split(':').map(Number);
+  return (h ?? 0) * 60 + (m ?? 0);
 }
 
+function computeDurationHours(debut: string, fin: string): number {
+  return (timeToMinutes(fin) - timeToMinutes(debut)) / 60;
+}
+
+// ═══════════════════════════════════════════════════════════
+// INCLUDES PARTAGÉS (complets)
+// ═══════════════════════════════════════════════════════════
+
+/**
+ * Include TRÈS enrichi pour les vues détail / semaine.
+ * Expose absolument TOUT ce qui peut servir côté frontend :
+ * - Classe : id, nom, code, salle, capacité, niveau complet
+ * - Enseignant : id, matricule, prénom, nom, spécialité, qualification, email, téléphone, photo
+ * - Matière : id, nom, code, coefficient, durée, description
+ * - Année scolaire : id, nom, dates, statut
+ */
 const emploiTempsInclude = {
   classe: {
-    select: { id: true, nom: true, code: true, salle: true },
+    select: {
+      id: true,
+      nom: true,
+      code: true,
+      salle: true,
+      capacite: true,
+      estActive: true,
+      niveau: {
+        select: {
+          id: true,
+          nom: true,
+          code: true,
+          ordre: true,
+          description: true,
+        },
+      },
+    },
   },
   enseignant: {
     select: {
@@ -134,8 +100,13 @@ const emploiTempsInclude = {
       matricule: true,
       prenom: true,
       nom: true,
+      sexe: true,
       specialite: true,
+      qualification: true,
+      email: true,
+      telephone: true,
       photo: true,
+      estActif: true,
     },
   },
   matiere: {
@@ -145,16 +116,160 @@ const emploiTempsInclude = {
       code: true,
       coefficient: true,
       dureeCours: true,
+      description: true,
     },
   },
   anneeScolaire: {
-    select: { id: true, nom: true, estActive: true },
+    select: {
+      id: true,
+      nom: true,
+      dateDebut: true,
+      dateFin: true,
+      estActive: true,
+      estArchive: true,
+    },
   },
 } as const;
 
-// ──────────────────────────────────────────
+// Include léger pour la détection de conflits (rapide)
+const conflitInclude = {
+  matiere: { select: { nom: true, code: true } },
+  classe: { select: { nom: true, code: true } },
+  enseignant: { select: { prenom: true, nom: true } },
+} as const;
+
+// ═══════════════════════════════════════════════════════════
+// DÉTECTION DES CONFLITS
+// ═══════════════════════════════════════════════════════════
+
+async function detectConflits(
+  client: any,
+  data: DetectConflitsData
+): Promise<Conflit[]> {
+  const endOfTime = new Date('9999-12-31');
+  const valableAu = data.valableAu ?? endOfTime;
+
+  const baseWhere: any = {
+    jour: data.jour,
+    estActive: true,
+    valableDu: { lte: valableAu },
+    OR: [{ valableAu: null }, { valableAu: { gte: data.valableDu } }],
+    heureDebut: { lt: data.heureFin },
+    heureFin: { gt: data.heureDebut },
+    ...(data.excludeId && { NOT: { id: data.excludeId } }),
+  };
+
+  const [conflitsClasse, conflitsEnseignant, conflitsSalle] =
+    await Promise.all([
+      client.emploiTemps.findMany({
+        where: { ...baseWhere, classeId: data.classeId },
+        include: conflitInclude,
+      }),
+      client.emploiTemps.findMany({
+        where: { ...baseWhere, enseignantId: data.enseignantId },
+        include: conflitInclude,
+      }),
+      data.salle
+        ? client.emploiTemps.findMany({
+            where: { ...baseWhere, salle: data.salle },
+            include: conflitInclude,
+          })
+        : Promise.resolve([]),
+    ]);
+
+  const conflits: Conflit[] = [];
+
+  for (const c of conflitsClasse) {
+    conflits.push({
+      type: 'CLASSE',
+      message: `La classe ${c.classe.nom} a déjà un cours de ${c.matiere.nom} (${c.heureDebut}-${c.heureFin}) avec ${c.enseignant.prenom} ${c.enseignant.nom}`,
+      slot: c,
+    });
+  }
+
+  for (const c of conflitsEnseignant) {
+    conflits.push({
+      type: 'ENSEIGNANT',
+      message: `L'enseignant a déjà un cours de ${c.matiere.nom} en ${c.classe.nom} (${c.heureDebut}-${c.heureFin})`,
+      slot: c,
+    });
+  }
+
+  for (const c of conflitsSalle) {
+    conflits.push({
+      type: 'SALLE',
+      message: `La salle ${data.salle} est déjà occupée par ${c.classe.nom} — ${c.matiere.nom} (${c.heureDebut}-${c.heureFin})`,
+      slot: c,
+    });
+  }
+
+  return conflits;
+}
+
+// ═══════════════════════════════════════════════════════════
+// VALIDATION ENTITÉS
+// ═══════════════════════════════════════════════════════════
+
+async function validateEntities(
+  client: any,
+  input: {
+    classeId: string;
+    enseignantId: string;
+    matiereId: string;
+  }
+): Promise<void> {
+  const [classe, enseignant, matiere] = await Promise.all([
+    client.classe.findUnique({
+      where: { id: input.classeId },
+      select: { id: true, estArchive: true },
+    }),
+    client.enseignant.findUnique({
+      where: { id: input.enseignantId },
+      select: { id: true, estActif: true, estArchive: true },
+    }),
+    client.matiere.findUnique({
+      where: { id: input.matiereId },
+      select: { id: true, estArchive: true },
+    }),
+  ]);
+
+  if (!classe) throw new AppError('Classe introuvable', 404);
+  if (classe.estArchive)
+    throw new AppError(
+      "Impossible d'ajouter un créneau à une classe archivée",
+      400
+    );
+
+  if (!enseignant) throw new AppError('Enseignant introuvable', 404);
+  if (enseignant.estArchive)
+    throw new AppError("Impossible d'utiliser un enseignant archivé", 400);
+  if (!enseignant.estActif)
+    throw new AppError("Impossible d'utiliser un enseignant inactif", 400);
+
+  if (!matiere) throw new AppError('Matière introuvable', 404);
+  if (matiere.estArchive)
+    throw new AppError("Impossible d'utiliser une matière archivée", 400);
+}
+
+// ═══════════════════════════════════════════════════════════
+// HELPER : enrichir un slot avec durée calculée
+// ═══════════════════════════════════════════════════════════
+
+function enrichSlot(slot: any) {
+  if (!slot) return slot;
+  return {
+    ...slot,
+    _dureeHeures:
+      Math.round(
+        computeDurationHours(slot.heureDebut, slot.heureFin) * 10
+      ) / 10,
+    _effectifClasse: slot.classe?._count?.inscriptions ?? null,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════
 // SERVICE
-// ──────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
 
 export class EmploiTempsService {
   // ──────────────────────────────────────────
@@ -189,50 +304,30 @@ export class EmploiTempsService {
   async create(ctx: EmploiTempsContext, input: CreateEmploiTempsInput) {
     const client = await getClient(ctx.schemaName);
 
-    // 1. Vérifier les dates
-    if (input.valableAu && new Date(input.valableDu) >= new Date(input.valableAu)) {
+    // 1. Validations temporelles
+    if (
+      input.valableAu &&
+      new Date(input.valableDu) >= new Date(input.valableAu)
+    ) {
       throw new AppError(
         'La date "valableAu" doit être après "valableDu"',
         400
       );
     }
 
-    if (input.heureDebut >= input.heureFin) {
+    if (timeToMinutes(input.heureDebut) >= timeToMinutes(input.heureFin)) {
       throw new AppError(
-        'L\'heure de fin doit être après l\'heure de début',
+        "L'heure de fin doit être après l'heure de début",
         400
       );
     }
 
-    // 2. Vérifier les entités
-    const [classe, enseignant, matiere] = await Promise.all([
-      client.classe.findUnique({
-        where: { id: input.classeId },
-        select: { id: true, estArchive: true },
-      }),
-      client.enseignant.findUnique({
-        where: { id: input.enseignantId },
-        select: { id: true, estActif: true, estArchive: true },
-      }),
-      client.matiere.findUnique({
-        where: { id: input.matiereId },
-        select: { id: true, estArchive: true },
-      }),
-    ]);
-
-    if (!classe) throw new AppError('Classe introuvable', 404);
-    if (classe.estArchive)
-      throw new AppError('Impossible d\'ajouter un créneau à une classe archivée', 400);
-
-    if (!enseignant) throw new AppError('Enseignant introuvable', 404);
-    if (enseignant.estArchive)
-      throw new AppError('Impossible d\'utiliser un enseignant archivé', 400);
-    if (!enseignant.estActif)
-      throw new AppError('Impossible d\'utiliser un enseignant inactif', 400);
-
-    if (!matiere) throw new AppError('Matière introuvable', 404);
-    if (matiere.estArchive)
-      throw new AppError('Impossible d\'utiliser une matière archivée', 400);
+    // 2. Validation des entités
+    await validateEntities(client, {
+      classeId: input.classeId,
+      enseignantId: input.enseignantId,
+      matiereId: input.matiereId,
+    });
 
     // 3. Détection de conflits
     const conflits = await detectConflits(client, {
@@ -248,13 +343,15 @@ export class EmploiTempsService {
 
     if (conflits.length > 0) {
       throw new AppError(
-        `Conflits détectés :\n${conflits.map((c) => `- ${c.message}`).join('\n')}`,
+        `Conflits détectés :\n${conflits
+          .map((c) => `- [${c.type}] ${c.message}`)
+          .join('\n')}`,
         409
       );
     }
 
     // 4. Création
-    return client.emploiTemps.create({
+    const created = await client.emploiTemps.create({
       data: {
         jour: input.jour,
         heureDebut: input.heureDebut,
@@ -272,10 +369,12 @@ export class EmploiTempsService {
       },
       include: emploiTempsInclude,
     });
+
+    return enrichSlot(created);
   }
 
   // ──────────────────────────────────────────
-  // LIST
+  // LIST (avec toutes les infos)
   // ──────────────────────────────────────────
 
   async findAll(ctx: EmploiTempsContext, q: ListEmploisTempsQuery) {
@@ -286,7 +385,9 @@ export class EmploiTempsService {
     if (q.search) {
       where.OR = [
         { classe: { nom: { contains: q.search, mode: 'insensitive' } } },
+        { classe: { code: { contains: q.search, mode: 'insensitive' } } },
         { enseignant: { nom: { contains: q.search, mode: 'insensitive' } } },
+        { enseignant: { prenom: { contains: q.search, mode: 'insensitive' } } },
         { matiere: { nom: { contains: q.search, mode: 'insensitive' } } },
         { salle: { contains: q.search, mode: 'insensitive' } },
       ];
@@ -308,14 +409,14 @@ export class EmploiTempsService {
       client.emploiTemps.findMany({
         where,
         include: emploiTempsInclude,
-        orderBy: { [sortBy]: sortOrder },
+        orderBy: [{ jour: 'asc' }, { [sortBy]: sortOrder }],
         skip: (q.page - 1) * q.limit,
         take: q.limit,
       }),
     ]);
 
     return {
-      data,
+      data: data.map(enrichSlot),
       pagination: {
         page: q.page,
         limit: q.limit,
@@ -338,36 +439,99 @@ export class EmploiTempsService {
     });
 
     if (!emploi) throw new AppError('Emploi du temps introuvable', 404);
-    return emploi;
+    return enrichSlot(emploi);
   }
 
   // ──────────────────────────────────────────
   // GET BY CLASSE (vue semaine)
   // ──────────────────────────────────────────
 
-  async findByClasse(ctx: EmploiTempsContext, classeId: string, anneeScolaireId?: string) {
+  async findByClasse(
+    ctx: EmploiTempsContext,
+    classeId: string,
+    anneeScolaireId?: string
+  ) {
     const client = await getClient(ctx.schemaName);
 
     const where: any = { classeId, estActive: true };
     if (anneeScolaireId) where.anneeScolaireId = anneeScolaireId;
 
-    const slots = await client.emploiTemps.findMany({
-      where,
-      include: emploiTempsInclude,
-      orderBy: [
-        { jour: 'asc' },
-        { heureDebut: 'asc' },
-      ],
-    });
+    const [classe, slots] = await Promise.all([
+      client.classe.findUnique({
+        where: { id: classeId },
+        select: {
+          id: true,
+          nom: true,
+          code: true,
+          salle: true,
+          capacite: true,
+          niveau: { select: { id: true, nom: true, code: true } },
+          _count: { select: { inscriptions: true } },
+        },
+      }),
+      client.emploiTemps.findMany({
+        where,
+        include: emploiTempsInclude,
+        orderBy: [{ jour: 'asc' }, { heureDebut: 'asc' }],
+      }),
+    ]);
 
-    // Organiser par jour (vue semaine)
-    const JOURS = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE'];
+    if (!classe) throw new AppError('Classe introuvable', 404);
+
+    const JOURS = [
+      'LUNDI',
+      'MARDI',
+      'MERCREDI',
+      'JEUDI',
+      'VENDREDI',
+      'SAMEDI',
+      'DIMANCHE',
+    ];
     const parJour: Record<string, any[]> = {};
     for (const jour of JOURS) {
-      parJour[jour] = slots.filter((s: any) => s.jour === jour);
+      parJour[jour] = slots
+        .filter((s: any) => s.jour === jour)
+        .map(enrichSlot);
     }
 
-    return { slots, parJour };
+    const totalHeures = slots.reduce(
+      (sum: number, s: any) =>
+        sum + computeDurationHours(s.heureDebut, s.heureFin),
+      0
+    );
+    const matieresUniques = [
+      ...new Set(slots.map((s: any) => s.matiere?.nom).filter(Boolean)),
+    ];
+    const enseignantsUniques = [
+      ...new Set(
+        slots
+          .map((s: any) =>
+            s.enseignant
+              ? `${s.enseignant.prenom} ${s.enseignant.nom}`
+              : null
+          )
+          .filter(Boolean)
+      ),
+    ];
+    const sallesUniques = [
+      ...new Set(slots.map((s: any) => s.salle).filter(Boolean)),
+    ];
+
+    return {
+      classe: {
+        ...classe,
+        effectif: classe._count?.inscriptions ?? 0,
+      },
+      slots: slots.map(enrichSlot),
+      parJour,
+      stats: {
+        totalSlots: slots.length,
+        totalHeuresHebdo: Math.round(totalHeures * 10) / 10,
+        matieres: matieresUniques,
+        enseignants: enseignantsUniques,
+        salles: sallesUniques,
+      },
+    };
   }
 
   // ──────────────────────────────────────────
@@ -384,37 +548,83 @@ export class EmploiTempsService {
     const where: any = { enseignantId, estActive: true };
     if (anneeScolaireId) where.anneeScolaireId = anneeScolaireId;
 
-    const slots = await client.emploiTemps.findMany({
-      where,
-      include: emploiTempsInclude,
-      orderBy: [
-        { jour: 'asc' },
-        { heureDebut: 'asc' },
-      ],
-    });
+    const [enseignant, slots] = await Promise.all([
+      client.enseignant.findUnique({
+        where: { id: enseignantId },
+        select: {
+          id: true,
+          matricule: true,
+          prenom: true,
+          nom: true,
+          sexe: true,
+          specialite: true,
+          qualification: true,
+          email: true,
+          telephone: true,
+          photo: true,
+          estActif: true,
+        },
+      }),
+      client.emploiTemps.findMany({
+        where,
+        include: emploiTempsInclude,
+        orderBy: [{ jour: 'asc' }, { heureDebut: 'asc' }],
+      }),
+    ]);
 
-    const JOURS = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE'];
+    if (!enseignant) throw new AppError('Enseignant introuvable', 404);
+
+    const JOURS = [
+      'LUNDI',
+      'MARDI',
+      'MERCREDI',
+      'JEUDI',
+      'VENDREDI',
+      'SAMEDI',
+      'DIMANCHE',
+    ];
     const parJour: Record<string, any[]> = {};
     for (const jour of JOURS) {
-      parJour[jour] = slots.filter((s: any) => s.jour === jour);
+      parJour[jour] = slots
+        .filter((s: any) => s.jour === jour)
+        .map(enrichSlot);
     }
 
-    // Stats
-    const totalHeures = slots.reduce((sum: number, s: any) => {
-      const [h1, m1] = s.heureDebut.split(':').map(Number);
-      const [h2, m2] = s.heureFin.split(':').map(Number);
-      return sum + (h2 * 60 + m2 - h1 * 60 - m1) / 60;
-    }, 0);
+    const totalHeures = slots.reduce(
+      (sum: number, s: any) =>
+        sum + computeDurationHours(s.heureDebut, s.heureFin),
+      0
+    );
+    const classesUniques = [
+      ...new Set(slots.map((s: any) => s.classe?.nom).filter(Boolean)),
+    ];
+    const matieresUniques = [
+      ...new Set(slots.map((s: any) => s.matiere?.nom).filter(Boolean)),
+    ];
 
-    const classesUniques = [...new Set(slots.map((s: any) => s.classe.nom))];
+    const repartition = JOURS.map((jour) => ({
+      jour,
+      nbSlots: parJour[jour]?.length ?? 0,
+      heures:
+        Math.round(
+          parJour[jour]?.reduce(
+            (sum: number, s: any) =>
+              sum + computeDurationHours(s.heureDebut, s.heureFin),
+            0
+          ) * 10
+        ) / 10,
+    }));
 
     return {
-      slots,
+      enseignant,
+      slots: slots.map(enrichSlot),
       parJour,
       stats: {
         totalSlots: slots.length,
         totalHeuresHebdo: Math.round(totalHeures * 10) / 10,
         classes: classesUniques,
+        matieres: matieresUniques,
+        repartitionParJour: repartition,
       },
     };
   }
@@ -426,7 +636,6 @@ export class EmploiTempsService {
   async findByEleve(ctx: EmploiTempsContext, eleveId: string) {
     const client = await getClient(ctx.schemaName);
 
-    // Récupérer la classe active de l'élève
     const inscription = await client.inscription.findFirst({
       where: { eleveId, estActive: true },
       select: { classeId: true, anneeScolaireId: true },
@@ -434,17 +643,89 @@ export class EmploiTempsService {
     });
 
     if (!inscription) {
-      throw new AppError('L\'élève n\'a aucune inscription active', 404);
+      throw new AppError("L'élève n'a aucune inscription active", 404);
     }
 
-    return this.findByClasse(ctx, inscription.classeId, inscription.anneeScolaireId);
+    return this.findByClasse(
+      ctx,
+      inscription.classeId,
+      inscription.anneeScolaireId
+    );
+  }
+
+  // ──────────────────────────────────────────
+  // GET STATS GLOBALES
+  // ──────────────────────────────────────────
+
+  async getStats(ctx: EmploiTempsContext, anneeScolaireId?: string) {
+    const client = await getClient(ctx.schemaName);
+
+    const where: any = { estActive: true };
+    if (anneeScolaireId) where.anneeScolaireId = anneeScolaireId;
+
+    const [total, slots] = await Promise.all([
+      client.emploiTemps.count({ where }),
+      client.emploiTemps.findMany({
+        where,
+        select: {
+          jour: true,
+          heureDebut: true,
+          heureFin: true,
+          classeId: true,
+          enseignantId: true,
+          matiereId: true,
+          salle: true,
+        },
+      }),
+    ]);
+
+    const classesSet = new Set(slots.map((s: any) => s.classeId));
+    const enseignantsSet = new Set(slots.map((s: any) => s.enseignantId));
+    const matieresSet = new Set(slots.map((s: any) => s.matiereId));
+    const sallesSet = new Set(
+      slots.map((s: any) => s.salle).filter(Boolean)
+    );
+
+    const totalHeures = slots.reduce(
+      (sum: number, s: any) =>
+        sum + computeDurationHours(s.heureDebut, s.heureFin),
+      0
+    );
+
+    const parJour: Record<string, number> = {};
+    for (const jour of [
+      'LUNDI',
+      'MARDI',
+      'MERCREDI',
+      'JEUDI',
+      'VENDREDI',
+      'SAMEDI',
+      'DIMANCHE',
+    ]) {
+      parJour[jour] = slots.filter((s: any) => s.jour === jour).length;
+    }
+
+    return {
+      totalSlots: total,
+      totalHeuresHebdo: Math.round(totalHeures * 10) / 10,
+      nbClasses: classesSet.size,
+      nbEnseignants: enseignantsSet.size,
+      nbMatieres: matieresSet.size,
+      nbSalles: sallesSet.size,
+      salles: Array.from(sallesSet),
+      parJour,
+    };
   }
 
   // ──────────────────────────────────────────
   // UPDATE
   // ──────────────────────────────────────────
 
-  async update(ctx: EmploiTempsContext, id: string, input: UpdateEmploiTempsInput) {
+  async update(
+    ctx: EmploiTempsContext,
+    id: string,
+    input: UpdateEmploiTempsInput
+  ) {
     const client = await getClient(ctx.schemaName);
 
     const existing = await client.emploiTemps.findUnique({
@@ -464,7 +745,6 @@ export class EmploiTempsService {
     });
     if (!existing) throw new AppError('Emploi du temps introuvable', 404);
 
-    // Fusionner pour la vérification de conflits
     const newData = {
       jour: input.jour ?? existing.jour,
       heureDebut: input.heureDebut ?? existing.heureDebut,
@@ -484,26 +764,32 @@ export class EmploiTempsService {
           : existing.valableAu,
     };
 
-    // Validation horaire
-    if (newData.heureDebut >= newData.heureFin) {
+    if (timeToMinutes(newData.heureDebut) >= timeToMinutes(newData.heureFin)) {
       throw new AppError(
-        'L\'heure de fin doit être après l\'heure de début',
+        "L'heure de fin doit être après l'heure de début",
         400
       );
     }
 
-    // Validation dates
-    if (
-      newData.valableAu &&
-      newData.valableDu >= newData.valableAu
-    ) {
+    if (newData.valableAu && newData.valableDu >= newData.valableAu) {
       throw new AppError(
         'La date "valableAu" doit être après "valableDu"',
         400
       );
     }
 
-    // Détection de conflits (en excluant le slot en cours d'update)
+    if (
+      input.classeId !== undefined ||
+      input.enseignantId !== undefined ||
+      input.matiereId !== undefined
+    ) {
+      await validateEntities(client, {
+        classeId: newData.classeId,
+        enseignantId: newData.enseignantId,
+        matiereId: newData.matiereId,
+      });
+    }
+
     const conflits = await detectConflits(client, {
       ...newData,
       excludeId: id,
@@ -511,7 +797,9 @@ export class EmploiTempsService {
 
     if (conflits.length > 0) {
       throw new AppError(
-        `Conflits détectés :\n${conflits.map((c) => `- ${c.message}`).join('\n')}`,
+        `Conflits détectés :\n${conflits
+          .map((c) => `- [${c.type}] ${c.message}`)
+          .join('\n')}`,
         409
       );
     }
@@ -535,11 +823,13 @@ export class EmploiTempsService {
     if (input.anneeScolaireId !== undefined)
       patch.anneeScolaireId = input.anneeScolaireId;
 
-    return client.emploiTemps.update({
+    const updated = await client.emploiTemps.update({
       where: { id },
       data: patch,
       include: emploiTempsInclude,
     });
+
+    return enrichSlot(updated);
   }
 
   // ──────────────────────────────────────────
@@ -555,28 +845,31 @@ export class EmploiTempsService {
     });
     if (!existing) throw new AppError('Emploi du temps introuvable', 404);
 
-    return client.emploiTemps.update({
+    const updated = await client.emploiTemps.update({
       where: { id },
       data: { estActive: !existing.estActive },
       include: emploiTempsInclude,
     });
+
+    return enrichSlot(updated);
   }
 
   // ──────────────────────────────────────────
   // DUPLIQUER
   // ──────────────────────────────────────────
 
-  async dupliquer(ctx: EmploiTempsContext, id: string, targetJour?: string) {
+  async dupliquer(
+    ctx: EmploiTempsContext,
+    id: string,
+    targetJour?: string
+  ) {
     const client = await getClient(ctx.schemaName);
 
-    const existing = await client.emploiTemps.findUnique({
-      where: { id },
-    });
+    const existing = await client.emploiTemps.findUnique({ where: { id } });
     if (!existing) throw new AppError('Emploi du temps introuvable', 404);
 
     const newJour = (targetJour ?? existing.jour) as any;
 
-    // Vérifier les conflits pour le nouveau créneau
     const conflits = await detectConflits(client, {
       jour: newJour,
       heureDebut: existing.heureDebut,
@@ -590,12 +883,14 @@ export class EmploiTempsService {
 
     if (conflits.length > 0) {
       throw new AppError(
-        `Conflits détectés pour le ${newJour} :\n${conflits.map((c) => `- ${c.message}`).join('\n')}`,
+        `Conflits détectés pour le ${newJour} :\n${conflits
+          .map((c) => `- [${c.type}] ${c.message}`)
+          .join('\n')}`,
         409
       );
     }
 
-    return client.emploiTemps.create({
+    const created = await client.emploiTemps.create({
       data: {
         jour: newJour,
         heureDebut: existing.heureDebut,
@@ -613,6 +908,8 @@ export class EmploiTempsService {
       },
       include: emploiTempsInclude,
     });
+
+    return enrichSlot(created);
   }
 
   // ──────────────────────────────────────────

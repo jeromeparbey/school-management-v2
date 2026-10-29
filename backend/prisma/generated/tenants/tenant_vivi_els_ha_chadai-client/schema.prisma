@@ -382,8 +382,8 @@ model Matiere {
   nom         String
   code        String   @unique
   niveauId    String
-  coefficient Float    @default(1.0)
-  dureeCours  Int      @default(60)
+  coefficient Float?   @default(1.0)
+  dureeCours  Int?     @default(60)
   description String?
   estActive   Boolean  @default(true)
   estArchive  Boolean  @default(false)
@@ -568,10 +568,10 @@ model AffectationEnseignant {
   id              String    @id @default(cuid())
   enseignantId    String
   classeId        String
-  matiereId       String
+  matiereId       String? // ✅ null = titulaire de classe (primaire)
   anneeScolaireId String
   heuresHebdo     Float?    @default(0)
-  estPrincipal    Boolean   @default(false)
+  estPrincipal    Boolean   @default(false) // ⭐ pour identifier le titulaire
   valableDu       DateTime
   valableAu       DateTime?
   estActive       Boolean   @default(true)
@@ -580,7 +580,7 @@ model AffectationEnseignant {
 
   enseignant    Enseignant    @relation(fields: [enseignantId], references: [id])
   classe        Classe        @relation(fields: [classeId], references: [id])
-  matiere       Matiere       @relation(fields: [matiereId], references: [id])
+  matiere       Matiere?      @relation(fields: [matiereId], references: [id]) // ✅ nullable
   anneeScolaire AnneeScolaire @relation(fields: [anneeScolaireId], references: [id])
 
   @@unique([enseignantId, classeId, matiereId, anneeScolaireId])
@@ -589,7 +589,6 @@ model AffectationEnseignant {
 }
 
 // ============ EMPLOI DU TEMPS ============
-
 model EmploiTemps {
   id              String      @id @default(cuid())
   jour            JourSemaine
@@ -597,7 +596,7 @@ model EmploiTemps {
   heureFin        String
   classeId        String
   enseignantId    String
-  matiereId       String
+  matiereId       String? // ✅ null = cours générique (primaire)
   salle           String?
   estRecurrent    Boolean     @default(true)
   valableDu       DateTime
@@ -610,7 +609,7 @@ model EmploiTemps {
 
   classe             Classe         @relation(fields: [classeId], references: [id])
   enseignant         Enseignant     @relation(fields: [enseignantId], references: [id])
-  matiere            Matiere        @relation(fields: [matiereId], references: [id])
+  matiere            Matiere?       @relation(fields: [matiereId], references: [id]) // ✅ nullable
   creeParUtilisateur Utilisateur    @relation("EmploiTempsCreateur", fields: [creePar], references: [id])
   anneeScolaire      AnneeScolaire? @relation(fields: [anneeScolaireId], references: [id])
 

@@ -28,7 +28,7 @@ if (!globalThis.otpStore) {
 if (!globalThis.resetTokenStore) {
   globalThis.resetTokenStore = new Map<string, IResetTokenStore>();
 }
-// ⭐ AJOUT : store OTP dédié au reset password (clé = `${schemaName}:${userId}`)
+// ⭐ Store OTP dédié au reset password (clé = `${schemaName}:${userId}`)
 if (!globalThis.resetOtpStore) {
   globalThis.resetOtpStore = new Map<string, IOtpStore>();
 }
@@ -68,6 +68,19 @@ export interface UnifiedLoginResult {
   etablissement: EtablissementDTO | null;
   tokens: TokensResponse;
   scope: 'TENANT' | 'GLOBAL';
+}
+
+// ============================================
+// 🆕 PROFIL MÉTIER (injecté dans le JWT)
+// ============================================
+
+export interface ProfilMetier {
+  enseignantId?: string | null;
+  eleveId?: string | null;
+  parentId?: string | null;
+  surveillantId?: string | null;
+  directeurId?: string | null;
+  adminId?: string | null;
 }
 
 // ============================================
@@ -154,6 +167,76 @@ export class AuthService {
     }
   }
 
+  // ══════════════════════════════════════════
+  // 🆕 CHARGE LE PROFIL MÉTIER POUR LE JWT
+  // ══════════════════════════════════════════
+
+  /**
+   * Charge l'identifiant métier (enseignant/élève/parent/…) lié à
+   * l'utilisateur, selon son rôle. Résilient : en cas d'erreur, renvoie
+   * un profil vide (les champs seront à `null` dans le JWT).
+   */
+  private async loadProfilMetier(
+    schemaName: string,
+    userId: string,
+    role: string
+  ): Promise<ProfilMetier> {
+    const profil: ProfilMetier = {};
+
+    try {
+      switch (role) {
+        case 'ENSEIGNANT': {
+          const e = await this.repository.findEnseignantByUserId(
+            schemaName,
+            userId
+          );
+          profil.enseignantId = e?.id ?? null;
+          break;
+        }
+        case 'ELEVE': {
+          const e = await this.repository.findEleveByUserId(schemaName, userId);
+          profil.eleveId = e?.eleve?.id ?? null;
+          break;
+        }
+        case 'SURVEILLANT': {
+          const s = await this.repository.findSurveillantByUserId(
+            schemaName,
+            userId
+          );
+          profil.surveillantId = s?.surveillant?.id ?? null;
+          break;
+        }
+        case 'PARENT': {
+          const p = await this.repository.findParentByUserId(
+            schemaName,
+            userId
+          );
+          profil.parentId = p?.parent?.id ?? null;
+          break;
+        }
+        case 'DIRECTEUR': {
+          const d = await this.repository.findDirecteurByUserId(
+            schemaName,
+            userId
+          );
+          profil.directeurId = d?.directeur?.id ?? null;
+          break;
+        }
+        case 'ADMIN': {
+          const a = await this.repository.findAdminByUserId(schemaName, userId);
+          profil.adminId = a?.admin?.id ?? null;
+          break;
+        }
+        default:
+          break;
+      }
+    } catch (err) {
+      console.error('⚠️ Échec chargement profil métier:', err);
+    }
+
+    return profil;
+  }
+
   // ──────────────────────────────────────────
   // INSCRIPTION GÉNÉRIQUE
   // ──────────────────────────────────────────
@@ -201,7 +284,21 @@ export class AuthService {
       console.error('⚠️ Échec envoi OTP:', err);
     }
 
-    const tokens = this.generateTokens(user.id, user.email, user.role, ctx);
+    // ⭐ Charger le profil métier (souvent vide à l'inscription, mais
+    //    on garde la cohérence avec `login`)
+    const profil = await this.loadProfilMetier(
+      schemaName,
+      user.id,
+      user.role
+    );
+
+    const tokens = this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      ctx,
+      profil
+    );
     await this.repository.updateRefreshToken(
       schemaName,
       user.id,
@@ -272,7 +369,16 @@ export class AuthService {
       console.error('⚠️ Échec envoi OTP:', err);
     }
 
-    const tokens = this.generateTokens(user.id, user.email, user.role, ctx);
+    // ⭐ Profil élève connu directement (pas besoin de requête supplémentaire)
+    const profil: ProfilMetier = { eleveId: eleve.id };
+
+    const tokens = this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      ctx,
+      profil
+    );
     await this.repository.updateRefreshToken(
       schemaName,
       user.id,
@@ -345,7 +451,16 @@ export class AuthService {
       console.error('⚠️ Échec envoi OTP:', err);
     }
 
-    const tokens = this.generateTokens(user.id, user.email, user.role, ctx);
+    // ⭐ Profil surveillant connu directement
+    const profil: ProfilMetier = { surveillantId: surveillant.id };
+
+    const tokens = this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      ctx,
+      profil
+    );
     await this.repository.updateRefreshToken(
       schemaName,
       user.id,
@@ -449,7 +564,16 @@ export class AuthService {
 
     await this.repository.updateLastLogin(schemaName, user.id);
 
-    const tokens = this.generateTokens(user.id, user.email, user.role, ctx);
+    // ⭐ Charger le profil métier et l'injecter dans le JWT
+    const profil = await this.loadProfilMetier(schemaName, user.id, user.role);
+
+    const tokens = this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      ctx,
+      profil
+    );
     await this.repository.updateRefreshToken(
       schemaName,
       user.id,
@@ -519,7 +643,16 @@ export class AuthService {
 
     await this.repository.updateLastLogin(schemaName, user.id);
 
-    const tokens = this.generateTokens(user.id, user.email, user.role, ctx);
+    // ⭐ Profil élève explicite
+    const profil: ProfilMetier = { eleveId: userWithEleve.eleve.id };
+
+    const tokens = this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      ctx,
+      profil
+    );
     await this.repository.updateRefreshToken(
       schemaName,
       user.id,
@@ -593,7 +726,18 @@ export class AuthService {
 
     await this.repository.updateLastLogin(schemaName, user.id);
 
-    const tokens = this.generateTokens(user.id, user.email, user.role, ctx);
+    // ⭐ Profil surveillant explicite
+    const profil: ProfilMetier = {
+      surveillantId: userWithSurv.surveillant.id,
+    };
+
+    const tokens = this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      ctx,
+      profil
+    );
     await this.repository.updateRefreshToken(
       schemaName,
       user.id,
@@ -735,11 +879,19 @@ export class AuthService {
       throw new AppError('Refresh token révoqué', 401);
     }
 
+    // ⭐ Recharger le profil métier pour régénérer un JWT complet
+    const profil = await this.loadProfilMetier(
+      ctx.schemaName,
+      user.id,
+      user.role
+    );
+
     const tokens = this.generateTokens(
       user.id,
       user.email,
       user.role,
-      ctx as AuthContext
+      ctx as AuthContext,
+      profil
     );
     await this.repository.updateRefreshToken(
       ctx.schemaName,
@@ -773,15 +925,6 @@ export class AuthService {
   // MOT DE PASSE
   // ──────────────────────────────────────────
 
-  /**
-   * ⭐ MODIFIÉ — Envoie un OTP à 6 chiffres par email (au lieu d'un lien).
-   *
-   * Retourne `{ email, etablissementId }` pour que le controller puisse
-   * renvoyer ces infos au frontend (la page `/verify-reset-otp` en a besoin).
-   *
-   * ⚠️ Anti-énumération : si l'email n'existe pas, on retourne quand même
-   * un résultat neutre (pas d'erreur, pas d'OTP envoyé).
-   */
   async forgotPassword(
     ctx: AuthContext,
     email: string
@@ -796,16 +939,11 @@ export class AuthService {
       return { email: normalizedEmail, etablissementId };
     }
 
-    // ⭐ Génère un OTP dédié reset (store séparé)
     const otp = AuthUtils.generateOtp();
     this.storeResetOtp(schemaName, user.id, otp);
 
     try {
-      await this.emailService.sendOtpEmail(
-        user.email,
-        otp,
-        user.prenom
-      );
+      await this.emailService.sendOtpEmail(user.email, otp, user.prenom);
     } catch (err) {
       console.error('⚠️ Échec envoi OTP reset:', err);
     }
@@ -813,13 +951,6 @@ export class AuthService {
     return { email: normalizedEmail, etablissementId };
   }
 
-  /**
-   * ⭐ AJOUT — Vérifie l'OTP de reset password.
-   * Si valide → génère un `resetToken` (utilisable une seule fois,
-   * 24h) et le retourne au frontend.
-   *
-   * Ne marque PAS `emailVerifie = true` (ce n'est pas le but).
-   */
   async verifyResetOtp(
     ctx: AuthContext,
     email: string,
@@ -857,7 +988,6 @@ export class AuthService {
       throw new AppError('Code invalide', 400);
     }
 
-    // OTP OK → on génère le token de reset
     const resetToken = AuthUtils.generateResetToken();
     this.storeResetToken(user.id, resetToken);
     this.clearResetOtp(schemaName, user.id);
@@ -960,11 +1090,16 @@ export class AuthService {
   // PROFIL
   // ──────────────────────────────────────────
 
+  /**
+   * ⭐ MODIFIÉ — Enrichit `user` avec `enseignantId` / `eleveId` /
+   * `parentId` / `surveillantId` / `directeurId` / `adminId` pour que
+   * le frontend puisse les lire après un refresh.
+   */
   async getCurrentUser(
     ctx: AuthContext,
     userId: string
   ): Promise<{
-    user: UserResponse;
+    user: UserResponse & Partial<ProfilMetier>;
     etablissement: EtablissementDTO | null;
   }> {
     const superAdmin = await globalPrisma.utilisateurGlobal.findFirst({
@@ -985,9 +1120,21 @@ export class AuthService {
     if (!user) {
       throw new AppError('Utilisateur non trouvé', 404);
     }
+
+    // ⭐ Charger le profil métier pour enrichir la réponse
+    const profil = await this.loadProfilMetier(
+      ctx.schemaName,
+      userId,
+      user.role
+    );
+
     const etablissement = await this.loadEtablissement(ctx.etablissementId);
+
     return {
-      user: user as unknown as UserResponse,
+      user: {
+        ...(user as unknown as UserResponse),
+        ...profil,
+      },
       etablissement,
     };
   }
@@ -1116,9 +1263,7 @@ export class AuthService {
   }
 
   // ──────────────────────────────────────────
-  // ⭐ STORES OTP RESET PASSWORD (privés)
-  // Clé = `${schemaName}:${userId}` pour éviter les collisions
-  // entre tenants et avec l'OTP d'inscription.
+  // STORES OTP RESET PASSWORD (privés)
   // ──────────────────────────────────────────
 
   private storeResetOtp(
@@ -1177,11 +1322,16 @@ export class AuthService {
   // TOKENS JWT
   // ──────────────────────────────────────────
 
+  /**
+   * ⭐ MODIFIÉ — Accepte désormais un `profil` métier optionnel
+   * (enseignantId, eleveId, parentId, …) et l'injecte dans le JWT.
+   */
   private generateTokens(
     userId: string,
     email: string,
     role: string,
-    ctx: AuthContext
+    ctx: AuthContext,
+    profil?: ProfilMetier
   ): TokensResponse {
     return {
       accessToken: AuthUtils.generateAccessToken({
@@ -1191,6 +1341,13 @@ export class AuthService {
         scope: 'TENANT',
         etablissementId: ctx.etablissementId,
         schemaName: ctx.schemaName,
+        // ⭐ Identifiants métier injectés dans le JWT
+        enseignantId: profil?.enseignantId ?? null,
+        eleveId: profil?.eleveId ?? null,
+        parentId: profil?.parentId ?? null,
+        surveillantId: profil?.surveillantId ?? null,
+        directeurId: profil?.directeurId ?? null,
+        adminId: profil?.adminId ?? null,
       }),
       refreshToken: AuthUtils.generateRefreshToken({
         userId,

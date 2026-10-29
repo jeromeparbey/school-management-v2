@@ -111,7 +111,7 @@ const directeurSidebar: NavGroup[] = [
         href: '/dashboard/enseignants',
         children: [
           { label: 'Liste', href: '/dashboard/enseignants', icon: AcademicCapIcon },
-          { label: 'Affectations', href: '/dashboard/enseignants/affectations', icon: ClipboardDocumentCheckIcon },
+          { label: 'Affectations', href: '/dashboard/affectations', icon: ClipboardDocumentCheckIcon },
           { label: 'Historique salaires', href: '/dashboard/enseignants/salaires', icon: BanknotesIcon },
         ],
       },

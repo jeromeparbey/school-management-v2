@@ -9,10 +9,14 @@ import {
   updateEcheanceSchema,
   echeanceIdSchema,
   listEcheancesSchema,
+  listElevesEcheanceSchema, // 🆕
 } from './echeance.validation';
 
 const router = Router();
 
+// ═══════════════════════════════════════════
+// RATE LIMIT (écritures)
+// ═══════════════════════════════════════════
 const writeLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 100,
@@ -31,19 +35,51 @@ const writeLimiter = rateLimit({
 // LECTURE
 // ═══════════════════════════════════════════
 router.get('/', validateRequest(listEcheancesSchema), echeanceController.list);
-router.get('/by-plan/:planScolariteId', echeanceController.listByPlan);
-router.get('/:id', validateRequest(echeanceIdSchema), echeanceController.getById);
+
+router.get(
+  '/by-plan/:planScolariteId',
+  echeanceController.listByPlan
+);
+
+// 🆕 Vue classe — DOIT être AVANT /:id
+router.get(
+  '/:id/eleves',
+  validateRequest(listElevesEcheanceSchema),
+  echeanceController.listEleves
+);
+
+router.get(
+  '/:id',
+  validateRequest(echeanceIdSchema),
+  echeanceController.getById
+);
 
 // ═══════════════════════════════════════════
 // ÉCRITURE
 // ═══════════════════════════════════════════
-router.post('/', writeLimiter, validateRequest(createEcheanceSchema), echeanceController.create);
-router.put('/:id', writeLimiter, validateRequest(updateEcheanceSchema), echeanceController.update);
+router.post(
+  '/',
+  writeLimiter,
+  validateRequest(createEcheanceSchema),
+  echeanceController.create
+);
+
+router.put(
+  '/:id',
+  writeLimiter,
+  validateRequest(updateEcheanceSchema),
+  echeanceController.update
+);
 
 // ═══════════════════════════════════════════
 // SUPPRESSION
 // ═══════════════════════════════════════════
-router.delete('/:id', writeLimiter, validateRequest(echeanceIdSchema), echeanceController.hardDelete);
+router.delete(
+  '/:id',
+  writeLimiter,
+  validateRequest(echeanceIdSchema),
+  echeanceController.hardDelete
+);
 
 export default router;
 

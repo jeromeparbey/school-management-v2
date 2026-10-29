@@ -22,17 +22,22 @@ const intCoerce = (min?: number, max?: number) => {
 // CREATE
 // ──────────────────────────────────────────
 export const createAffectationSchema = z.object({
-  body: z.object({
-    enseignantId: cuidLike,
-    classeId: cuidLike,
-    matiereId: cuidLike,
-    anneeScolaireId: cuidLike,
-    heuresHebdo: z.number().min(0).max(100).optional().default(0),
-    estPrincipal: z.boolean().optional().default(false),
-    valableDu: dateLike,
-    valableAu: dateLike.nullable().optional(),
-    estActive: z.boolean().optional().default(true),
-  }).strict(),
+  body: z
+    .object({
+      enseignantId: cuidLike,
+      classeId: cuidLike,
+      // ✅ Optionnel + nullable :
+      //   - null/absent → titulaire de classe (primaire)
+      //   - cuid → affectation à une matière spécifique
+      matiereId: cuidLike.nullable().optional(),
+      anneeScolaireId: cuidLike,
+      heuresHebdo: z.number().min(0).max(100).optional().default(0),
+      estPrincipal: z.boolean().optional().default(false),
+      valableDu: dateLike,
+      valableAu: dateLike.nullable().optional(),
+      estActive: z.boolean().optional().default(true),
+    })
+    .strict(),
   params: z.object({}).optional(),
   query: z.object({}).optional(),
 });
@@ -41,19 +46,23 @@ export const createAffectationSchema = z.object({
 // UPDATE
 // ──────────────────────────────────────────
 export const updateAffectationSchema = z.object({
-  body: z.object({
-    enseignantId: cuidLike.optional(),
-    classeId: cuidLike.optional(),
-    matiereId: cuidLike.optional(),
-    anneeScolaireId: cuidLike.optional(),
-    heuresHebdo: z.number().min(0).max(100).optional(),
-    estPrincipal: z.boolean().optional(),
-    valableDu: dateLike.optional(),
-    valableAu: dateLike.nullable().optional(),
-    estActive: z.boolean().optional(),
-  }).strict().refine((d) => Object.keys(d).length > 0, {
-    message: 'Au moins un champ doit être fourni',
-  }),
+  body: z
+    .object({
+      enseignantId: cuidLike.optional(),
+      classeId: cuidLike.optional(),
+      // ✅ nullable : permet de passer une matière → titulaire (matiereId = null)
+      matiereId: cuidLike.nullable().optional(),
+      anneeScolaireId: cuidLike.optional(),
+      heuresHebdo: z.number().min(0).max(100).optional(),
+      estPrincipal: z.boolean().optional(),
+      valableDu: dateLike.optional(),
+      valableAu: dateLike.nullable().optional(),
+      estActive: z.boolean().optional(),
+    })
+    .strict()
+    .refine((d) => Object.keys(d).length > 0, {
+      message: 'Au moins un champ doit être fourni',
+    }),
   params: z.object({ id: cuidLike }),
   query: z.object({}).optional(),
 });
@@ -71,22 +80,26 @@ export const affectationIdSchema = z.object({
 // LIST
 // ──────────────────────────────────────────
 export const listAffectationsSchema = z.object({
-  query: z.object({
-    page: intCoerce(1).optional().default(1),
-    limit: intCoerce(1, 200).optional().default(50),
-    search: z.string().trim().max(100).optional(),
-    enseignantId: cuidLike.optional(),
-    classeId: cuidLike.optional(),
-    matiereId: cuidLike.optional(),
-    anneeScolaireId: cuidLike.optional(),
-    estActive: booleanCoerce.optional(),
-    estPrincipal: booleanCoerce.optional(),
-    sortBy: z
-      .enum(['createdAt', 'heuresHebdo', 'valableDu'])
-      .optional()
-      .default('createdAt'),
-    sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
-  }).strict(),
+  query: z
+    .object({
+      page: intCoerce(1).optional().default(1),
+      limit: intCoerce(1, 200).optional().default(50),
+      search: z.string().trim().max(100).optional(),
+      enseignantId: cuidLike.optional(),
+      classeId: cuidLike.optional(),
+      // ✅ nullable : permet de filtrer "titulaires uniquement" (matiereId=null)
+      matiereId: cuidLike.nullable().optional(),
+      anneeScolaireId: cuidLike.optional(),
+      estActive: booleanCoerce.optional(),
+      estPrincipal: booleanCoerce.optional(),
+      estTitulaire: booleanCoerce.optional(),
+      sortBy: z
+        .enum(['createdAt', 'heuresHebdo', 'valableDu'])
+        .optional()
+        .default('createdAt'),
+      sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
+    })
+    .strict(),
   params: z.object({}).optional(),
   body: z.object({}).optional(),
 });
@@ -94,6 +107,12 @@ export const listAffectationsSchema = z.object({
 // ──────────────────────────────────────────
 // TYPES
 // ──────────────────────────────────────────
-export type CreateAffectationInput = z.infer<typeof createAffectationSchema>['body'];
-export type UpdateAffectationInput = z.infer<typeof updateAffectationSchema>['body'];
-export type ListAffectationsQuery = z.infer<typeof listAffectationsSchema>['query'];
+export type CreateAffectationInput = z.infer<
+  typeof createAffectationSchema
+>['body'];
+export type UpdateAffectationInput = z.infer<
+  typeof updateAffectationSchema
+>['body'];
+export type ListAffectationsQuery = z.infer<
+  typeof listAffectationsSchema
+>['query'];

@@ -3,259 +3,177 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 
-// ============================================
+// ═══════════════════════════════════════════════════════════
 // PAGES PUBLIQUES
-// ============================================
+// ═══════════════════════════════════════════════════════════
 import HomePage from './pages/home/HomePage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import VerifyOtpPage from './pages/auth/VerifyOtpPage';
-// ============================================
-// LAYOUT PROTÉGÉ
-// ============================================
-import DashboardLayout from './layouts/DashboardLayout';
 
-// ============================================
-// DISPATCHER DASHBOARD (par rôle)
-// ============================================
+// ═══════════════════════════════════════════════════════════
+// LAYOUTS
+// ═══════════════════════════════════════════════════════════
+import DashboardLayout from './layouts/DashboardLayout';
 import RoleDashboard from './layouts/RoleDashboard';
 
-// ============================================
-// PAGES DASHBOARD — DIRECTEUR (nouvelles) ✅
-// ============================================
-import MonEtablissementPage from './pages/dashboard/directeur/mon-etablissement/MonEtablissementPage';
-import StatistiquesPage from './pages/dashboard/directeur/statistiques/StatistiquesPage';
+// ═══════════════════════════════════════════════════════════
+// DIRECTEUR — ÉLÈVES
+// ═══════════════════════════════════════════════════════════
 import ElevesPage from './pages/dashboard/directeur/eleves/ElevesPage';
-import ClassesPage from './pages/dashboard/directeur/classes/ClassesPage';
-// ============================================
-// DIRECTEUR — SCOLARITÉ : CLASSES
-// ============================================
-
-// En haut, à côté des autres imports
-import NiveauxPage from './pages/dashboard/directeur/niveaux/NiveauxPage';
-import NiveauNouvellePage from './pages/dashboard/directeur/niveaux/NiveauNouvellePage';
-import NiveauDetailPage from './pages/dashboard/directeur/niveaux/NiveauDetailPage';
-import NiveauEditerPage from './pages/dashboard/directeur/niveaux/NiveauEditerPage';
-import ClasseNouvellePage from './pages/dashboard/directeur/classes/ClasseNouvellePage';
-import ClasseEditerPage from './pages/dashboard/directeur/classes/ClasseEditerPage';
-import ClasseDetailPage from './pages/dashboard/directeur/classes/ClasseDetailPage';
-import MatieresPage from './pages/dashboard/directeur/matieres/MatieresPage';
-import NotesPage from './pages/dashboard/directeur/notes/NotesPage';
-import BulletinsPage from './pages/dashboard/directeur/notes/BulletinsPage';
-import EnseignantsPage from './pages/dashboard/directeur/enseignants/EnseignantsPage';
-import PaiePage from './pages/dashboard/directeur/paie/PaiePage';
-import UtilisateurDetailPage from './pages/dashboard/directeur/utilisateurs/UtilisateurDetailPage';
-import UtilisateursPage from './pages/dashboard/directeur/utilisateurs/UtilisateursPage';
-import UtilisateurNouveauPage from './pages/dashboard/directeur/utilisateurs/UtilisateurNouveauPage';
-import UtilisateurEditerPage from './pages/dashboard/directeur/utilisateurs/UtilisateurEditerPage';
-import MonProfilPage from './pages/dashboard/shared/MonProfilPage';
-import RecusListPage from './pages/dashboard/directeur/recus/RecusListPage';
-import RecuDetailPage from './pages/dashboard/directeur/recus/RecuDetailPage';
-// ============================================
-// PAGES DASHBOARD — À VENIR (Directeur)
-// ============================================
-
-// --- Élèves (détails) ---
-// import EleveDetailPage from './pages/dashboard/directeur/eleves/EleveDetailPage';
-// import NouvelElevePage from './pages/dashboard/directeur/eleves/NouvelElevePage';
-// import InscriptionsPage from './pages/dashboard/directeur/eleves/InscriptionsPage';
-// import ResponsablesPage from './pages/dashboard/directeur/eleves/ResponsablesPage';
-
-// --- Niveaux ---
-// import NiveauxPage from './pages/dashboard/directeur/niveaux/NiveauxPage';
-
-// --- Appréciations ---
-// import AppreciationsPage from './pages/dashboard/directeur/notes/AppreciationsPage';
-
-// --- Emploi du temps ---
-// import EmploiTempsPage from './pages/dashboard/directeur/emploi-temps/EmploiTempsPage';
-
-// --- Affectations ---
-// import AffectationsPage from './pages/dashboard/directeur/enseignants/AffectationsPage';
-
-// --- RH : présences / heures supp / absences / avances / réclamations ---
-// import PresencesPage from './pages/dashboard/directeur/presences/PresencesPage';
-// import HeuresSuppPage from './pages/dashboard/directeur/heures-supp/HeuresSuppPage';
-// import AbsencesPage from './pages/dashboard/directeur/absences/AbsencesPage';
-// import AvancesPage from './pages/dashboard/directeur/avances/AvancesPage';
-// import ReclamationsPage from './pages/dashboard/directeur/reclamations/ReclamationsPage';
-
-// --- Finances : reçus / échéances / plans / réductions ---
-// import NouveauPaiementPage from './pages/dashboard/directeur/paiements/NouveauPaiementPage';
-// import RecusPage from './pages/dashboard/directeur/recus/RecusPage';
-// import EcheancesPage from './pages/dashboard/directeur/echeances/EcheancesPage';
-// import PlansScolaritePage from './pages/dashboard/directeur/plans-scolarite/PlansScolaritePage';
-// import ReductionsPage from './pages/dashboard/directeur/reductions/ReductionsPage';
-
-// --- Administration ---
-// import AnneesScolairesPage from './pages/dashboard/directeur/admin/AnneesScolairesPage';
-// import PeriodesPage from './pages/dashboard/directeur/admin/PeriodesPage';
-// import ReglesEvaluationPage from './pages/dashboard/directeur/admin/ReglesEvaluationPage';
-// import UtilisateursPage from './pages/dashboard/directeur/admin/UtilisateursPage';
-// import AuditPage from './pages/dashboard/directeur/admin/AuditPage';
-// import ParametresPage from './pages/dashboard/directeur/admin/ParametresPage';
-
-// ============================================
-// PAGES DASHBOARD — ENSEIGNANT (vues personnelles)
-// ============================================
-// import EnseignantDashboardPage from './pages/dashboard/enseignant/EnseignantDashboardPage';
-// import MesClassesPage from './pages/dashboard/enseignant/MesClassesPage';
-// import MonEmploiTempsPage from './pages/dashboard/enseignant/MonEmploiTempsPage';
-// import MesPresencesPage from './pages/dashboard/enseignant/MesPresencesPage';
-// import MesHeuresSuppPage from './pages/dashboard/enseignant/MesHeuresSuppPage';
-// import MesAbsencesPage from './pages/dashboard/enseignant/MesAbsencesPage';
-// import MesAvancesPage from './pages/dashboard/enseignant/MesAvancesPage';
-// import MaPaiePage from './pages/dashboard/enseignant/MaPaiePage';
-// import MesReclamationsPage from './pages/dashboard/enseignant/MesReclamationsPage';
-
-// ============================================
-// PAGES DASHBOARD — PARENT (vues personnelles)
-// ============================================
-// import ParentDashboardPage from './pages/dashboard/parent/ParentDashboardPage';
-// import MesEnfantsPage from './pages/dashboard/parent/MesEnfantsPage';
-// import BulletinsEnfantPage from './pages/dashboard/parent/BulletinsEnfantPage';
-// import MesPaiementsPage from './pages/dashboard/parent/MesPaiementsPage';
-// import MesRecusPage from './pages/dashboard/parent/MesRecusPage';
-
-// ============================================
-// PAGES DASHBOARD — ADMIN (système)
-// ============================================
-// import AdminDashboardPage from './pages/dashboard/admin/AdminDashboardPage';
-
-// ============================================
-// PAGES DASHBOARD — SECRÉTAIRE
-// ============================================
-// (Rien à importer ici : SecretaireDashboardPage est utilisé dans RoleDashboard)
-
-// ============================================
-// 🆕 PAGES DASHBOARD — SUPER_ADMIN
-// ============================================
-// ✅ SEUL LE DASHBOARD PRINCIPAL EXISTE POUR L'INSTANT
-import PeriodesPage from './pages/dashboard/directeur/periodes/PeriodesPage';
-import PeriodeNouvellePage from './pages/dashboard/directeur/periodes/PeriodeNouvellePage';
-import PeriodeDetailPage from './pages/dashboard/directeur/periodes/PeriodeDetailPage';
-import PeriodeEditerPage from './pages/dashboard/directeur/periodes/PeriodeEditerPage';
-import PlansScolaritePage from './pages/dashboard/directeur/plans-scolarite/PlansScolaritePage';
-import PlanScolariteNouvellePage from './pages/dashboard/directeur/plans-scolarite/PlanScolariteNouvellePage';
-import PlanScolariteDetailPage from './pages/dashboard/directeur/plans-scolarite/PlanScolariteDetailPage';
-import PlanScolariteEditerPage from './pages/dashboard/directeur/plans-scolarite/PlanScolariteEditerPage';
-import EcheancesPage from './pages/dashboard/directeur/echeances/EcheancesPage';
-import EcheanceNouvellePage from './pages/dashboard/directeur/echeances/EcheanceNouvellePage';
-import EcheanceEditerPage from './pages/dashboard/directeur/echeances/EcheanceEditerPage';
-import EcheanceDetailPage from './pages/dashboard/directeur/echeances/EcheanceDetailPage';
-import SuperAdminDashboardPage from './pages/dashboard/super-admin/SuperAdminDashboardPage';
 import EleveNouvellePage from './pages/dashboard/directeur/eleves/EleveNouvellePage';
 import EleveDetailPage from './pages/dashboard/directeur/eleves/EleveDetailPage';
 import EleveEditerPage from './pages/dashboard/directeur/eleves/EleveEditerPage';
-import EnseignantNouvellePage from './pages/dashboard/directeur/enseignants/EnseignantNouvellePage';
-import EnseignantDetailPage from './pages/dashboard/directeur/enseignants/EnseignantDetailPage';
-import EnseignantEditerPage from './pages/dashboard/directeur/enseignants/EnseignantEditerPage';
+import ImportElevesPage from './pages/dashboard/directeur/import/ImportElevesPage';
 
-import PaiementsListPage from './pages/dashboard/directeur/paiements/PaiementsListPage';
-import PaiementNouveauPage from './pages/dashboard/directeur/paiements/PaiementNouveauPage';
-import PaiementDetailPage from './pages/dashboard/directeur/paiements/PaiementDetailPage';
-// 🆕 Inscriptions
+// ═══════════════════════════════════════════════════════════
+// DIRECTEUR — INSCRIPTIONS
+// ═══════════════════════════════════════════════════════════
 import InscriptionsListPage from './pages/dashboard/directeur/inscriptions/InscriptionsListPage';
 import InscriptionNouvellePage from './pages/dashboard/directeur/inscriptions/InscriptionNouvellePage';
 import InscriptionDetailPage from './pages/dashboard/directeur/inscriptions/InscriptionDetailPage';
 import InscriptionEditerPage from './pages/dashboard/directeur/inscriptions/InscriptionEditerPage';
-// En haut, à côté des autres imports
+
+// ═══════════════════════════════════════════════════════════
+// DIRECTEUR — CLASSES & NIVEAUX
+// ═══════════════════════════════════════════════════════════
+import ClassesPage from './pages/dashboard/directeur/classes/ClassesPage';
+import ClasseNouvellePage from './pages/dashboard/directeur/classes/ClasseNouvellePage';
+import ClasseDetailPage from './pages/dashboard/directeur/classes/ClasseDetailPage';
+import ClasseEditerPage from './pages/dashboard/directeur/classes/ClasseEditerPage';
+
+import NiveauxPage from './pages/dashboard/directeur/niveaux/NiveauxPage';
+import NiveauNouvellePage from './pages/dashboard/directeur/niveaux/NiveauNouvellePage';
+import NiveauDetailPage from './pages/dashboard/directeur/niveaux/NiveauDetailPage';
+import NiveauEditerPage from './pages/dashboard/directeur/niveaux/NiveauEditerPage';
+
+// ═══════════════════════════════════════════════════════════
+// DIRECTEUR — MATIÈRES
+// ═══════════════════════════════════════════════════════════
+import MatieresPage from './pages/dashboard/directeur/matieres/MatieresPage';
+import MatiereNouvellePage from './pages/dashboard/directeur/matieres/MatiereNouvellePage';
+import MatiereDetailPage from './pages/dashboard/directeur/matieres/MatiereDetailPage';
+import MatiereEditerPage from './pages/dashboard/directeur/matieres/MatiereEditerPage';
+
+// ═══════════════════════════════════════════════════════════
+// DIRECTEUR — EMPLOI DU TEMPS
+// ═══════════════════════════════════════════════════════════
+import EmploiTempsPage from './pages/dashboard/directeur/emploi-temps/EmploiTempsPage';
+import EmploiTempsNouvellePage from './pages/dashboard/directeur/emploi-temps/EmploiTempsNouvellePage';
+import EmploiTempsDetailPage from './pages/dashboard/directeur/emploi-temps/EmploiTempsDetailPage';
+import EmploiTempsEditerPage from './pages/dashboard/directeur/emploi-temps/EmploiTempsEditerPage';
+
+// ═══════════════════════════════════════════════════════════
+// DIRECTEUR — NOTES & BULLETINS
+// ═══════════════════════════════════════════════════════════
+import NotesPage from './pages/dashboard/directeur/notes/NotesPage';
+import BulletinsPage from './pages/dashboard/directeur/notes/BulletinsPage';
+
+// ═══════════════════════════════════════════════════════════
+// DIRECTEUR — ENSEIGNANTS
+// ═══════════════════════════════════════════════════════════
+import EnseignantsPage from './pages/dashboard/directeur/enseignants/EnseignantsPage';
+import EnseignantNouvellePage from './pages/dashboard/directeur/enseignants/EnseignantNouvellePage';
+import EnseignantDetailPage from './pages/dashboard/directeur/enseignants/EnseignantDetailPage';
+import EnseignantEditerPage from './pages/dashboard/directeur/enseignants/EnseignantEditerPage';
+
+// ═══════════════════════════════════════════════════════════
+// DIRECTEUR — AFFECTATIONS
+// ═══════════════════════════════════════════════════════════
+import AffectationsPage from './pages/dashboard/directeur/affectations/AffectationsPage';
+import AffectationNouvellePage from './pages/dashboard/directeur/affectations/AffectationNouvellePage';
+import AffectationDetailPage from './pages/dashboard/directeur/affectations/AffectationDetailPage';
+import AffectationEditerPage from './pages/dashboard/directeur/affectations/AffectationEditerPage';
+
+// ═══════════════════════════════════════════════════════════
+// DIRECTEUR — ANNÉES SCOLAIRES
+// ═══════════════════════════════════════════════════════════
 import AnneesScolairesPage from './pages/dashboard/directeur/annees-scolaires/AnneesScolairesPage';
 import AnneeScolaireNouvellePage from './pages/dashboard/directeur/annees-scolaires/AnneeScolaireNouvellePage';
 import AnneeScolaireDetailPage from './pages/dashboard/directeur/annees-scolaires/AnneeScolaireDetailPage';
 import AnneeScolaireEditerPage from './pages/dashboard/directeur/annees-scolaires/AnneeScolaireEditerPage';
-// ⏳ À créer — Décommenter au fur et à mesure
+
+// ═══════════════════════════════════════════════════════════
+// DIRECTEUR — PÉRIODES
+// ═══════════════════════════════════════════════════════════
+import PeriodesPage from './pages/dashboard/directeur/periodes/PeriodesPage';
+import PeriodeNouvellePage from './pages/dashboard/directeur/periodes/PeriodeNouvellePage';
+import PeriodeDetailPage from './pages/dashboard/directeur/periodes/PeriodeDetailPage';
+import PeriodeEditerPage from './pages/dashboard/directeur/periodes/PeriodeEditerPage';
+
+// ═══════════════════════════════════════════════════════════
+// DIRECTEUR — PLANS DE SCOLARITÉ
+// ═══════════════════════════════════════════════════════════
+import PlansScolaritePage from './pages/dashboard/directeur/plans-scolarite/PlansScolaritePage';
+import PlanScolariteNouvellePage from './pages/dashboard/directeur/plans-scolarite/PlanScolariteNouvellePage';
+import PlanScolariteDetailPage from './pages/dashboard/directeur/plans-scolarite/PlanScolariteDetailPage';
+import PlanScolariteEditerPage from './pages/dashboard/directeur/plans-scolarite/PlanScolariteEditerPage';
+
+// ═══════════════════════════════════════════════════════════
+// DIRECTEUR — ÉCHÉANCES
+// ═══════════════════════════════════════════════════════════
+import EcheancesPage from './pages/dashboard/directeur/echeances/EcheancesPage';
+import EcheanceNouvellePage from './pages/dashboard/directeur/echeances/EcheanceNouvellePage';
+import EcheanceEditerPage from './pages/dashboard/directeur/echeances/EcheanceEditerPage';
+import EcheanceDetailPage from './pages/dashboard/directeur/echeances/EcheanceDetailPage';
+
+// ═══════════════════════════════════════════════════════════
+// DIRECTEUR — PAIEMENTS & REÇUS
+// ═══════════════════════════════════════════════════════════
+import PaiementsListPage from './pages/dashboard/directeur/paiements/PaiementsListPage';
+import PaiementNouveauPage from './pages/dashboard/directeur/paiements/PaiementNouveauPage';
+import PaiementDetailPage from './pages/dashboard/directeur/paiements/PaiementDetailPage';
+import RecusListPage from './pages/dashboard/directeur/recus/RecusListPage';
+import RecuDetailPage from './pages/dashboard/directeur/recus/RecuDetailPage';
+
+// ═══════════════════════════════════════════════════════════
+// DIRECTEUR — PAIE & STATISTIQUES
+// ═══════════════════════════════════════════════════════════
+import PaiePage from './pages/dashboard/directeur/paie/PaiePage';
+import StatistiquesPage from './pages/dashboard/directeur/statistiques/StatistiquesPage';
+
+// ═══════════════════════════════════════════════════════════
+// DIRECTEUR — UTILISATEURS
+// ═══════════════════════════════════════════════════════════
+import UtilisateursPage from './pages/dashboard/directeur/utilisateurs/UtilisateursPage';
+import UtilisateurNouveauPage from './pages/dashboard/directeur/utilisateurs/UtilisateurNouveauPage';
+import UtilisateurDetailPage from './pages/dashboard/directeur/utilisateurs/UtilisateurDetailPage';
+import UtilisateurEditerPage from './pages/dashboard/directeur/utilisateurs/UtilisateurEditerPage';
+
+// ═══════════════════════════════════════════════════════════
+// DIRECTEUR — ÉTABLISSEMENT & PROFIL
+// ═══════════════════════════════════════════════════════════
+import MonEtablissementPage from './pages/dashboard/directeur/mon-etablissement/MonEtablissementPage';
+import MonProfilPage from './pages/dashboard/shared/MonProfilPage';
+
+// ═══════════════════════════════════════════════════════════
+// SUPER_ADMIN — MULTI-TENANT
+// ═══════════════════════════════════════════════════════════
 import SuperAdminEtablissementsPage from './pages/dashboard/super-admin/EtablissementsPage';
 import SuperAdminEtablissementNouveauPage from './pages/dashboard/super-admin/EtablissementNouveauPage';
 import SuperAdminEtablissementDetailPage from './pages/dashboard/super-admin/EtablissementDetailPage';
-// import SuperAdminProvisioningPage from './pages/dashboard/super-admin/ProvisioningPage';
-// import SuperAdminAbonnementsPage from './pages/dashboard/super-admin/AbonnementsPage';
-// import SuperAdminFacturesPage from './pages/dashboard/super-admin/FacturesPage';
-// import SuperAdminUtilisateursGlobauxPage from './pages/dashboard/super-admin/UtilisateursGlobauxPage';
-// import SuperAdminRolesGlobauxPage from './pages/dashboard/super-admin/RolesGlobauxPage';
-// import SuperAdminStatistiquesGlobalesPage from './pages/dashboard/super-admin/StatistiquesGlobalesPage';
-// import SuperAdminStatsServeurPage from './pages/dashboard/super-admin/StatsServeurPage';
-// import SuperAdminSauvegardesPage from './pages/dashboard/super-admin/SauvegardesPage';
-// import SuperAdminSchemasPage from './pages/dashboard/super-admin/SchemasPage';
-// import SuperAdminConfigPage from './pages/dashboard/super-admin/ConfigPage';
 
-// ============================================
-// 🆕 PAGES DASHBOARD — ELEVE
-// ============================================
-// ⏳ À créer — Décommenter au fur et à mesure
-// import EleveMesNotesPage from './pages/dashboard/eleve/MesNotesPage';
-// import EleveMesBulletinsPage from './pages/dashboard/eleve/MesBulletinsPage';
-// import EleveMonEmploiTempsPage from './pages/dashboard/eleve/MonEmploiTempsPage';
-// import EleveMesMatieresPage from './pages/dashboard/eleve/MesMatieresPage';
-// import EleveMesProfesseursPage from './pages/dashboard/eleve/MesProfesseursPage';
-// import EleveMesObjectifsPage from './pages/dashboard/eleve/MesObjectifsPage';
-// import EleveMesGroupesTDPage from './pages/dashboard/eleve/MesGroupesTDPage';
-// import EleveMesDocumentsPage from './pages/dashboard/eleve/MesDocumentsPage';
-// import EleveMesEpreuvesPage from './pages/dashboard/eleve/MesEpreuvesPage';
-// import EleveMesCorrectionsPage from './pages/dashboard/eleve/MesCorrectionsPage';
-// import EleveMesPresencesPage from './pages/dashboard/eleve/MesPresencesPage';
-// import EleveMesAbsencesPage from './pages/dashboard/eleve/MesAbsencesPage';
-// import EleveMesAppreciationsPage from './pages/dashboard/eleve/MesAppreciationsPage';
-// import EleveBibliothequePage from './pages/dashboard/eleve/BibliothequePage';
-// import EleveMesEmpruntsPage from './pages/dashboard/eleve/MesEmpruntsPage';
-// import EleveMonProfilPage from './pages/dashboard/eleve/MonProfilPage';
-// import EleveSupportPage from './pages/dashboard/eleve/SupportPage';
-// import EleveFaqPage from './pages/dashboard/eleve/FaqPage';
+// ═══════════════════════════════════════════════════════════
+// ROUTES PROTECTED / SUPER_ADMIN / PUBLIC
+// ═══════════════════════════════════════════════════════════
 
-// ============================================
-// 🆕 PAGES DASHBOARD — SURVEILLANT
-// ============================================
-// ⏳ À créer — Décommenter au fur et à mesure
-// import SurveillantMesZonesPage from './pages/dashboard/surveillant/MesZonesPage';
-// import SurveillantSurveillancesPage from './pages/dashboard/surveillant/SurveillancesPage';
-// import SurveillantMonPlanningPage from './pages/dashboard/surveillant/MonPlanningPage';
-// import SurveillantSignalerIncidentPage from './pages/dashboard/surveillant/SignalerIncidentPage';
-// import SurveillantMesIncidentsPage from './pages/dashboard/surveillant/MesIncidentsPage';
-// import SurveillantIncidentsTraitesPage from './pages/dashboard/surveillant/IncidentsTraitesPage';
-// import SurveillantRechercheElevePage from './pages/dashboard/surveillant/RechercheElevePage';
-// import SurveillantPresencesElevesPage from './pages/dashboard/surveillant/PresencesElevesPage';
-// import SurveillantAbsencesElevesPage from './pages/dashboard/surveillant/AbsencesElevesPage';
-// import SurveillantMesStatistiquesPage from './pages/dashboard/surveillant/MesStatistiquesPage';
-
-// ============================================
-// 🆕 PAGES DASHBOARD — BIBLIOTHECAIRE
-// ============================================
-// ⏳ À créer — Décommenter au fur et à mesure
-// import BibliothecaireLivresPage from './pages/dashboard/bibliothecaire/LivresPage';
-// import BibliothecaireLivreNouveauPage from './pages/dashboard/bibliothecaire/LivreNouveauPage';
-// import BibliothecaireCategoriesPage from './pages/dashboard/bibliothecaire/CategoriesPage';
-// import BibliothecaireAuteursPage from './pages/dashboard/bibliothecaire/AuteursPage';
-// import BibliothecaireEmpruntsPage from './pages/dashboard/bibliothecaire/EmpruntsPage';
-// import BibliothecaireEmpruntNouveauPage from './pages/dashboard/bibliothecaire/EmpruntNouveauPage';
-// import BibliothecaireRetoursPage from './pages/dashboard/bibliothecaire/RetoursPage';
-// import BibliothecaireEmpruntsRetardPage from './pages/dashboard/bibliothecaire/EmpruntsRetardPage';
-// import BibliothecairePenalitesPage from './pages/dashboard/bibliothecaire/PenalitesPage';
-
-// ============================================
-// 🆕 PAGES PARTAGÉES (Messages, Communiqués, Chat, Notifications)
-// ============================================
-// ⏳ À créer — Décommenter au fur et à mesure
-// import MessagesPage from './pages/dashboard/shared/MessagesPage';
-// import CommuniquesPage from './pages/dashboard/shared/CommuniquesPage';
-// import ChatPage from './pages/dashboard/shared/ChatPage';
-// import NotificationsPage from './pages/dashboard/shared/NotificationsPage';
-// import MonProfilPage from './pages/dashboard/shared/MonProfilPage';
-
-// ============================================
-// COMPOSANT PROTECTED ROUTE
-// ============================================
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const { user, isInitializing } = useAuth();
 
   if (isInitializing) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-emerald-950">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 font-medium">Chargement...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-emerald-600 mx-auto" />
+          <p className="mt-4 text-gray-600 dark:text-emerald-200 font-medium">
+            Chargement...
+          </p>
         </div>
       </div>
     );
@@ -268,18 +186,19 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return <>{children}</>;
 };
 
-// ============================================
-// 🆕 COMPOSANT SUPER_ADMIN ROUTE
-// ============================================
-const SuperAdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const SuperAdminRoute: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const { user, isInitializing, isSuperAdmin } = useAuth();
 
   if (isInitializing) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-emerald-950">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-red-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 font-medium">Chargement...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-red-600 mx-auto" />
+          <p className="mt-4 text-gray-600 dark:text-emerald-200 font-medium">
+            Chargement...
+          </p>
         </div>
       </div>
     );
@@ -296,18 +215,17 @@ const SuperAdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) 
   return <>{children}</>;
 };
 
-// ============================================
-// COMPOSANT PUBLIC ROUTE
-// ============================================
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isInitializing } = useAuth();
 
   if (isInitializing) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-emerald-950">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 font-medium">Chargement...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-emerald-600 mx-auto" />
+          <p className="mt-4 text-gray-600 dark:text-emerald-200 font-medium">
+            Chargement...
+          </p>
         </div>
       </div>
     );
@@ -320,259 +238,295 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return <>{children}</>;
 };
 
-// ============================================
-// APP PRINCIPALE
-// ============================================
+// ═══════════════════════════════════════════════════════════
+// APP
+// ═══════════════════════════════════════════════════════════
+
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          {/* ============================================
-              ROUTES PUBLIQUES
-              ============================================ */}
+        <ThemeProvider>
+          <Routes>
+            {/* ═══════════════════════════════════════════
+                ROUTES PUBLIQUES
+                ═══════════════════════════════════════════ */}
+            <Route path="/" element={<HomePage />} />
+            <Route
+              path="/login"
+              element={
+                <PublicRoute>
+                  <LoginPage />
+                </PublicRoute>
+              }
+            />
+            <Route
+              path="/register"
+              element={
+                <PublicRoute>
+                  <RegisterPage />
+                </PublicRoute>
+              }
+            />
+            <Route
+              path="/verify-otp"
+              element={
+                <PublicRoute>
+                  <VerifyOtpPage />
+                </PublicRoute>
+              }
+            />
+            <Route
+              path="/verify-reset-otp"
+              element={
+                <PublicRoute>
+                  <VerifyOtpPage />
+                </PublicRoute>
+              }
+            />
+            <Route
+              path="/forgot-password"
+              element={
+                <PublicRoute>
+                  <ForgotPasswordPage />
+                </PublicRoute>
+              }
+            />
+            <Route
+              path="/reset-password"
+              element={
+                <PublicRoute>
+                  <ResetPasswordPage />
+                </PublicRoute>
+              }
+            />
 
-          <Route path="/" element={<HomePage />} />
+            {/* ═══════════════════════════════════════════
+                DASHBOARD PROTÉGÉ
+                ═══════════════════════════════════════════ */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout />
+                </ProtectedRoute>
+              }
+            >
+              {/* Dispatch par rôle */}
+              <Route index element={<RoleDashboard />} />
 
-          <Route
-            path="/login"
-            element={<PublicRoute><LoginPage /></PublicRoute>}
-          />
+              {/* ─── Statistiques ─── */}
+              <Route path="statistiques" element={<StatistiquesPage />} />
 
-          <Route
-            path="/register"
-            element={<PublicRoute><RegisterPage /></PublicRoute>}
-          />
+              {/* ─── Élèves ─── */}
+              <Route path="eleves" element={<ElevesPage />} />
+              <Route path="eleves/nouveau" element={<EleveNouvellePage />} />
+              <Route path="eleves/:id/editer" element={<EleveEditerPage />} />
+              <Route path="eleves/:id" element={<EleveDetailPage />} />
+              <Route path="import/eleves" element={<ImportElevesPage />} />
 
-          <Route
-            path="/verify-otp"
-            element={<PublicRoute><VerifyOtpPage /></PublicRoute>}
-          />
-          <Route
-            path="/verify-reset-otp"
-            element={<PublicRoute><VerifyOtpPage /></PublicRoute>}
-          />
-          <Route
-            path="/forgot-password"
-            element={<PublicRoute><ForgotPasswordPage /></PublicRoute>}
-          />
+              {/* ─── Inscriptions ─── */}
+              <Route
+                path="eleves/inscriptions"
+                element={<InscriptionsListPage />}
+              />
+              <Route
+                path="inscriptions/nouvelle"
+                element={<InscriptionNouvellePage />}
+              />
+              <Route
+                path="inscriptions/:id/editer"
+                element={<InscriptionEditerPage />}
+              />
+              <Route
+                path="inscriptions/:id"
+                element={<InscriptionDetailPage />}
+              />
 
-          <Route
-            path="/reset-password"
-            element={<PublicRoute><ResetPasswordPage /></PublicRoute>}
-          />
+              {/* ─── Classes ─── */}
+              <Route path="classes" element={<ClassesPage />} />
+              <Route path="classes/nouveau" element={<ClasseNouvellePage />} />
+              <Route path="classes/:id/editer" element={<ClasseEditerPage />} />
+              <Route path="classes/:id" element={<ClasseDetailPage />} />
 
-          {/* ============================================
-              ROUTES PROTÉGÉES (avec layout imbriqué)
-              ============================================ */}
+              {/* ─── Niveaux ─── */}
+              <Route path="niveaux" element={<NiveauxPage />} />
+              <Route path="niveaux/nouveau" element={<NiveauNouvellePage />} />
+              <Route path="niveaux/:id/editer" element={<NiveauEditerPage />} />
+              <Route path="niveaux/:id" element={<NiveauDetailPage />} />
 
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <DashboardLayout />
-              </ProtectedRoute>
-            }
-          >
-            {/* -------- TABLEAU DE BORD (dispatché par rôle) -------- */}
-            <Route index element={<RoleDashboard />} />
+              {/* ─── Matières ─── */}
+              <Route path="matieres" element={<MatieresPage />} />
+              <Route
+                path="matieres/nouveau"
+                element={<MatiereNouvellePage />}
+              />
+              <Route
+                path="matieres/:id/editer"
+                element={<MatiereEditerPage />}
+              />
+              <Route path="matieres/:id" element={<MatiereDetailPage />} />
 
-            {/* ============================================
-                DIRECTEUR — STATISTIQUES ✅
-                ============================================ */}
-            <Route path="statistiques" element={<StatistiquesPage />} />
+              {/* ─── Emploi du temps ─── */}
+              <Route path="emploi-temps" element={<EmploiTempsPage />} />
+              <Route
+                path="emploi-temps/nouveau"
+                element={<EmploiTempsNouvellePage />}
+              />
+              <Route
+                path="emploi-temps/:id/editer"
+                element={<EmploiTempsEditerPage />}
+              />
+              <Route
+                path="emploi-temps/:id"
+                element={<EmploiTempsDetailPage />}
+              />
 
-            {/* ============================================
-                DIRECTEUR — SCOLARITÉ : ÉLÈVES ✅
-                ============================================ */}
-            <Route path="eleves" element={<ElevesPage />} />
-            <Route path="eleves/nouveau" element={<EleveNouvellePage />} />
-<Route path="eleves/:id/editer" element={<EleveEditerPage />} />
-<Route path="eleves/:id" element={<EleveDetailPage />} />
+              {/* ─── Notes & Bulletins ─── */}
+              <Route path="notes" element={<NotesPage />} />
+              <Route path="notes/saisie" element={<NotesPage />} />
+              <Route path="notes/bulletins" element={<BulletinsPage />} />
+              <Route path="bulletins" element={<BulletinsPage />} />
 
-<Route path="periodes" element={<PeriodesPage />} />
-<Route path="periodes/nouveau" element={<PeriodeNouvellePage />} />
-<Route path="periodes/:id/editer" element={<PeriodeEditerPage />} />
-<Route path="periodes/:id" element={<PeriodeDetailPage />} />
-            {/* <Route path="eleves/nouveau" element={<NouvelElevePage />} /> */}
-            {/* <Route path="eleves/:id" element={<EleveDetailPage />} /> */}
-            {/* <Route path="eleves/inscriptions" element={<InscriptionsPage />} /> */}
-            {/* <Route path="eleves/responsables" element={<ResponsablesPage />} /> */}
-            <Route path="niveaux" element={<NiveauxPage />} />
-<Route path="niveaux/nouveau" element={<NiveauNouvellePage />} />
-<Route path="niveaux/:id/editer" element={<NiveauEditerPage />} />
-<Route path="niveaux/:id" element={<NiveauDetailPage />} />
+              {/* ─── Enseignants ─── */}
+              <Route path="enseignants" element={<EnseignantsPage />} />
+              <Route
+                path="enseignants/nouveau"
+                element={<EnseignantNouvellePage />}
+              />
+              <Route
+                path="enseignants/:id/editer"
+                element={<EnseignantEditerPage />}
+              />
+              <Route path="enseignants/:id" element={<EnseignantDetailPage />} />
 
-<Route path="echeances" element={<EcheancesPage />} />
-<Route path="echeances/nouveau" element={<EcheanceNouvellePage />} />
-<Route path="echeances/:id/editer" element={<EcheanceEditerPage />} />
-<Route path="echeances/:id" element={<EcheanceDetailPage />} />
-            {/* ============================================
+              {/* ─── Affectations ─── */}
+              <Route path="affectations" element={<AffectationsPage />} />
+              <Route
+                path="affectations/nouveau"
+                element={<AffectationNouvellePage />}
+              />
+              <Route
+                path="affectations/:id/editer"
+                element={<AffectationEditerPage />}
+              />
+              <Route
+                path="affectations/:id"
+                element={<AffectationDetailPage />}
+              />
 
-            {/* ============================================
-    DIRECTEUR — SCOLARITÉ : INSCRIPTIONS ✅
-    ⚠️ ORDRE CRITIQUE : "nouvelle" AVANT ":id"
-    ============================================ */}
-<Route path="eleves/inscriptions" element={<InscriptionsListPage />} />
-<Route path="inscriptions/nouvelle" element={<InscriptionNouvellePage />} />
-<Route path="inscriptions/:id/editer" element={<InscriptionEditerPage />} />
-<Route path="inscriptions/:id" element={<InscriptionDetailPage />} />
-                DIRECTEUR — SCOLARITÉ : CLASSES & MATIÈRES ✅
-                ============================================ */
-            <Route path="classes" element={<ClassesPage />} />
-            <Route path="classes" element={<ClassesPage />} />
-<Route path="classes/nouveau" element={<ClasseNouvellePage />} />
-<Route path="classes/:id/editer" element={<ClasseEditerPage />} />
-<Route path="classes/:id" element={<ClasseDetailPage />} />
+              {/* ─── Années scolaires ─── */}
+              <Route path="annees" element={<AnneesScolairesPage />} />
+              <Route
+                path="annees-scolaires/nouveau"
+                element={<AnneeScolaireNouvellePage />}
+              />
+              <Route
+                path="annees-scolaires/:id/editer"
+                element={<AnneeScolaireEditerPage />}
+              />
+              <Route
+                path="annees-scolaires/:id"
+                element={<AnneeScolaireDetailPage />}
+              />
 
-            <Route path="matieres" element={<MatieresPage />} />
-            {/* <Route path="niveaux" element={<NiveauxPage />} /> */}
+              {/* ─── Périodes ─── */}
+              <Route path="periodes" element={<PeriodesPage />} />
+              <Route
+                path="periodes/nouveau"
+                element={<PeriodeNouvellePage />}
+              />
+              <Route
+                path="periodes/:id/editer"
+                element={<PeriodeEditerPage />}
+              />
+              <Route path="periodes/:id" element={<PeriodeDetailPage />} />
 
-            {/* ============================================
-                DIRECTEUR — SCOLARITÉ : NOTES & BULLETINS ✅
-                ============================================ */}
-            <Route path="notes" element={<NotesPage />} />
-            <Route path="notes/saisie" element={<NotesPage />} />
-            <Route path="notes/bulletins" element={<BulletinsPage />} />
-            <Route path="bulletins" element={<BulletinsPage />} />
-            {/* <Route path="notes/appreciations" element={<AppreciationsPage />} /> */}
-            {/* <Route path="appreciations" element={<AppreciationsPage />} /> */}
+              {/* ─── Plans de scolarité ─── */}
+              <Route path="plans-scolarite" element={<PlansScolaritePage />} />
+              <Route
+                path="plans-scolarite/nouveau"
+                element={<PlanScolariteNouvellePage />}
+              />
+              <Route
+                path="plans-scolarite/:id/editer"
+                element={<PlanScolariteEditerPage />}
+              />
+              <Route
+                path="plans-scolarite/:id"
+                element={<PlanScolariteDetailPage />}
+              />
 
-            <Route path="plans-scolarite" element={<PlansScolaritePage />} />
-<Route path="plans-scolarite/nouveau" element={<PlanScolariteNouvellePage />} />
-<Route path="plans-scolarite/:id/editer" element={<PlanScolariteEditerPage />} />
-<Route path="plans-scolarite/:id" element={<PlanScolariteDetailPage />} />
-           {/* ═══════════════════════════════════════════
-    DIRECTEUR — ANNÉES SCOLAIRES ✅
-    ⚠️ ORDRE CRITIQUE : routes fixes AVANT :id
-    ═══════════════════════════════════════════ */}
-<Route path="annees" element={<AnneesScolairesPage />} />
-<Route path="annees-scolaires/nouveau" element={<AnneeScolaireNouvellePage />} />
-<Route path="annees-scolaires/:id/editer" element={<AnneeScolaireEditerPage />} />
-<Route path="annees-scolaires/:id" element={<AnneeScolaireDetailPage />} />
-            {/* ============================================
-                DIRECTEUR — SCOLARITÉ : EMPLOI DU TEMPS
-                ============================================ */}
-            {/* <Route path="emploi-temps" element={<EmploiTempsPage />} /> */}
-             <Route path="mon-etablissement" element={<MonEtablissementPage />} />
+              {/* ─── Échéances ─── */}
+              <Route path="echeances" element={<EcheancesPage />} />
+              <Route
+                path="echeances/nouveau"
+                element={<EcheanceNouvellePage />}
+              />
+              <Route
+                path="echeances/:id/editer"
+                element={<EcheanceEditerPage />}
+              />
+              <Route path="echeances/:id" element={<EcheanceDetailPage />} />
 
-            {/* ============================================
-                DIRECTEUR — PERSONNEL : ENSEIGNANTS ✅
-                ============================================ */}
-            <Route path="enseignants" element={<EnseignantsPage />} />
-            <Route path="enseignants/nouveau" element={<EnseignantNouvellePage />} />
-<Route path="enseignants/:id/editer" element={<EnseignantEditerPage />} />
-<Route path="enseignants/:id" element={<EnseignantDetailPage />} />
-            {/* <Route path="enseignants/affectations" element={<AffectationsPage />} /> */}
+              {/* ─── Paiements & Reçus ─── */}
+              <Route path="paiements" element={<PaiementsListPage />} />
+              <Route
+                path="paiements/nouveau"
+                element={<PaiementNouveauPage />}
+              />
+              <Route path="paiements/:id" element={<PaiementDetailPage />} />
+              <Route path="recus" element={<RecusListPage />} />
+              <Route path="recus/:id" element={<RecuDetailPage />} />
 
-            {/* ============================================
-                DIRECTEUR — PERSONNEL : PRÉSENCES & RH
-                ============================================ */}
-            {/* <Route path="presences" element={<PresencesPage />} /> */}
-            {/* <Route path="presences-eleves" element={<PresencesPage />} /> */}
-            {/* <Route path="heures-supp" element={<HeuresSuppPage />} /> */}
-            {/* <Route path="absences" element={<AbsencesPage />} /> */}
-            {/* <Route path="avances" element={<AvancesPage />} /> */}
-            {/* <Route path="reclamations" element={<ReclamationsPage />} /> */}
-<Route path="recus" element={<RecusListPage />} />
-<Route path="recus/:id" element={<RecuDetailPage />} />
-            {/* ============================================
-                DIRECTEUR — FINANCES : PAIEMENTS & PAIE ✅
-                ============================================ */}
-<Route path="paiements" element={<PaiementsListPage />} />
-<Route path="paiements/nouveau" element={<PaiementNouveauPage />} />
-<Route path="paiements/:id" element={<PaiementDetailPage />} />            {/* <Route path="paiements/nouveau" element={<NouveauPaiementPage />} /> */}
-            {/* <Route path="recus" element={<RecusPage />} /> */}
-            {/* <Route path="recus/:id" element={<RecusPage />} /> */}
-            {/* <Route path="echeances" element={<EcheancesPage />} /> */}
-            {/* <Route path="echeances/:id" element={<EcheancesPage />} /> */}
-            {/* <Route path="plans-scolarite" element={<PlansScolaritePage />} /> */}
-            {/* <Route path="reductions" element={<ReductionsPage />} /> */}
-            {/* <Route path="relances" element={<EcheancesPage />} /> */}
-            <Route path="paie" element={<PaiePage />} />
+              {/* ─── Paie ─── */}
+              <Route path="paie" element={<PaiePage />} />
 
-            {/* ============================================
-                DIRECTEUR — ADMINISTRATION
-                ============================================ */}
-            {/* <Route path="annees" element={<AnneesScolairesPage />} /> */}
-            {/* <Route path="periodes" element={<PeriodesPage />} /> */}
-            {/* <Route path="regles-evaluation" element={<ReglesEvaluationPage />} /> */}
-            <Route path="utilisateurs" element={<UtilisateursPage />} />
-            <Route path="utilisateurs/:id/editer" element={<UtilisateurEditerPage />} />
-            <Route path="utilisateurs/:id" element={<UtilisateurDetailPage />} />
-            <Route path="utilisateurs/nouveau" element={<UtilisateurNouveauPage />} /> 
-            {/* ════════════════════════════════════════════
-                  MON PROFIL (accessible à TOUS les rôles)
-                  ════════════════════════════════════════════ */}
+              {/* ─── Utilisateurs ─── */}
+              <Route path="utilisateurs" element={<UtilisateursPage />} />
+              <Route
+                path="utilisateurs/nouveau"
+                element={<UtilisateurNouveauPage />}
+              />
+              <Route
+                path="utilisateurs/:id/editer"
+                element={<UtilisateurEditerPage />}
+              />
+              <Route
+                path="utilisateurs/:id"
+                element={<UtilisateurDetailPage />}
+              />
+
+              {/* ─── Établissement ─── */}
+              <Route
+                path="mon-etablissement"
+                element={<MonEtablissementPage />}
+              />
+
+              {/* ─── Profil (tous rôles) ─── */}
               <Route path="mon-profil" element={<MonProfilPage />} />
               <Route path="profil" element={<MonProfilPage />} />
-                       {/* <Route path="roles" element={<RolesPage />} /> */}
-            {/* <Route path="audit" element={<AuditPage />} /> */}
-            {/* <Route path="logs-email" element={<LogsEmailPage />} /> */}
-            {/* <Route path="sauvegardes" element={<SauvegardesPage />} /> */}
-            {/* <Route path="parametres" element={<ParametresPage />} /> */}
-            {/* <Route path="etablissement" element={<EtablissementPage />} /> */}
 
-            {/* ============================================
-                ENSEIGNANT — VUES PERSONNELLES
-                ============================================ */}
-            {/* <Route path="mes-classes" element={<MesClassesPage />} /> */}
-            {/* <Route path="mon-emploi-temps" element={<MonEmploiTempsPage />} /> */}
-            {/* <Route path="mes-presences" element={<MesPresencesPage />} /> */}
-            {/* <Route path="mes-heures-supp" element={<MesHeuresSuppPage />} /> */}
-            {/* <Route path="mes-absences" element={<MesAbsencesPage />} /> */}
-            {/* <Route path="mes-avances" element={<MesAvancesPage />} /> */}
-            {/* <Route path="ma-paie" element={<MaPaiePage />} /> */}
-            {/* <Route path="mes-reclamations" element={<MesReclamationsPage />} /> */}
-
-            {/* ============================================
-                PARENT — VUES PERSONNELLES
-                ============================================ */}
-            {/* <Route path="mes-enfants" element={<MesEnfantsPage />} /> */}
-            {/* <Route path="mes-paiements" element={<MesPaiementsPage />} /> */}
-            {/* <Route path="mes-recus" element={<MesRecusPage />} /> */}
-
-            {/* ============================================
-                COMMUNICATION & PROFIL
-                ============================================ */}
-            {/* <Route path="notifications" element={<NotificationsPage />} /> */}
-            {/* <Route path="emails" element={<LogsEmailPage />} /> */}
-            {/* <Route path="profil" element={<ProfilPage />} /> */}
-            {/* <Route path="aide" element={<ProfilPage />} /> */}
-
-            {/* ════════════════════════════════════════════
-                🆕 SUPER_ADMIN — CATALOGUE MULTI-TENANT
-                ⏳ À DÉCOMMENTER AU FUR ET À MESURE
-                ════════════════════════════════════════════ */}
-
-            {/* Statistiques globales */}
-            {/* <Route
-              path="statistiques-globales"
-              element={
-                <SuperAdminRoute>
-                  <SuperAdminStatistiquesGlobalesPage />
-                </SuperAdminRoute>
-              }
-            /> */}
-
-            {/* Établissements */}
-            <Route
-              path="etablissements"
-              element={
-                <SuperAdminRoute>
-                  <SuperAdminEtablissementsPage />
-                </SuperAdminRoute>
-              }
-            />
-            <Route
-              path="etablissements/nouveau"
-              element={
-                <SuperAdminRoute>
-                  <SuperAdminEtablissementNouveauPage />
-                </SuperAdminRoute>
-              }
-            />
-             <Route
+              {/* ═══════════════════════════════════════════
+                  SUPER_ADMIN — MULTI-TENANT
+                  ═══════════════════════════════════════════ */}
+              <Route
+                path="etablissements"
+                element={
+                  <SuperAdminRoute>
+                    <SuperAdminEtablissementsPage />
+                  </SuperAdminRoute>
+                }
+              />
+              <Route
+                path="etablissements/nouveau"
+                element={
+                  <SuperAdminRoute>
+                    <SuperAdminEtablissementNouveauPage />
+                  </SuperAdminRoute>
+                }
+              />
+              <Route
                 path="etablissements/:id"
                 element={
                   <SuperAdminRoute>
@@ -580,192 +534,27 @@ function App() {
                   </SuperAdminRoute>
                 }
               />
-            {/* Provisioning */}
-            {/* <Route
-              path="provisioning"
-              element={
-                <SuperAdminRoute>
-                  <SuperAdminProvisioningPage />
-                </SuperAdminRoute>
-              }
-            /> */}
 
-            {/* Abonnements & Factures */}
-            {/* <Route
-              path="abonnements"
-              element={
-                <SuperAdminRoute>
-                  <SuperAdminAbonnementsPage />
-                </SuperAdminRoute>
-              }
-            /> */}
-            {/* <Route
-              path="factures"
-              element={
-                <SuperAdminRoute>
-                  <SuperAdminFacturesPage />
-                </SuperAdminRoute>
-              }
-            /> */}
+              {/* ─── 404 Dashboard ─── */}
+              <Route
+                path="*"
+                element={
+                  <div className="flex flex-col items-center justify-center py-20">
+                    <h2 className="text-4xl font-bold text-gray-900 dark:text-white">
+                      404
+                    </h2>
+                    <p className="text-gray-500 dark:text-emerald-200/60 mt-2">
+                      Page introuvable dans le dashboard
+                    </p>
+                  </div>
+                }
+              />
+            </Route>
 
-            {/* Utilisateurs & rôles globaux */}
-            {/* <Route
-              path="utilisateurs-globaux"
-              element={
-                <SuperAdminRoute>
-                  <SuperAdminUtilisateursGlobauxPage />
-                </SuperAdminRoute>
-              }
-            /> */}
-            {/* <Route
-              path="roles-globaux"
-              element={
-                <SuperAdminRoute>
-                  <SuperAdminRolesGlobauxPage />
-                </SuperAdminRoute>
-              }
-            /> */}
-
-            {/* Monitoring & système */}
-            {/* <Route
-              path="stats-serveur"
-              element={
-                <SuperAdminRoute>
-                  <SuperAdminStatsServeurPage />
-                </SuperAdminRoute>
-              }
-            /> */}
-            {/* <Route
-              path="sauvegardes"
-              element={
-                <SuperAdminRoute>
-                  <SuperAdminSauvegardesPage />
-                </SuperAdminRoute>
-              }
-            /> */}
-            {/* <Route
-              path="schemas"
-              element={
-                <SuperAdminRoute>
-                  <SuperAdminSchemasPage />
-                </SuperAdminRoute>
-              }
-            /> */}
-            {/* <Route
-              path="config"
-              element={
-                <SuperAdminRoute>
-                  <SuperAdminConfigPage />
-                </SuperAdminRoute>
-              }
-            /> */}
-
-            {/* ════════════════════════════════════════════
-                🆕 ELEVE — VUES PERSONNELLES
-                ⏳ À DÉCOMMENTER AU FUR ET À MESURE
-                ════════════════════════════════════════════ */}
-
-            {/* Profil */}
-            {/* <Route path="mon-profil" element={<EleveMonProfilPage />} /> */}
-
-            {/* Scolarité */}
-            {/* <Route path="mes-notes" element={<EleveMesNotesPage />} /> */}
-            {/* <Route path="mes-bulletins" element={<EleveMesBulletinsPage />} /> */}
-            {/* <Route path="mon-emploi-temps" element={<EleveMonEmploiTempsPage />} /> */}
-            {/* <Route path="mes-matieres" element={<EleveMesMatieresPage />} /> */}
-            {/* <Route path="mes-professeurs" element={<EleveMesProfesseursPage />} /> */}
-
-            {/* Activités */}
-            {/* <Route path="mes-objectifs" element={<EleveMesObjectifsPage />} /> */}
-            {/* <Route path="mes-groupes-td" element={<EleveMesGroupesTDPage />} /> */}
-            {/* <Route path="mes-documents" element={<EleveMesDocumentsPage />} /> */}
-            {/* <Route path="mes-epreuves" element={<EleveMesEpreuvesPage />} /> */}
-            {/* <Route path="mes-corrections" element={<EleveMesCorrectionsPage />} /> */}
-
-            {/* Présences */}
-            {/* <Route path="mes-presences" element={<EleveMesPresencesPage />} /> */}
-            {/* <Route path="mes-absences" element={<EleveMesAbsencesPage />} /> */}
-            {/* <Route path="mes-appreciations" element={<EleveMesAppreciationsPage />} /> */}
-
-            {/* Bibliothèque */}
-            {/* <Route path="bibliotheque" element={<EleveBibliothequePage />} /> */}
-            {/* <Route path="mes-emprunts" element={<EleveMesEmpruntsPage />} /> */}
-
-            {/* Aide */}
-            {/* <Route path="support" element={<EleveSupportPage />} /> */}
-            {/* <Route path="faq" element={<EleveFaqPage />} /> */}
-
-            {/* ════════════════════════════════════════════
-                🆕 SURVEILLANT — VUES PERSONNELLES
-                ⏳ À DÉCOMMENTER AU FUR ET À MESURE
-                ════════════════════════════════════════════ */}
-
-            {/* Statistiques */}
-            {/* <Route path="mes-statistiques" element={<SurveillantMesStatistiquesPage />} /> */}
-
-            {/* Surveillance */}
-            {/* <Route path="mes-zones" element={<SurveillantMesZonesPage />} /> */}
-            {/* <Route path="surveillances" element={<SurveillantSurveillancesPage />} /> */}
-            {/* <Route path="mon-planning" element={<SurveillantMonPlanningPage />} /> */}
-
-            {/* Incidents */}
-            {/* <Route path="incidents/signaler" element={<SurveillantSignalerIncidentPage />} /> */}
-            {/* <Route path="mes-incidents" element={<SurveillantMesIncidentsPage />} /> */}
-            {/* <Route path="incidents/traites" element={<SurveillantIncidentsTraitesPage />} /> */}
-
-            {/* Élèves */}
-            {/* <Route path="eleves/recherche" element={<SurveillantRechercheElevePage />} /> */}
-            {/* <Route path="presences-eleves" element={<SurveillantPresencesElevesPage />} /> */}
-            {/* <Route path="absences-eleves" element={<SurveillantAbsencesElevesPage />} /> */}
-
-            {/* ════════════════════════════════════════════
-                🆕 BIBLIOTHECAIRE — GESTION BIBLIOTHÈQUE
-                ⏳ À DÉCOMMENTER AU FUR ET À MESURE
-                ════════════════════════════════════════════ */}
-
-            {/* Livres */}
-            {/* <Route path="livres" element={<BibliothecaireLivresPage />} /> */}
-            {/* <Route path="livres/nouveau" element={<BibliothecaireLivreNouveauPage />} /> */}
-            {/* <Route path="categories-livres" element={<BibliothecaireCategoriesPage />} /> */}
-            {/* <Route path="auteurs" element={<BibliothecaireAuteursPage />} /> */}
-
-            {/* Emprunts */}
-            {/* <Route path="emprunts" element={<BibliothecaireEmpruntsPage />} /> */}
-            {/* <Route path="emprunts/nouveau" element={<BibliothecaireEmpruntNouveauPage />} /> */}
-            {/* <Route path="emprunts/retard" element={<BibliothecaireEmpruntsRetardPage />} /> */}
-            {/* <Route path="retours" element={<BibliothecaireRetoursPage />} /> */}
-            {/* <Route path="penalites" element={<BibliothecairePenalitesPage />} /> */}
-
-            {/* ════════════════════════════════════════════
-                🆕 ROUTES PARTAGÉES (tous rôles)
-                ⏳ À DÉCOMMENTER AU FUR ET À MESURE
-                ════════════════════════════════════════════ */}
-
-            {/* <Route path="messages" element={<MessagesPage />} /> */}
-            {/* <Route path="communiques" element={<CommuniquesPage />} /> */}
-            {/* <Route path="chat" element={<ChatPage />} /> */}
-            {/* <Route path="notifications" element={<NotificationsPage />} /> */}
-            {/* <Route path="profil" element={<MonProfilPage />} /> */}
-
-            {/* ============================================
-                404 DANS LE DASHBOARD
-                ============================================ */}
-            <Route
-              path="*"
-              element={
-                <div className="flex flex-col items-center justify-center py-20">
-                  <h2 className="text-4xl font-bold text-gray-900">404</h2>
-                  <p className="text-gray-500 mt-2">Page introuvable dans le dashboard</p>
-                </div>
-              }
-            />
-          </Route>
-
-          {/* ============================================
-              404 GLOBAL → Redirection vers l'accueil
-              ============================================ */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+            {/* ─── 404 Global ─── */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </ThemeProvider>
       </AuthProvider>
     </BrowserRouter>
   );

@@ -54,6 +54,9 @@ export type JourSemaine =
 
 export type StatutCours = 'EN_COURS' | 'PROCHAIN' | 'TERMINE' | 'A_VENIR';
 
+// 🆕 Statut "prévisionnel" utilisé pour `resumeSalaire` quand aucune paie n'existe
+export type StatutPaieResume = StatutPaie | 'PREVISIONNEL';
+
 // ============================================
 // RÉSUMÉS (relations imbriquées)
 // ============================================
@@ -73,6 +76,10 @@ export interface ClasseSummary {
   nom: string;
   code: string;
   salle?: string | null;
+  /** 🆕 Compteur renvoyé quand `_count` est inclus (ex: nombre d'élèves) */
+  _count?: {
+    inscriptions?: number;
+  };
 }
 
 export interface MatiereSummary {
@@ -106,7 +113,8 @@ export interface Affectation {
   id: string;
   enseignantId: string;
   classeId: string;
-  matiereId: string;
+  /** ⚠️ null = titulaire de classe (primaire) */
+  matiereId: string | null;
   anneeScolaireId: string;
   heuresHebdo: number | null;
   estPrincipal: boolean;
@@ -116,7 +124,7 @@ export interface Affectation {
   createdAt: string;
   updatedAt: string;
   classe?: ClasseSummary;
-  matiere?: MatiereSummary;
+  matiere?: MatiereSummary | null;
   anneeScolaire?: AnneeScolaireSummary;
 }
 
@@ -131,7 +139,8 @@ export interface EmploiTemps {
   heureFin: string;
   classeId: string;
   enseignantId: string;
-  matiereId: string;
+  /** ⚠️ null = cours générique (primaire) */
+  matiereId: string | null;
   salle: string | null;
   estRecurrent: boolean;
   valableDu: string;
@@ -141,7 +150,7 @@ export interface EmploiTemps {
   createdAt: string;
   updatedAt: string;
   classe?: ClasseSummary;
-  matiere?: MatiereSummary;
+  matiere?: MatiereSummary | null;
   anneeScolaire?: AnneeScolaireSummary | null;
 
   /** 🆕 Statut calculé côté front (ou renvoyé par le service enrichi) */
@@ -158,7 +167,7 @@ export interface CoursCalcule {
   heureFin: string;
   statut: StatutCours;
   classe?: ClasseSummary;
-  matiere?: MatiereSummary;
+  matiere?: MatiereSummary | null;
   salle?: string | null;
   minutesRestantes?: number;
   minutesAvant?: number;
@@ -273,6 +282,24 @@ export interface Paie {
   updatedAt: string;
   periode?: PeriodePaieSummary;
   approbateur?: ApprobateurSummary | null;
+}
+
+/** 🆕 Résumé de paie (utilisé pour `dernierePaie` / `paieEnCours`) */
+export type PaieResume = Paie;
+
+/** 🆕 Résumé salaire calculé côté backend (dernière paie OU prévisionnel) */
+export interface ResumeSalaire {
+  salaireBase: number;
+  heuresSupp: number;
+  montantHeuresSupp: number;
+  primes: number;
+  retenues: number;
+  avances: number;
+  totalBrut: number;
+  totalNet: number;
+  statut: StatutPaieResume;
+  periode: PeriodePaieSummary | null;
+  payeLe: string | null;
 }
 
 // ============================================
@@ -425,44 +452,94 @@ export interface Enseignant {
   dernierCoursTermine?: CoursCalcule | null;
 
   // 🆕 Statistiques calculées (backend)
-  _statsHeures?: {
-    heuresSemaine: number;
-    totalHeuresSupp: number;
-    heuresSuppEnAttente: number;
-  };
-  _statsPresence?: {
-    tauxPresence: number;
-    presencesPresentes: number;
-    presencesRetard: number;
-    presencesAbsent: number;
-    totalJours: number;
-  };
-  _statsPaie?: {
-    totalPaieAnne: number;
-    nombreMoisPayes: number;
-    derniereDatePaiement: string | null;
-  };
+  _statsHeures?: EnseignantStatsHeures;
+  _statsPresence?: EnseignantStatsPresence;
+  _statsPaie?: EnseignantStatsPaie;
+
+  // 🆕 Paie enrichie (renvoyée par findById)
+  dernierePaie?: PaieResume | null;
+  paieEnCours?: PaieResume | null;
+  resumeSalaire?: ResumeSalaire;
 
   // Compteurs
-  _count?: {
-    affectations: number;
-    emploisTemps: number;
-    notes: number;
-    absences: number;
-    heuresSupp: number;
-    paies: number;
-    // 🆕 ajoutés
-    presences?: number;
-    avances?: number;
-    reclamations?: number;
-    historiquesSalaire?: number;
-    groupesTD?: number;
-    documents?: number;
-    communications?: number;
-  };
+  _count?: EnseignantCount;
 
   // Retour de create uniquement
   motDePasseTemporaire?: string | null;
+}
+
+// ============================================
+// 🆕 STATISTIQUES / COMPTEURS (extraits pour réutilisation)
+// ============================================
+
+export interface EnseignantStatsHeures {
+  heuresSemaine: number;
+  totalHeuresSupp: number;
+  heuresSuppEnAttente: number;
+}
+
+export interface EnseignantStatsPresence {
+  tauxPresence: number;
+  presencesPresentes: number;
+  presencesRetard: number;
+  presencesAbsent: number;
+  totalJours: number;
+}
+
+export interface EnseignantStatsPaie {
+  totalPaieAnne: number;
+  nombreMoisPayes: number;
+  derniereDatePaiement: string | null;
+}
+
+export interface EnseignantCount {
+  affectations: number;
+  emploisTemps: number;
+  notes: number;
+  absences: number;
+  heuresSupp: number;
+  paies: number;
+  presences?: number;
+  avances?: number;
+  reclamations?: number;
+  historiquesSalaire?: number;
+  groupesTD?: number;
+  documents?: number;
+  communications?: number;
+}
+
+// ============================================
+// 🆕 ENSEIGNANT DÉTAILLÉ (retour de GET /enseignants/:id)
+// ============================================
+
+/**
+ * Type enrichi renvoyé par `enseignantService.findById` côté backend.
+ * Utilisez-le dans le dashboard pour bénéficier du typage complet.
+ */
+export interface EnseignantDetail extends Enseignant {
+  utilisateur?: UtilisateurSummary;
+  affectations: Affectation[];
+  emploisTemps: EmploiTemps[];
+  absences: Absence[];
+  heuresSupp: HeureSupp[];
+  avances: Avance[];
+  reclamations: Reclamation[];
+  paies: PaieResume[];
+  historiquesSalaire: HistoriqueSalaire[];
+  groupesTD: GroupeTD[];
+  documents: Document[];
+  presences: Presence[];
+
+  // Calculés backend
+  coursEnCours: CoursCalcule | null;
+  prochainCours: CoursCalcule | null;
+  dernierCoursTermine: CoursCalcule | null;
+  _statsHeures: EnseignantStatsHeures;
+  _statsPresence: EnseignantStatsPresence;
+  dernierePaie: PaieResume | null;
+  paieEnCours: PaieResume | null;
+  resumeSalaire: ResumeSalaire;
+  _statsPaie: EnseignantStatsPaie;
 }
 
 // ============================================
@@ -544,4 +621,106 @@ export interface EnseignantsListResult {
 export interface DeleteEnseignantResult {
   id: string;
   message: string;
+}
+
+// ============================================
+// 🆕 TYPES DÉRIVÉS POUR LE DASHBOARD
+// ============================================
+
+/**
+ * Ligne de cours utilisée dans le dashboard (formatée pour l'affichage).
+ */
+export interface DashboardCoursJour {
+  id: string;
+  heure: string;
+  matiere: string;
+  classeId: string;
+  classe: string;
+  salle: string;
+  statut: StatutCours;
+  type: string;
+}
+
+/**
+ * Carte "Mes classes" du dashboard.
+ */
+export interface DashboardClasseCard {
+  id: string;
+  classeId: string;
+  nom: string;
+  matiere: string;
+  eleves: number;
+  heuresHebdo: number;
+  moyenne: number;
+}
+
+/**
+ * Ligne "Heures supp." formatée pour le dashboard.
+ */
+export interface DashboardHeureSuppItem {
+  id: string;
+  date: string;
+  heures: number;
+  motif: string;
+  statut: StatutDemande;
+}
+
+/**
+ * Ligne "Absence" formatée pour le dashboard.
+ */
+export interface DashboardAbsenceItem {
+  id: string;
+  date: string;
+  duree: string;
+  motif: string;
+  statut: StatutDemande;
+}
+
+/**
+ * Ligne "Paie récente" formatée pour le dashboard.
+ */
+export interface DashboardPaieItem {
+  id: string;
+  mois: string;
+  net: number;
+  statut: StatutPaie;
+  payeLe: string | null;
+}
+
+/**
+ * Carte KPI du dashboard.
+ */
+export interface DashboardStatCard {
+  title: string;
+  value: string | number;
+  change: string;
+  trend: 'up' | 'down';
+  icon: any;
+  color: string;
+  bgColor: string;
+  hint?: string;
+  href?: string;
+}
+
+/**
+ * Alerte / rappel du dashboard.
+ */
+export interface DashboardAlerte {
+  id: number;
+  type: 'warning' | 'info' | 'success';
+  title: string;
+  desc: string;
+  href: string;
+}
+
+/**
+ * Activité récente du dashboard.
+ */
+export interface DashboardActivite {
+  id: string;
+  title: string;
+  description: string;
+  time: string;
+  icon: any;
+  color: string;
 }

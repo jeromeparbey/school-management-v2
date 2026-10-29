@@ -49,8 +49,31 @@ const formatDateTime = (date: string | null | undefined) => {
   });
 };
 
-const formatMoney = (amount: number, devise: string) =>
-  new Intl.NumberFormat('fr-FR').format(amount) + ` ${devise}`;
+/**
+ * ✅ Formate un montant avec sa devise.
+ * Codes ISO (XOF, XAF, EUR, USD…) → symbole/code court.
+ */
+const formatMoney = (
+  amount: number | null | undefined,
+  devise: string = 'F CFA'
+): string => {
+  if (amount == null) return '—';
+  const value = new Intl.NumberFormat('fr-FR', {
+    maximumFractionDigits: 0,
+  }).format(amount);
+
+  const upper = (devise || '').toUpperCase();
+  if (upper === 'XOF' || upper === 'XAF') return `${value} F CFA`;
+  if (upper === 'EUR') return `${value} €`;
+  if (upper === 'USD') return `${value} $`;
+  if (upper === 'GBP') return `${value} £`;
+  if (upper === 'MAD') return `${value} DH`;
+  if (upper === 'NGN') return `${value} ₦`;
+  if (upper === 'GHS') return `${value} GH₵`;
+  if (upper === 'CAD') return `${value} $ CA`;
+
+  return devise ? `${value} ${devise}` : `${value} F CFA`;
+};
 
 // ============================================
 // SOUS-COMPOSANTS
@@ -65,7 +88,7 @@ interface InfoRowProps {
 const InfoRow: React.FC<InfoRowProps> = ({ label, value, icon: Icon }) => (
   <div className="flex items-start gap-3 py-3 border-b border-gray-100 last:border-0">
     {Icon && (
-      <div className="p-2 bg-gray-50 rounded-lg shrink-0">
+      <div className="p-2 bg-white rounded-lg shrink-0 border border-gray-100">
         <Icon className="w-4 h-4 text-gray-500" />
       </div>
     )}
@@ -84,6 +107,7 @@ interface StatCardProps {
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   color: string;
   bgColor: string;
+  hint?: string;
 }
 
 const StatCard: React.FC<StatCardProps> = ({
@@ -92,14 +116,18 @@ const StatCard: React.FC<StatCardProps> = ({
   icon: Icon,
   color,
   bgColor,
+  hint,
 }) => (
   <div className="bg-white rounded-xl border border-gray-100 p-4">
     <div className="flex items-center justify-between">
-      <div>
+      <div className="min-w-0">
         <p className="text-xs text-gray-500">{label}</p>
-        <p className="text-xl font-bold text-gray-900 mt-1">{value}</p>
+        <p className="text-xl font-bold text-gray-900 mt-1 truncate">{value}</p>
+        {hint && (
+          <p className="text-[10px] text-gray-400 mt-0.5 truncate">{hint}</p>
+        )}
       </div>
-      <div className={`p-2 rounded-lg ${bgColor}`}>
+      <div className={`p-2 rounded-lg ${bgColor} shrink-0`}>
         <Icon className={`w-5 h-5 ${color}`} />
       </div>
     </div>
@@ -142,19 +170,19 @@ const PlanScolariteDetailPage: React.FC = () => {
     }
   };
 
-  // Loading
+  // ─────────── Loading ───────────
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto" />
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto" />
           <p className="text-gray-500 mt-4">Chargement…</p>
         </div>
       </div>
     );
   }
 
-  // Erreur
+  // ─────────── Erreur ───────────
   if (isError || !plan) {
     return (
       <div className="max-w-2xl mx-auto py-12">
@@ -188,7 +216,7 @@ const PlanScolariteDetailPage: React.FC = () => {
   const nbEcheances = plan._count?.echeances ?? 0;
   const nbAssignments = plan._count?.assignments ?? 0;
 
-  // Calcul montant autres frais
+  // Autres frais
   const autresFraisObj = plan.autresFrais as Record<string, number> | null;
   const autresFraisEntries = autresFraisObj
     ? Object.entries(autresFraisObj)
@@ -198,10 +226,32 @@ const PlanScolariteDetailPage: React.FC = () => {
     0
   );
 
+  // ─────────── Onglets ───────────
+  const tabs: Array<{
+    key: TabKey;
+    label: string;
+    icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+    badge?: number;
+  }> = [
+    { key: 'infos', label: 'Informations', icon: IdentificationIcon },
+    {
+      key: 'echeances',
+      label: 'Échéances',
+      icon: ClockIcon,
+      badge: nbEcheances,
+    },
+    {
+      key: 'assignments',
+      label: 'Assignments',
+      icon: UserGroupIcon,
+      badge: nbAssignments,
+    },
+  ];
+
   return (
-    <div className="space-y-6">
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-sm text-gray-500">
+    <div className="space-y-6 w-full max-w-[1400px] mx-auto">
+      {/* ─────────── BREADCRUMB ─────────── */}
+      <nav className="flex items-center gap-2 text-sm text-gray-500 flex-wrap">
         <Link to="/dashboard" className="hover:text-gray-900">
           Dashboard
         </Link>
@@ -213,7 +263,7 @@ const PlanScolariteDetailPage: React.FC = () => {
         <span className="text-gray-900 font-medium truncate">{plan.nom}</span>
       </nav>
 
-      {/* En-tête */}
+      {/* ─────────── EN-TÊTE ─────────── */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -228,8 +278,8 @@ const PlanScolariteDetailPage: React.FC = () => {
               <ArrowLeftIcon className="w-5 h-5" />
             </Link>
 
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white shrink-0">
-              <BanknotesIcon className="w-10 h-10" />
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shrink-0 shadow-md">
+              <BanknotesIcon className="w-8 h-8" />
             </div>
 
             <div className="flex-1 min-w-0">
@@ -238,12 +288,12 @@ const PlanScolariteDetailPage: React.FC = () => {
                   {plan.nom}
                 </h1>
                 {plan.estActif ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-emerald-50 text-emerald-700 rounded-full">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700 rounded-full">
                     <CheckCircleIcon className="w-3.5 h-3.5" />
                     Actif
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-gray-100 text-gray-600 rounded-full">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-600 rounded-full">
                     <XCircleIcon className="w-3.5 h-3.5" />
                     Inactif
                   </span>
@@ -251,7 +301,7 @@ const PlanScolariteDetailPage: React.FC = () => {
               </div>
 
               {plan.description && (
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-sm text-gray-600 mt-1 line-clamp-2">
                   {plan.description}
                 </p>
               )}
@@ -261,6 +311,11 @@ const PlanScolariteDetailPage: React.FC = () => {
                   <span className="flex items-center gap-1">
                     <CalendarDaysIcon className="w-4 h-4" />
                     {plan.anneeScolaire.nom}
+                    {plan.anneeScolaire.estActive && (
+                      <span className="ml-1 text-emerald-600 font-medium">
+                        (active)
+                      </span>
+                    )}
                   </span>
                 )}
                 {plan.niveau && (
@@ -299,35 +354,37 @@ const PlanScolariteDetailPage: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* Montant total en évidence */}
-      <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl p-6 text-white">
-        <div className="flex items-center justify-between">
+      {/* ─────────── MONTANT TOTAL (emerald/teal) ─────────── */}
+      <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl p-6 text-white shadow-md">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <p className="text-sm text-blue-100 uppercase tracking-wider">
+            <p className="text-sm text-emerald-100 uppercase tracking-wider">
               Montant total du plan
             </p>
             <p className="text-4xl font-bold mt-1">
               {formatMoney(plan.montantTotal, plan.devise)}
             </p>
           </div>
-          <CurrencyDollarIcon className="w-16 h-16 text-blue-200" />
+          <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center shrink-0">
+            <CurrencyDollarIcon className="w-9 h-9 text-emerald-100" />
+          </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-blue-400/30">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-white/20">
           <div>
-            <p className="text-xs text-blue-100">Inscription</p>
+            <p className="text-xs text-emerald-100">Inscription</p>
             <p className="text-lg font-semibold mt-0.5">
               {formatMoney(plan.fraisInscription, plan.devise)}
             </p>
           </div>
           <div>
-            <p className="text-xs text-blue-100">Scolarité</p>
+            <p className="text-xs text-emerald-100">Scolarité</p>
             <p className="text-lg font-semibold mt-0.5">
               {formatMoney(plan.fraisScolarite, plan.devise)}
             </p>
           </div>
           <div>
-            <p className="text-xs text-blue-100">Autres frais</p>
+            <p className="text-xs text-emerald-100">Autres frais</p>
             <p className="text-lg font-semibold mt-0.5">
               {formatMoney(totalAutresFrais, plan.devise)}
             </p>
@@ -335,62 +392,55 @@ const PlanScolariteDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* ─────────── STATS ─────────── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard
           label="Échéances"
           value={nbEcheances}
           icon={ClockIcon}
-          color="text-blue-600"
-          bgColor="bg-blue-50"
+          color="text-emerald-600"
+          bgColor="bg-emerald-50"
+          hint={nbEcheances > 0 ? 'Définies' : 'Aucune'}
         />
         <StatCard
           label="Assignments"
           value={nbAssignments}
           icon={UserGroupIcon}
-          color="text-emerald-600"
-          bgColor="bg-emerald-50"
+          color="text-teal-600"
+          bgColor="bg-teal-50"
+          hint={nbAssignments > 0 ? 'Élèves rattachés' : 'Aucun'}
         />
         <StatCard
           label="Frais totaux"
           value={formatMoney(plan.montantTotal, plan.devise)}
           icon={BanknotesIcon}
-          color="text-purple-600"
-          bgColor="bg-purple-50"
+          color="text-amber-600"
+          bgColor="bg-amber-50"
         />
         <StatCard
-          label="Devise"
-          value={plan.devise}
-          icon={CurrencyDollarIcon}
-          color="text-orange-600"
-          bgColor="bg-orange-50"
+          label="Autres frais"
+          value={formatMoney(totalAutresFrais, plan.devise)}
+          icon={DocumentTextIcon}
+          color="text-purple-600"
+          bgColor="bg-purple-50"
+          hint={
+            autresFraisEntries.length > 0
+              ? `${autresFraisEntries.length} type(s)`
+              : 'Aucun'
+          }
         />
       </div>
 
-      {/* Onglets */}
+      {/* ─────────── ONGLETS ─────────── */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100/50 overflow-hidden">
         <div className="flex overflow-x-auto border-b border-gray-100">
-          {[
-            { key: 'infos', label: 'Informations', icon: IdentificationIcon },
-            {
-              key: 'echeances',
-              label: 'Échéances',
-              icon: ClockIcon,
-              badge: nbEcheances,
-            },
-            {
-              key: 'assignments',
-              label: 'Assignments',
-              icon: UserGroupIcon,
-              badge: nbAssignments,
-            },
-          ].map((tab) => (
+          {tabs.map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key as TabKey)}
+              onClick={() => setActiveTab(tab.key)}
               className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
                 activeTab === tab.key
-                  ? 'border-blue-500 text-blue-600 bg-blue-50/50'
+                  ? 'border-emerald-500 text-emerald-700 bg-emerald-50/50'
                   : 'border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50'
               }`}
             >
@@ -415,15 +465,11 @@ const PlanScolariteDetailPage: React.FC = () => {
             >
               <div>
                 <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <IdentificationIcon className="w-4 h-4 text-blue-500" />
+                  <IdentificationIcon className="w-4 h-4 text-emerald-600" />
                   Identification
                 </h3>
                 <div className="bg-gray-50 rounded-xl p-4">
-                  <InfoRow
-                    label="Nom"
-                    value={plan.nom}
-                    icon={BanknotesIcon}
-                  />
+                  <InfoRow label="Nom" value={plan.nom} icon={BanknotesIcon} />
                   <InfoRow
                     label="Description"
                     value={plan.description ?? '—'}
@@ -449,7 +495,7 @@ const PlanScolariteDetailPage: React.FC = () => {
 
               <div>
                 <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <CurrencyDollarIcon className="w-4 h-4 text-blue-500" />
+                  <CurrencyDollarIcon className="w-4 h-4 text-emerald-600" />
                   Détails financiers
                 </h3>
                 <div className="bg-gray-50 rounded-xl p-4">
@@ -487,7 +533,7 @@ const PlanScolariteDetailPage: React.FC = () => {
                   <InfoRow
                     label="Montant total"
                     value={
-                      <span className="font-bold text-blue-600">
+                      <span className="font-bold text-emerald-700">
                         {formatMoney(plan.montantTotal, plan.devise)}
                       </span>
                     }
@@ -501,8 +547,8 @@ const PlanScolariteDetailPage: React.FC = () => {
                 </div>
 
                 <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3 mt-6 flex items-center gap-2">
-                  <ClockIcon className="w-4 h-4 text-blue-500" />
-                  Métadonnées
+                  <ClockIcon className="w-4 h-4 text-emerald-600" />
+                  Informations système
                 </h3>
                 <div className="bg-gray-50 rounded-xl p-4">
                   <InfoRow
@@ -536,35 +582,48 @@ const PlanScolariteDetailPage: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
             >
               {plan.echeances && plan.echeances.length > 0 ? (
-                <div className="space-y-3">
-                  {plan.echeances.map((echeance) => (
+                <div className="space-y-2">
+                  {plan.echeances.map((echeance, idx) => (
                     <div
                       key={echeance.id}
-                      className="bg-gray-50 rounded-xl p-4 flex items-center justify-between"
+                      className={`rounded-xl border p-4 flex items-center justify-between gap-4 ${
+                        echeance.estPayee
+                          ? 'bg-emerald-50/50 border-emerald-200'
+                          : 'bg-white border-gray-200'
+                      }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-blue-700 font-bold">
-                          {echeance.ordre}
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold shrink-0 ${
+                            echeance.estPayee
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-teal-50 text-teal-700'
+                          }`}
+                        >
+                          {echeance.ordre ?? idx + 1}
                         </div>
-                        <div>
-                          <p className="font-semibold text-gray-900">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-gray-900 truncate">
                             {echeance.nom}
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-gray-500 flex items-center gap-1">
+                            <CalendarDaysIcon className="w-3 h-3" />
                             Date limite : {formatDate(echeance.dateLimite)}
                           </p>
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right shrink-0">
                         <p className="font-bold text-gray-900">
                           {formatMoney(echeance.montant, plan.devise)}
                         </p>
                         {echeance.estPayee ? (
-                          <span className="text-xs text-emerald-600 font-medium">
-                            ✓ Payée
+                          <span className="inline-flex items-center gap-1 text-xs text-emerald-700 font-medium mt-0.5">
+                            <CheckCircleIcon className="w-3.5 h-3.5" />
+                            Payée
                           </span>
                         ) : (
-                          <span className="text-xs text-orange-600 font-medium">
+                          <span className="inline-flex items-center gap-1 text-xs text-amber-700 font-medium mt-0.5">
+                            <ClockIcon className="w-3.5 h-3.5" />
                             En attente
                           </span>
                         )}
@@ -581,6 +640,13 @@ const PlanScolariteDetailPage: React.FC = () => {
                   <p className="text-gray-500 mb-4">
                     Ce plan n'a pas encore d'échéances définies.
                   </p>
+                  <Link
+                    to={`/dashboard/plans-scolarite/${plan.id}/editer`}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium"
+                  >
+                    <PencilSquareIcon className="w-4 h-4" />
+                    Ajouter des échéances
+                  </Link>
                 </div>
               )}
             </motion.div>
@@ -593,24 +659,24 @@ const PlanScolariteDetailPage: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
             >
               {nbAssignments > 0 ? (
-                <div className="space-y-3">
-                  <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3">
-                    <UserGroupIcon className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+                <div className="space-y-4">
+                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3">
+                    <UserGroupIcon className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-blue-900">
+                      <p className="text-sm font-semibold text-emerald-900">
                         {nbAssignments} élève(s) assigné(s) à ce plan
                       </p>
-                      <p className="text-xs text-blue-700 mt-0.5">
+                      <p className="text-xs text-emerald-700 mt-0.5">
                         Élèves dont la scolarité est régie par ce plan.
                       </p>
                     </div>
                   </div>
                   <Link
                     to={`/dashboard/assignments-scolarite?planScolariteId=${plan.id}`}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium"
                   >
                     <UserGroupIcon className="w-4 h-4" />
-                    Voir les assignments
+                    Voir les {nbAssignments} assignments
                   </Link>
                 </div>
               ) : (
@@ -629,7 +695,7 @@ const PlanScolariteDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Actions bas de page */}
+      {/* ─────────── ACTIONS BAS DE PAGE ─────────── */}
       <div className="flex items-center justify-center gap-3 pt-4">
         <Link
           to="/dashboard/plans-scolarite"

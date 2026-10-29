@@ -37,6 +37,49 @@ function getParam(req: Request, name: string): string {
 }
 
 export class AffectationController {
+  // ══════════════════════════════════════════
+  // ⭐ GET /moi/affectation/me
+  // Retourne les affectations de l'enseignant connecté.
+  // L'enseignantId provient EXCLUSIVEMENT de `req.user.enseignantId` (JWT).
+  // Impossible de lire les affectations d'un autre enseignant via cette route.
+  // ══════════════════════════════════════════
+
+  getMine = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const ctx = requireAuthContext(req);
+
+      const enseignantId = req.user?.enseignantId;
+      if (!enseignantId) {
+        throw new AppError(
+          'Aucun profil enseignant lié à ce compte utilisateur',
+          404
+        );
+      }
+
+      const q: any = (req as any).validated?.query ?? req.query;
+      const anneeScolaireId =
+        typeof q.anneeScolaireId === 'string' ? q.anneeScolaireId : undefined;
+
+      const data = await affectationService.findByEnseignant(
+        ctx,
+        enseignantId,
+        anneeScolaireId
+      );
+
+      sendSuccess(res, data);
+    } catch (e) {
+      next(e);
+    }
+  };
+
+  // ══════════════════════════════════════════
+  // Routes admin existantes (inchangées)
+  // ══════════════════════════════════════════
+
   create = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const ctx = requireAuthContext(req);

@@ -23788,8 +23788,8 @@ export namespace Prisma {
     nom: string
     code: string
     niveauId: string
-    coefficient: number
-    dureeCours: number
+    coefficient: number | null
+    dureeCours: number | null
     description: string | null
     estActive: boolean
     estArchive: boolean
@@ -23919,8 +23919,8 @@ export namespace Prisma {
       nom: string
       code: string
       niveauId: string
-      coefficient: number
-      dureeCours: number
+      coefficient: number | null
+      dureeCours: number | null
       description: string | null
       estActive: boolean
       estArchive: boolean
@@ -31194,7 +31194,7 @@ export namespace Prisma {
     id: string
     enseignantId: string
     classeId: string
-    matiereId: string
+    matiereId: string | null
     anneeScolaireId: string
     heuresHebdo: number | null
     estPrincipal: boolean
@@ -31239,7 +31239,7 @@ export namespace Prisma {
     updatedAt?: boolean
     enseignant?: boolean | EnseignantDefaultArgs<ExtArgs>
     classe?: boolean | ClasseDefaultArgs<ExtArgs>
-    matiere?: boolean | MatiereDefaultArgs<ExtArgs>
+    matiere?: boolean | AffectationEnseignant$matiereArgs<ExtArgs>
     anneeScolaire?: boolean | AnneeScolaireDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["affectationEnseignant"]>
 
@@ -31258,7 +31258,7 @@ export namespace Prisma {
     updatedAt?: boolean
     enseignant?: boolean | EnseignantDefaultArgs<ExtArgs>
     classe?: boolean | ClasseDefaultArgs<ExtArgs>
-    matiere?: boolean | MatiereDefaultArgs<ExtArgs>
+    matiere?: boolean | AffectationEnseignant$matiereArgs<ExtArgs>
     anneeScolaire?: boolean | AnneeScolaireDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["affectationEnseignant"]>
 
@@ -31277,7 +31277,7 @@ export namespace Prisma {
     updatedAt?: boolean
     enseignant?: boolean | EnseignantDefaultArgs<ExtArgs>
     classe?: boolean | ClasseDefaultArgs<ExtArgs>
-    matiere?: boolean | MatiereDefaultArgs<ExtArgs>
+    matiere?: boolean | AffectationEnseignant$matiereArgs<ExtArgs>
     anneeScolaire?: boolean | AnneeScolaireDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["affectationEnseignant"]>
 
@@ -31300,19 +31300,19 @@ export namespace Prisma {
   export type AffectationEnseignantInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     enseignant?: boolean | EnseignantDefaultArgs<ExtArgs>
     classe?: boolean | ClasseDefaultArgs<ExtArgs>
-    matiere?: boolean | MatiereDefaultArgs<ExtArgs>
+    matiere?: boolean | AffectationEnseignant$matiereArgs<ExtArgs>
     anneeScolaire?: boolean | AnneeScolaireDefaultArgs<ExtArgs>
   }
   export type AffectationEnseignantIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     enseignant?: boolean | EnseignantDefaultArgs<ExtArgs>
     classe?: boolean | ClasseDefaultArgs<ExtArgs>
-    matiere?: boolean | MatiereDefaultArgs<ExtArgs>
+    matiere?: boolean | AffectationEnseignant$matiereArgs<ExtArgs>
     anneeScolaire?: boolean | AnneeScolaireDefaultArgs<ExtArgs>
   }
   export type AffectationEnseignantIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     enseignant?: boolean | EnseignantDefaultArgs<ExtArgs>
     classe?: boolean | ClasseDefaultArgs<ExtArgs>
-    matiere?: boolean | MatiereDefaultArgs<ExtArgs>
+    matiere?: boolean | AffectationEnseignant$matiereArgs<ExtArgs>
     anneeScolaire?: boolean | AnneeScolaireDefaultArgs<ExtArgs>
   }
 
@@ -31321,14 +31321,14 @@ export namespace Prisma {
     objects: {
       enseignant: Prisma.$EnseignantPayload<ExtArgs>
       classe: Prisma.$ClassePayload<ExtArgs>
-      matiere: Prisma.$MatierePayload<ExtArgs>
+      matiere: Prisma.$MatierePayload<ExtArgs> | null
       anneeScolaire: Prisma.$AnneeScolairePayload<ExtArgs>
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
       enseignantId: string
       classeId: string
-      matiereId: string
+      matiereId: string | null
       anneeScolaireId: string
       heuresHebdo: number | null
       estPrincipal: boolean
@@ -31733,7 +31733,7 @@ export namespace Prisma {
     readonly [Symbol.toStringTag]: "PrismaPromise"
     enseignant<T extends EnseignantDefaultArgs<ExtArgs> = {}>(args?: Subset<T, EnseignantDefaultArgs<ExtArgs>>): Prisma__EnseignantClient<$Result.GetResult<Prisma.$EnseignantPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     classe<T extends ClasseDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ClasseDefaultArgs<ExtArgs>>): Prisma__ClasseClient<$Result.GetResult<Prisma.$ClassePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
-    matiere<T extends MatiereDefaultArgs<ExtArgs> = {}>(args?: Subset<T, MatiereDefaultArgs<ExtArgs>>): Prisma__MatiereClient<$Result.GetResult<Prisma.$MatierePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    matiere<T extends AffectationEnseignant$matiereArgs<ExtArgs> = {}>(args?: Subset<T, AffectationEnseignant$matiereArgs<ExtArgs>>): Prisma__MatiereClient<$Result.GetResult<Prisma.$MatierePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     anneeScolaire<T extends AnneeScolaireDefaultArgs<ExtArgs> = {}>(args?: Subset<T, AnneeScolaireDefaultArgs<ExtArgs>>): Prisma__AnneeScolaireClient<$Result.GetResult<Prisma.$AnneeScolairePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -32177,6 +32177,25 @@ export namespace Prisma {
   }
 
   /**
+   * AffectationEnseignant.matiere
+   */
+  export type AffectationEnseignant$matiereArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Matiere
+     */
+    select?: MatiereSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Matiere
+     */
+    omit?: MatiereOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: MatiereInclude<ExtArgs> | null
+    where?: MatiereWhereInput
+  }
+
+  /**
    * AffectationEnseignant without action
    */
   export type AffectationEnseignantDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -32401,7 +32420,7 @@ export namespace Prisma {
     heureFin: string
     classeId: string
     enseignantId: string
-    matiereId: string
+    matiereId: string | null
     salle: string | null
     estRecurrent: boolean
     valableDu: Date
@@ -32449,7 +32468,7 @@ export namespace Prisma {
     updatedAt?: boolean
     classe?: boolean | ClasseDefaultArgs<ExtArgs>
     enseignant?: boolean | EnseignantDefaultArgs<ExtArgs>
-    matiere?: boolean | MatiereDefaultArgs<ExtArgs>
+    matiere?: boolean | EmploiTemps$matiereArgs<ExtArgs>
     creeParUtilisateur?: boolean | UtilisateurDefaultArgs<ExtArgs>
     anneeScolaire?: boolean | EmploiTemps$anneeScolaireArgs<ExtArgs>
   }, ExtArgs["result"]["emploiTemps"]>
@@ -32473,7 +32492,7 @@ export namespace Prisma {
     updatedAt?: boolean
     classe?: boolean | ClasseDefaultArgs<ExtArgs>
     enseignant?: boolean | EnseignantDefaultArgs<ExtArgs>
-    matiere?: boolean | MatiereDefaultArgs<ExtArgs>
+    matiere?: boolean | EmploiTemps$matiereArgs<ExtArgs>
     creeParUtilisateur?: boolean | UtilisateurDefaultArgs<ExtArgs>
     anneeScolaire?: boolean | EmploiTemps$anneeScolaireArgs<ExtArgs>
   }, ExtArgs["result"]["emploiTemps"]>
@@ -32497,7 +32516,7 @@ export namespace Prisma {
     updatedAt?: boolean
     classe?: boolean | ClasseDefaultArgs<ExtArgs>
     enseignant?: boolean | EnseignantDefaultArgs<ExtArgs>
-    matiere?: boolean | MatiereDefaultArgs<ExtArgs>
+    matiere?: boolean | EmploiTemps$matiereArgs<ExtArgs>
     creeParUtilisateur?: boolean | UtilisateurDefaultArgs<ExtArgs>
     anneeScolaire?: boolean | EmploiTemps$anneeScolaireArgs<ExtArgs>
   }, ExtArgs["result"]["emploiTemps"]>
@@ -32525,21 +32544,21 @@ export namespace Prisma {
   export type EmploiTempsInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     classe?: boolean | ClasseDefaultArgs<ExtArgs>
     enseignant?: boolean | EnseignantDefaultArgs<ExtArgs>
-    matiere?: boolean | MatiereDefaultArgs<ExtArgs>
+    matiere?: boolean | EmploiTemps$matiereArgs<ExtArgs>
     creeParUtilisateur?: boolean | UtilisateurDefaultArgs<ExtArgs>
     anneeScolaire?: boolean | EmploiTemps$anneeScolaireArgs<ExtArgs>
   }
   export type EmploiTempsIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     classe?: boolean | ClasseDefaultArgs<ExtArgs>
     enseignant?: boolean | EnseignantDefaultArgs<ExtArgs>
-    matiere?: boolean | MatiereDefaultArgs<ExtArgs>
+    matiere?: boolean | EmploiTemps$matiereArgs<ExtArgs>
     creeParUtilisateur?: boolean | UtilisateurDefaultArgs<ExtArgs>
     anneeScolaire?: boolean | EmploiTemps$anneeScolaireArgs<ExtArgs>
   }
   export type EmploiTempsIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     classe?: boolean | ClasseDefaultArgs<ExtArgs>
     enseignant?: boolean | EnseignantDefaultArgs<ExtArgs>
-    matiere?: boolean | MatiereDefaultArgs<ExtArgs>
+    matiere?: boolean | EmploiTemps$matiereArgs<ExtArgs>
     creeParUtilisateur?: boolean | UtilisateurDefaultArgs<ExtArgs>
     anneeScolaire?: boolean | EmploiTemps$anneeScolaireArgs<ExtArgs>
   }
@@ -32549,7 +32568,7 @@ export namespace Prisma {
     objects: {
       classe: Prisma.$ClassePayload<ExtArgs>
       enseignant: Prisma.$EnseignantPayload<ExtArgs>
-      matiere: Prisma.$MatierePayload<ExtArgs>
+      matiere: Prisma.$MatierePayload<ExtArgs> | null
       creeParUtilisateur: Prisma.$UtilisateurPayload<ExtArgs>
       anneeScolaire: Prisma.$AnneeScolairePayload<ExtArgs> | null
     }
@@ -32560,7 +32579,7 @@ export namespace Prisma {
       heureFin: string
       classeId: string
       enseignantId: string
-      matiereId: string
+      matiereId: string | null
       salle: string | null
       estRecurrent: boolean
       valableDu: Date
@@ -32966,7 +32985,7 @@ export namespace Prisma {
     readonly [Symbol.toStringTag]: "PrismaPromise"
     classe<T extends ClasseDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ClasseDefaultArgs<ExtArgs>>): Prisma__ClasseClient<$Result.GetResult<Prisma.$ClassePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     enseignant<T extends EnseignantDefaultArgs<ExtArgs> = {}>(args?: Subset<T, EnseignantDefaultArgs<ExtArgs>>): Prisma__EnseignantClient<$Result.GetResult<Prisma.$EnseignantPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
-    matiere<T extends MatiereDefaultArgs<ExtArgs> = {}>(args?: Subset<T, MatiereDefaultArgs<ExtArgs>>): Prisma__MatiereClient<$Result.GetResult<Prisma.$MatierePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    matiere<T extends EmploiTemps$matiereArgs<ExtArgs> = {}>(args?: Subset<T, EmploiTemps$matiereArgs<ExtArgs>>): Prisma__MatiereClient<$Result.GetResult<Prisma.$MatierePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     creeParUtilisateur<T extends UtilisateurDefaultArgs<ExtArgs> = {}>(args?: Subset<T, UtilisateurDefaultArgs<ExtArgs>>): Prisma__UtilisateurClient<$Result.GetResult<Prisma.$UtilisateurPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     anneeScolaire<T extends EmploiTemps$anneeScolaireArgs<ExtArgs> = {}>(args?: Subset<T, EmploiTemps$anneeScolaireArgs<ExtArgs>>): Prisma__AnneeScolaireClient<$Result.GetResult<Prisma.$AnneeScolairePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     /**
@@ -33412,6 +33431,25 @@ export namespace Prisma {
      * Limit how many EmploiTemps to delete.
      */
     limit?: number
+  }
+
+  /**
+   * EmploiTemps.matiere
+   */
+  export type EmploiTemps$matiereArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Matiere
+     */
+    select?: MatiereSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Matiere
+     */
+    omit?: MatiereOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: MatiereInclude<ExtArgs> | null
+    where?: MatiereWhereInput
   }
 
   /**
@@ -92954,8 +92992,8 @@ export namespace Prisma {
     nom?: StringFilter<"Matiere"> | string
     code?: StringFilter<"Matiere"> | string
     niveauId?: StringFilter<"Matiere"> | string
-    coefficient?: FloatFilter<"Matiere"> | number
-    dureeCours?: IntFilter<"Matiere"> | number
+    coefficient?: FloatNullableFilter<"Matiere"> | number | null
+    dureeCours?: IntNullableFilter<"Matiere"> | number | null
     description?: StringNullableFilter<"Matiere"> | string | null
     estActive?: BoolFilter<"Matiere"> | boolean
     estArchive?: BoolFilter<"Matiere"> | boolean
@@ -92976,8 +93014,8 @@ export namespace Prisma {
     nom?: SortOrder
     code?: SortOrder
     niveauId?: SortOrder
-    coefficient?: SortOrder
-    dureeCours?: SortOrder
+    coefficient?: SortOrderInput | SortOrder
+    dureeCours?: SortOrderInput | SortOrder
     description?: SortOrderInput | SortOrder
     estActive?: SortOrder
     estArchive?: SortOrder
@@ -93001,8 +93039,8 @@ export namespace Prisma {
     NOT?: MatiereWhereInput | MatiereWhereInput[]
     nom?: StringFilter<"Matiere"> | string
     niveauId?: StringFilter<"Matiere"> | string
-    coefficient?: FloatFilter<"Matiere"> | number
-    dureeCours?: IntFilter<"Matiere"> | number
+    coefficient?: FloatNullableFilter<"Matiere"> | number | null
+    dureeCours?: IntNullableFilter<"Matiere"> | number | null
     description?: StringNullableFilter<"Matiere"> | string | null
     estActive?: BoolFilter<"Matiere"> | boolean
     estArchive?: BoolFilter<"Matiere"> | boolean
@@ -93023,8 +93061,8 @@ export namespace Prisma {
     nom?: SortOrder
     code?: SortOrder
     niveauId?: SortOrder
-    coefficient?: SortOrder
-    dureeCours?: SortOrder
+    coefficient?: SortOrderInput | SortOrder
+    dureeCours?: SortOrderInput | SortOrder
     description?: SortOrderInput | SortOrder
     estActive?: SortOrder
     estArchive?: SortOrder
@@ -93045,8 +93083,8 @@ export namespace Prisma {
     nom?: StringWithAggregatesFilter<"Matiere"> | string
     code?: StringWithAggregatesFilter<"Matiere"> | string
     niveauId?: StringWithAggregatesFilter<"Matiere"> | string
-    coefficient?: FloatWithAggregatesFilter<"Matiere"> | number
-    dureeCours?: IntWithAggregatesFilter<"Matiere"> | number
+    coefficient?: FloatNullableWithAggregatesFilter<"Matiere"> | number | null
+    dureeCours?: IntNullableWithAggregatesFilter<"Matiere"> | number | null
     description?: StringNullableWithAggregatesFilter<"Matiere"> | string | null
     estActive?: BoolWithAggregatesFilter<"Matiere"> | boolean
     estArchive?: BoolWithAggregatesFilter<"Matiere"> | boolean
@@ -93630,7 +93668,7 @@ export namespace Prisma {
     id?: StringFilter<"AffectationEnseignant"> | string
     enseignantId?: StringFilter<"AffectationEnseignant"> | string
     classeId?: StringFilter<"AffectationEnseignant"> | string
-    matiereId?: StringFilter<"AffectationEnseignant"> | string
+    matiereId?: StringNullableFilter<"AffectationEnseignant"> | string | null
     anneeScolaireId?: StringFilter<"AffectationEnseignant"> | string
     heuresHebdo?: FloatNullableFilter<"AffectationEnseignant"> | number | null
     estPrincipal?: BoolFilter<"AffectationEnseignant"> | boolean
@@ -93641,7 +93679,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"AffectationEnseignant"> | Date | string
     enseignant?: XOR<EnseignantScalarRelationFilter, EnseignantWhereInput>
     classe?: XOR<ClasseScalarRelationFilter, ClasseWhereInput>
-    matiere?: XOR<MatiereScalarRelationFilter, MatiereWhereInput>
+    matiere?: XOR<MatiereNullableScalarRelationFilter, MatiereWhereInput> | null
     anneeScolaire?: XOR<AnneeScolaireScalarRelationFilter, AnneeScolaireWhereInput>
   }
 
@@ -93649,7 +93687,7 @@ export namespace Prisma {
     id?: SortOrder
     enseignantId?: SortOrder
     classeId?: SortOrder
-    matiereId?: SortOrder
+    matiereId?: SortOrderInput | SortOrder
     anneeScolaireId?: SortOrder
     heuresHebdo?: SortOrderInput | SortOrder
     estPrincipal?: SortOrder
@@ -93672,7 +93710,7 @@ export namespace Prisma {
     NOT?: AffectationEnseignantWhereInput | AffectationEnseignantWhereInput[]
     enseignantId?: StringFilter<"AffectationEnseignant"> | string
     classeId?: StringFilter<"AffectationEnseignant"> | string
-    matiereId?: StringFilter<"AffectationEnseignant"> | string
+    matiereId?: StringNullableFilter<"AffectationEnseignant"> | string | null
     anneeScolaireId?: StringFilter<"AffectationEnseignant"> | string
     heuresHebdo?: FloatNullableFilter<"AffectationEnseignant"> | number | null
     estPrincipal?: BoolFilter<"AffectationEnseignant"> | boolean
@@ -93683,7 +93721,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"AffectationEnseignant"> | Date | string
     enseignant?: XOR<EnseignantScalarRelationFilter, EnseignantWhereInput>
     classe?: XOR<ClasseScalarRelationFilter, ClasseWhereInput>
-    matiere?: XOR<MatiereScalarRelationFilter, MatiereWhereInput>
+    matiere?: XOR<MatiereNullableScalarRelationFilter, MatiereWhereInput> | null
     anneeScolaire?: XOR<AnneeScolaireScalarRelationFilter, AnneeScolaireWhereInput>
   }, "id" | "enseignantId_classeId_matiereId_anneeScolaireId">
 
@@ -93691,7 +93729,7 @@ export namespace Prisma {
     id?: SortOrder
     enseignantId?: SortOrder
     classeId?: SortOrder
-    matiereId?: SortOrder
+    matiereId?: SortOrderInput | SortOrder
     anneeScolaireId?: SortOrder
     heuresHebdo?: SortOrderInput | SortOrder
     estPrincipal?: SortOrder
@@ -93714,7 +93752,7 @@ export namespace Prisma {
     id?: StringWithAggregatesFilter<"AffectationEnseignant"> | string
     enseignantId?: StringWithAggregatesFilter<"AffectationEnseignant"> | string
     classeId?: StringWithAggregatesFilter<"AffectationEnseignant"> | string
-    matiereId?: StringWithAggregatesFilter<"AffectationEnseignant"> | string
+    matiereId?: StringNullableWithAggregatesFilter<"AffectationEnseignant"> | string | null
     anneeScolaireId?: StringWithAggregatesFilter<"AffectationEnseignant"> | string
     heuresHebdo?: FloatNullableWithAggregatesFilter<"AffectationEnseignant"> | number | null
     estPrincipal?: BoolWithAggregatesFilter<"AffectationEnseignant"> | boolean
@@ -93735,7 +93773,7 @@ export namespace Prisma {
     heureFin?: StringFilter<"EmploiTemps"> | string
     classeId?: StringFilter<"EmploiTemps"> | string
     enseignantId?: StringFilter<"EmploiTemps"> | string
-    matiereId?: StringFilter<"EmploiTemps"> | string
+    matiereId?: StringNullableFilter<"EmploiTemps"> | string | null
     salle?: StringNullableFilter<"EmploiTemps"> | string | null
     estRecurrent?: BoolFilter<"EmploiTemps"> | boolean
     valableDu?: DateTimeFilter<"EmploiTemps"> | Date | string
@@ -93747,7 +93785,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"EmploiTemps"> | Date | string
     classe?: XOR<ClasseScalarRelationFilter, ClasseWhereInput>
     enseignant?: XOR<EnseignantScalarRelationFilter, EnseignantWhereInput>
-    matiere?: XOR<MatiereScalarRelationFilter, MatiereWhereInput>
+    matiere?: XOR<MatiereNullableScalarRelationFilter, MatiereWhereInput> | null
     creeParUtilisateur?: XOR<UtilisateurScalarRelationFilter, UtilisateurWhereInput>
     anneeScolaire?: XOR<AnneeScolaireNullableScalarRelationFilter, AnneeScolaireWhereInput> | null
   }
@@ -93759,7 +93797,7 @@ export namespace Prisma {
     heureFin?: SortOrder
     classeId?: SortOrder
     enseignantId?: SortOrder
-    matiereId?: SortOrder
+    matiereId?: SortOrderInput | SortOrder
     salle?: SortOrderInput | SortOrder
     estRecurrent?: SortOrder
     valableDu?: SortOrder
@@ -93786,7 +93824,7 @@ export namespace Prisma {
     heureFin?: StringFilter<"EmploiTemps"> | string
     classeId?: StringFilter<"EmploiTemps"> | string
     enseignantId?: StringFilter<"EmploiTemps"> | string
-    matiereId?: StringFilter<"EmploiTemps"> | string
+    matiereId?: StringNullableFilter<"EmploiTemps"> | string | null
     salle?: StringNullableFilter<"EmploiTemps"> | string | null
     estRecurrent?: BoolFilter<"EmploiTemps"> | boolean
     valableDu?: DateTimeFilter<"EmploiTemps"> | Date | string
@@ -93798,7 +93836,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"EmploiTemps"> | Date | string
     classe?: XOR<ClasseScalarRelationFilter, ClasseWhereInput>
     enseignant?: XOR<EnseignantScalarRelationFilter, EnseignantWhereInput>
-    matiere?: XOR<MatiereScalarRelationFilter, MatiereWhereInput>
+    matiere?: XOR<MatiereNullableScalarRelationFilter, MatiereWhereInput> | null
     creeParUtilisateur?: XOR<UtilisateurScalarRelationFilter, UtilisateurWhereInput>
     anneeScolaire?: XOR<AnneeScolaireNullableScalarRelationFilter, AnneeScolaireWhereInput> | null
   }, "id">
@@ -93810,7 +93848,7 @@ export namespace Prisma {
     heureFin?: SortOrder
     classeId?: SortOrder
     enseignantId?: SortOrder
-    matiereId?: SortOrder
+    matiereId?: SortOrderInput | SortOrder
     salle?: SortOrderInput | SortOrder
     estRecurrent?: SortOrder
     valableDu?: SortOrder
@@ -93835,7 +93873,7 @@ export namespace Prisma {
     heureFin?: StringWithAggregatesFilter<"EmploiTemps"> | string
     classeId?: StringWithAggregatesFilter<"EmploiTemps"> | string
     enseignantId?: StringWithAggregatesFilter<"EmploiTemps"> | string
-    matiereId?: StringWithAggregatesFilter<"EmploiTemps"> | string
+    matiereId?: StringNullableWithAggregatesFilter<"EmploiTemps"> | string | null
     salle?: StringNullableWithAggregatesFilter<"EmploiTemps"> | string | null
     estRecurrent?: BoolWithAggregatesFilter<"EmploiTemps"> | boolean
     valableDu?: DateTimeWithAggregatesFilter<"EmploiTemps"> | Date | string
@@ -99846,8 +99884,8 @@ export namespace Prisma {
     id?: string
     nom: string
     code: string
-    coefficient?: number
-    dureeCours?: number
+    coefficient?: number | null
+    dureeCours?: number | null
     description?: string | null
     estActive?: boolean
     estArchive?: boolean
@@ -99868,8 +99906,8 @@ export namespace Prisma {
     nom: string
     code: string
     niveauId: string
-    coefficient?: number
-    dureeCours?: number
+    coefficient?: number | null
+    dureeCours?: number | null
     description?: string | null
     estActive?: boolean
     estArchive?: boolean
@@ -99888,8 +99926,8 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     nom?: StringFieldUpdateOperationsInput | string
     code?: StringFieldUpdateOperationsInput | string
-    coefficient?: FloatFieldUpdateOperationsInput | number
-    dureeCours?: IntFieldUpdateOperationsInput | number
+    coefficient?: NullableFloatFieldUpdateOperationsInput | number | null
+    dureeCours?: NullableIntFieldUpdateOperationsInput | number | null
     description?: NullableStringFieldUpdateOperationsInput | string | null
     estActive?: BoolFieldUpdateOperationsInput | boolean
     estArchive?: BoolFieldUpdateOperationsInput | boolean
@@ -99910,8 +99948,8 @@ export namespace Prisma {
     nom?: StringFieldUpdateOperationsInput | string
     code?: StringFieldUpdateOperationsInput | string
     niveauId?: StringFieldUpdateOperationsInput | string
-    coefficient?: FloatFieldUpdateOperationsInput | number
-    dureeCours?: IntFieldUpdateOperationsInput | number
+    coefficient?: NullableFloatFieldUpdateOperationsInput | number | null
+    dureeCours?: NullableIntFieldUpdateOperationsInput | number | null
     description?: NullableStringFieldUpdateOperationsInput | string | null
     estActive?: BoolFieldUpdateOperationsInput | boolean
     estArchive?: BoolFieldUpdateOperationsInput | boolean
@@ -99931,8 +99969,8 @@ export namespace Prisma {
     nom: string
     code: string
     niveauId: string
-    coefficient?: number
-    dureeCours?: number
+    coefficient?: number | null
+    dureeCours?: number | null
     description?: string | null
     estActive?: boolean
     estArchive?: boolean
@@ -99944,8 +99982,8 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     nom?: StringFieldUpdateOperationsInput | string
     code?: StringFieldUpdateOperationsInput | string
-    coefficient?: FloatFieldUpdateOperationsInput | number
-    dureeCours?: IntFieldUpdateOperationsInput | number
+    coefficient?: NullableFloatFieldUpdateOperationsInput | number | null
+    dureeCours?: NullableIntFieldUpdateOperationsInput | number | null
     description?: NullableStringFieldUpdateOperationsInput | string | null
     estActive?: BoolFieldUpdateOperationsInput | boolean
     estArchive?: BoolFieldUpdateOperationsInput | boolean
@@ -99958,8 +99996,8 @@ export namespace Prisma {
     nom?: StringFieldUpdateOperationsInput | string
     code?: StringFieldUpdateOperationsInput | string
     niveauId?: StringFieldUpdateOperationsInput | string
-    coefficient?: FloatFieldUpdateOperationsInput | number
-    dureeCours?: IntFieldUpdateOperationsInput | number
+    coefficient?: NullableFloatFieldUpdateOperationsInput | number | null
+    dureeCours?: NullableIntFieldUpdateOperationsInput | number | null
     description?: NullableStringFieldUpdateOperationsInput | string | null
     estActive?: BoolFieldUpdateOperationsInput | boolean
     estArchive?: BoolFieldUpdateOperationsInput | boolean
@@ -100644,7 +100682,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     enseignant: EnseignantCreateNestedOneWithoutAffectationsInput
     classe: ClasseCreateNestedOneWithoutAffectationsInput
-    matiere: MatiereCreateNestedOneWithoutAffectationsInput
+    matiere?: MatiereCreateNestedOneWithoutAffectationsInput
     anneeScolaire: AnneeScolaireCreateNestedOneWithoutAffectationsInput
   }
 
@@ -100652,7 +100690,7 @@ export namespace Prisma {
     id?: string
     enseignantId: string
     classeId: string
-    matiereId: string
+    matiereId?: string | null
     anneeScolaireId: string
     heuresHebdo?: number | null
     estPrincipal?: boolean
@@ -100674,7 +100712,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     enseignant?: EnseignantUpdateOneRequiredWithoutAffectationsNestedInput
     classe?: ClasseUpdateOneRequiredWithoutAffectationsNestedInput
-    matiere?: MatiereUpdateOneRequiredWithoutAffectationsNestedInput
+    matiere?: MatiereUpdateOneWithoutAffectationsNestedInput
     anneeScolaire?: AnneeScolaireUpdateOneRequiredWithoutAffectationsNestedInput
   }
 
@@ -100682,7 +100720,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     enseignantId?: StringFieldUpdateOperationsInput | string
     classeId?: StringFieldUpdateOperationsInput | string
-    matiereId?: StringFieldUpdateOperationsInput | string
+    matiereId?: NullableStringFieldUpdateOperationsInput | string | null
     anneeScolaireId?: StringFieldUpdateOperationsInput | string
     heuresHebdo?: NullableFloatFieldUpdateOperationsInput | number | null
     estPrincipal?: BoolFieldUpdateOperationsInput | boolean
@@ -100697,7 +100735,7 @@ export namespace Prisma {
     id?: string
     enseignantId: string
     classeId: string
-    matiereId: string
+    matiereId?: string | null
     anneeScolaireId: string
     heuresHebdo?: number | null
     estPrincipal?: boolean
@@ -100723,7 +100761,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     enseignantId?: StringFieldUpdateOperationsInput | string
     classeId?: StringFieldUpdateOperationsInput | string
-    matiereId?: StringFieldUpdateOperationsInput | string
+    matiereId?: NullableStringFieldUpdateOperationsInput | string | null
     anneeScolaireId?: StringFieldUpdateOperationsInput | string
     heuresHebdo?: NullableFloatFieldUpdateOperationsInput | number | null
     estPrincipal?: BoolFieldUpdateOperationsInput | boolean
@@ -100748,7 +100786,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     classe: ClasseCreateNestedOneWithoutEmploisTempsInput
     enseignant: EnseignantCreateNestedOneWithoutEmploisTempsInput
-    matiere: MatiereCreateNestedOneWithoutEmploisTempsInput
+    matiere?: MatiereCreateNestedOneWithoutEmploisTempsInput
     creeParUtilisateur: UtilisateurCreateNestedOneWithoutEmploisTempsCreesInput
     anneeScolaire?: AnneeScolaireCreateNestedOneWithoutEmploisTempsInput
   }
@@ -100760,7 +100798,7 @@ export namespace Prisma {
     heureFin: string
     classeId: string
     enseignantId: string
-    matiereId: string
+    matiereId?: string | null
     salle?: string | null
     estRecurrent?: boolean
     valableDu: Date | string
@@ -100786,7 +100824,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     classe?: ClasseUpdateOneRequiredWithoutEmploisTempsNestedInput
     enseignant?: EnseignantUpdateOneRequiredWithoutEmploisTempsNestedInput
-    matiere?: MatiereUpdateOneRequiredWithoutEmploisTempsNestedInput
+    matiere?: MatiereUpdateOneWithoutEmploisTempsNestedInput
     creeParUtilisateur?: UtilisateurUpdateOneRequiredWithoutEmploisTempsCreesNestedInput
     anneeScolaire?: AnneeScolaireUpdateOneWithoutEmploisTempsNestedInput
   }
@@ -100798,7 +100836,7 @@ export namespace Prisma {
     heureFin?: StringFieldUpdateOperationsInput | string
     classeId?: StringFieldUpdateOperationsInput | string
     enseignantId?: StringFieldUpdateOperationsInput | string
-    matiereId?: StringFieldUpdateOperationsInput | string
+    matiereId?: NullableStringFieldUpdateOperationsInput | string | null
     salle?: NullableStringFieldUpdateOperationsInput | string | null
     estRecurrent?: BoolFieldUpdateOperationsInput | boolean
     valableDu?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -100817,7 +100855,7 @@ export namespace Prisma {
     heureFin: string
     classeId: string
     enseignantId: string
-    matiereId: string
+    matiereId?: string | null
     salle?: string | null
     estRecurrent?: boolean
     valableDu: Date | string
@@ -100850,7 +100888,7 @@ export namespace Prisma {
     heureFin?: StringFieldUpdateOperationsInput | string
     classeId?: StringFieldUpdateOperationsInput | string
     enseignantId?: StringFieldUpdateOperationsInput | string
-    matiereId?: StringFieldUpdateOperationsInput | string
+    matiereId?: NullableStringFieldUpdateOperationsInput | string | null
     salle?: NullableStringFieldUpdateOperationsInput | string | null
     estRecurrent?: BoolFieldUpdateOperationsInput | boolean
     valableDu?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -107280,15 +107318,15 @@ export namespace Prisma {
     _max?: NestedIntNullableFilter<$PrismaModel>
   }
 
-  export type FloatFilter<$PrismaModel = never> = {
-    equals?: number | FloatFieldRefInput<$PrismaModel>
-    in?: number[] | ListFloatFieldRefInput<$PrismaModel>
-    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel>
+  export type FloatNullableFilter<$PrismaModel = never> = {
+    equals?: number | FloatFieldRefInput<$PrismaModel> | null
+    in?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
     lt?: number | FloatFieldRefInput<$PrismaModel>
     lte?: number | FloatFieldRefInput<$PrismaModel>
     gt?: number | FloatFieldRefInput<$PrismaModel>
     gte?: number | FloatFieldRefInput<$PrismaModel>
-    not?: NestedFloatFilter<$PrismaModel> | number
+    not?: NestedFloatNullableFilter<$PrismaModel> | number | null
   }
 
   export type MatiereCountOrderByAggregateInput = {
@@ -107343,20 +107381,20 @@ export namespace Prisma {
     dureeCours?: SortOrder
   }
 
-  export type FloatWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: number | FloatFieldRefInput<$PrismaModel>
-    in?: number[] | ListFloatFieldRefInput<$PrismaModel>
-    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel>
+  export type FloatNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: number | FloatFieldRefInput<$PrismaModel> | null
+    in?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
     lt?: number | FloatFieldRefInput<$PrismaModel>
     lte?: number | FloatFieldRefInput<$PrismaModel>
     gt?: number | FloatFieldRefInput<$PrismaModel>
     gte?: number | FloatFieldRefInput<$PrismaModel>
-    not?: NestedFloatWithAggregatesFilter<$PrismaModel> | number
-    _count?: NestedIntFilter<$PrismaModel>
-    _avg?: NestedFloatFilter<$PrismaModel>
-    _sum?: NestedFloatFilter<$PrismaModel>
-    _min?: NestedFloatFilter<$PrismaModel>
-    _max?: NestedFloatFilter<$PrismaModel>
+    not?: NestedFloatNullableWithAggregatesFilter<$PrismaModel> | number | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _avg?: NestedFloatNullableFilter<$PrismaModel>
+    _sum?: NestedFloatNullableFilter<$PrismaModel>
+    _min?: NestedFloatNullableFilter<$PrismaModel>
+    _max?: NestedFloatNullableFilter<$PrismaModel>
   }
 
   export type EnumStatutEleveFilter<$PrismaModel = never> = {
@@ -107572,6 +107610,17 @@ export namespace Prisma {
     updatedAt?: SortOrder
   }
 
+  export type FloatFilter<$PrismaModel = never> = {
+    equals?: number | FloatFieldRefInput<$PrismaModel>
+    in?: number[] | ListFloatFieldRefInput<$PrismaModel>
+    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel>
+    lt?: number | FloatFieldRefInput<$PrismaModel>
+    lte?: number | FloatFieldRefInput<$PrismaModel>
+    gt?: number | FloatFieldRefInput<$PrismaModel>
+    gte?: number | FloatFieldRefInput<$PrismaModel>
+    not?: NestedFloatFilter<$PrismaModel> | number
+  }
+
   export type PresenceListRelationFilter = {
     every?: PresenceWhereInput
     some?: PresenceWhereInput
@@ -107666,15 +107715,20 @@ export namespace Prisma {
     salaireBase?: SortOrder
   }
 
-  export type FloatNullableFilter<$PrismaModel = never> = {
-    equals?: number | FloatFieldRefInput<$PrismaModel> | null
-    in?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
-    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
+  export type FloatWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: number | FloatFieldRefInput<$PrismaModel>
+    in?: number[] | ListFloatFieldRefInput<$PrismaModel>
+    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel>
     lt?: number | FloatFieldRefInput<$PrismaModel>
     lte?: number | FloatFieldRefInput<$PrismaModel>
     gt?: number | FloatFieldRefInput<$PrismaModel>
     gte?: number | FloatFieldRefInput<$PrismaModel>
-    not?: NestedFloatNullableFilter<$PrismaModel> | number | null
+    not?: NestedFloatWithAggregatesFilter<$PrismaModel> | number
+    _count?: NestedIntFilter<$PrismaModel>
+    _avg?: NestedFloatFilter<$PrismaModel>
+    _sum?: NestedFloatFilter<$PrismaModel>
+    _min?: NestedFloatFilter<$PrismaModel>
+    _max?: NestedFloatFilter<$PrismaModel>
   }
 
   export type EnseignantScalarRelationFilter = {
@@ -107682,9 +107736,9 @@ export namespace Prisma {
     isNot?: EnseignantWhereInput
   }
 
-  export type MatiereScalarRelationFilter = {
-    is?: MatiereWhereInput
-    isNot?: MatiereWhereInput
+  export type MatiereNullableScalarRelationFilter = {
+    is?: MatiereWhereInput | null
+    isNot?: MatiereWhereInput | null
   }
 
   export type AffectationEnseignantEnseignantIdClasseIdMatiereIdAnneeScolaireIdCompoundUniqueInput = {
@@ -107745,22 +107799,6 @@ export namespace Prisma {
 
   export type AffectationEnseignantSumOrderByAggregateInput = {
     heuresHebdo?: SortOrder
-  }
-
-  export type FloatNullableWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: number | FloatFieldRefInput<$PrismaModel> | null
-    in?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
-    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
-    lt?: number | FloatFieldRefInput<$PrismaModel>
-    lte?: number | FloatFieldRefInput<$PrismaModel>
-    gt?: number | FloatFieldRefInput<$PrismaModel>
-    gte?: number | FloatFieldRefInput<$PrismaModel>
-    not?: NestedFloatNullableWithAggregatesFilter<$PrismaModel> | number | null
-    _count?: NestedIntNullableFilter<$PrismaModel>
-    _avg?: NestedFloatNullableFilter<$PrismaModel>
-    _sum?: NestedFloatNullableFilter<$PrismaModel>
-    _min?: NestedFloatNullableFilter<$PrismaModel>
-    _max?: NestedFloatNullableFilter<$PrismaModel>
   }
 
   export type EnumJourSemaineFilter<$PrismaModel = never> = {
@@ -108990,11 +109028,6 @@ export namespace Prisma {
     not?: NestedEnumTypeEvaluationFilter<$PrismaModel> | $Enums.TypeEvaluation
   }
 
-  export type MatiereNullableScalarRelationFilter = {
-    is?: MatiereWhereInput | null
-    isNot?: MatiereWhereInput | null
-  }
-
   export type RegleEvaluationCountOrderByAggregateInput = {
     id?: SortOrder
     nom?: SortOrder
@@ -109065,6 +109098,11 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>
     _min?: NestedEnumTypeEvaluationFilter<$PrismaModel>
     _max?: NestedEnumTypeEvaluationFilter<$PrismaModel>
+  }
+
+  export type MatiereScalarRelationFilter = {
+    is?: MatiereWhereInput
+    isNot?: MatiereWhereInput
   }
 
   export type PeriodeScalarRelationFilter = {
@@ -114651,8 +114689,8 @@ export namespace Prisma {
     connect?: GroupeTDWhereUniqueInput | GroupeTDWhereUniqueInput[]
   }
 
-  export type FloatFieldUpdateOperationsInput = {
-    set?: number
+  export type NullableFloatFieldUpdateOperationsInput = {
+    set?: number | null
     increment?: number
     decrement?: number
     multiply?: number
@@ -116053,6 +116091,14 @@ export namespace Prisma {
     connect?: HistoriqueSalaireWhereUniqueInput | HistoriqueSalaireWhereUniqueInput[]
   }
 
+  export type FloatFieldUpdateOperationsInput = {
+    set?: number
+    increment?: number
+    decrement?: number
+    multiply?: number
+    divide?: number
+  }
+
   export type UtilisateurUpdateOneWithoutEnseignantNestedInput = {
     create?: XOR<UtilisateurCreateWithoutEnseignantInput, UtilisateurUncheckedCreateWithoutEnseignantInput>
     connectOrCreate?: UtilisateurCreateOrConnectWithoutEnseignantInput
@@ -116555,14 +116601,6 @@ export namespace Prisma {
     connect?: AnneeScolaireWhereUniqueInput
   }
 
-  export type NullableFloatFieldUpdateOperationsInput = {
-    set?: number | null
-    increment?: number
-    decrement?: number
-    multiply?: number
-    divide?: number
-  }
-
   export type EnseignantUpdateOneRequiredWithoutAffectationsNestedInput = {
     create?: XOR<EnseignantCreateWithoutAffectationsInput, EnseignantUncheckedCreateWithoutAffectationsInput>
     connectOrCreate?: EnseignantCreateOrConnectWithoutAffectationsInput
@@ -116579,10 +116617,12 @@ export namespace Prisma {
     update?: XOR<XOR<ClasseUpdateToOneWithWhereWithoutAffectationsInput, ClasseUpdateWithoutAffectationsInput>, ClasseUncheckedUpdateWithoutAffectationsInput>
   }
 
-  export type MatiereUpdateOneRequiredWithoutAffectationsNestedInput = {
+  export type MatiereUpdateOneWithoutAffectationsNestedInput = {
     create?: XOR<MatiereCreateWithoutAffectationsInput, MatiereUncheckedCreateWithoutAffectationsInput>
     connectOrCreate?: MatiereCreateOrConnectWithoutAffectationsInput
     upsert?: MatiereUpsertWithoutAffectationsInput
+    disconnect?: MatiereWhereInput | boolean
+    delete?: MatiereWhereInput | boolean
     connect?: MatiereWhereUniqueInput
     update?: XOR<XOR<MatiereUpdateToOneWithWhereWithoutAffectationsInput, MatiereUpdateWithoutAffectationsInput>, MatiereUncheckedUpdateWithoutAffectationsInput>
   }
@@ -116645,10 +116685,12 @@ export namespace Prisma {
     update?: XOR<XOR<EnseignantUpdateToOneWithWhereWithoutEmploisTempsInput, EnseignantUpdateWithoutEmploisTempsInput>, EnseignantUncheckedUpdateWithoutEmploisTempsInput>
   }
 
-  export type MatiereUpdateOneRequiredWithoutEmploisTempsNestedInput = {
+  export type MatiereUpdateOneWithoutEmploisTempsNestedInput = {
     create?: XOR<MatiereCreateWithoutEmploisTempsInput, MatiereUncheckedCreateWithoutEmploisTempsInput>
     connectOrCreate?: MatiereCreateOrConnectWithoutEmploisTempsInput
     upsert?: MatiereUpsertWithoutEmploisTempsInput
+    disconnect?: MatiereWhereInput | boolean
+    delete?: MatiereWhereInput | boolean
     connect?: MatiereWhereUniqueInput
     update?: XOR<XOR<MatiereUpdateToOneWithWhereWithoutEmploisTempsInput, MatiereUpdateWithoutEmploisTempsInput>, MatiereUncheckedUpdateWithoutEmploisTempsInput>
   }
@@ -119741,20 +119783,20 @@ export namespace Prisma {
     not?: NestedFloatNullableFilter<$PrismaModel> | number | null
   }
 
-  export type NestedFloatWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: number | FloatFieldRefInput<$PrismaModel>
-    in?: number[] | ListFloatFieldRefInput<$PrismaModel>
-    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel>
+  export type NestedFloatNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: number | FloatFieldRefInput<$PrismaModel> | null
+    in?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
     lt?: number | FloatFieldRefInput<$PrismaModel>
     lte?: number | FloatFieldRefInput<$PrismaModel>
     gt?: number | FloatFieldRefInput<$PrismaModel>
     gte?: number | FloatFieldRefInput<$PrismaModel>
-    not?: NestedFloatWithAggregatesFilter<$PrismaModel> | number
-    _count?: NestedIntFilter<$PrismaModel>
-    _avg?: NestedFloatFilter<$PrismaModel>
-    _sum?: NestedFloatFilter<$PrismaModel>
-    _min?: NestedFloatFilter<$PrismaModel>
-    _max?: NestedFloatFilter<$PrismaModel>
+    not?: NestedFloatNullableWithAggregatesFilter<$PrismaModel> | number | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _avg?: NestedFloatNullableFilter<$PrismaModel>
+    _sum?: NestedFloatNullableFilter<$PrismaModel>
+    _min?: NestedFloatNullableFilter<$PrismaModel>
+    _max?: NestedFloatNullableFilter<$PrismaModel>
   }
 
   export type NestedEnumStatutEleveFilter<$PrismaModel = never> = {
@@ -119774,20 +119816,20 @@ export namespace Prisma {
     _max?: NestedEnumStatutEleveFilter<$PrismaModel>
   }
 
-  export type NestedFloatNullableWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: number | FloatFieldRefInput<$PrismaModel> | null
-    in?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
-    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
+  export type NestedFloatWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: number | FloatFieldRefInput<$PrismaModel>
+    in?: number[] | ListFloatFieldRefInput<$PrismaModel>
+    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel>
     lt?: number | FloatFieldRefInput<$PrismaModel>
     lte?: number | FloatFieldRefInput<$PrismaModel>
     gt?: number | FloatFieldRefInput<$PrismaModel>
     gte?: number | FloatFieldRefInput<$PrismaModel>
-    not?: NestedFloatNullableWithAggregatesFilter<$PrismaModel> | number | null
-    _count?: NestedIntNullableFilter<$PrismaModel>
-    _avg?: NestedFloatNullableFilter<$PrismaModel>
-    _sum?: NestedFloatNullableFilter<$PrismaModel>
-    _min?: NestedFloatNullableFilter<$PrismaModel>
-    _max?: NestedFloatNullableFilter<$PrismaModel>
+    not?: NestedFloatWithAggregatesFilter<$PrismaModel> | number
+    _count?: NestedIntFilter<$PrismaModel>
+    _avg?: NestedFloatFilter<$PrismaModel>
+    _sum?: NestedFloatFilter<$PrismaModel>
+    _min?: NestedFloatFilter<$PrismaModel>
+    _max?: NestedFloatFilter<$PrismaModel>
   }
 
   export type NestedEnumJourSemaineFilter<$PrismaModel = never> = {
@@ -121690,7 +121732,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     classe: ClasseCreateNestedOneWithoutEmploisTempsInput
     enseignant: EnseignantCreateNestedOneWithoutEmploisTempsInput
-    matiere: MatiereCreateNestedOneWithoutEmploisTempsInput
+    matiere?: MatiereCreateNestedOneWithoutEmploisTempsInput
     anneeScolaire?: AnneeScolaireCreateNestedOneWithoutEmploisTempsInput
   }
 
@@ -121701,7 +121743,7 @@ export namespace Prisma {
     heureFin: string
     classeId: string
     enseignantId: string
-    matiereId: string
+    matiereId?: string | null
     salle?: string | null
     estRecurrent?: boolean
     valableDu: Date | string
@@ -123679,7 +123721,7 @@ export namespace Prisma {
     heureFin?: StringFilter<"EmploiTemps"> | string
     classeId?: StringFilter<"EmploiTemps"> | string
     enseignantId?: StringFilter<"EmploiTemps"> | string
-    matiereId?: StringFilter<"EmploiTemps"> | string
+    matiereId?: StringNullableFilter<"EmploiTemps"> | string | null
     salle?: StringNullableFilter<"EmploiTemps"> | string | null
     estRecurrent?: BoolFilter<"EmploiTemps"> | boolean
     valableDu?: DateTimeFilter<"EmploiTemps"> | Date | string
@@ -126423,14 +126465,14 @@ export namespace Prisma {
     updatedAt?: Date | string
     enseignant: EnseignantCreateNestedOneWithoutAffectationsInput
     classe: ClasseCreateNestedOneWithoutAffectationsInput
-    matiere: MatiereCreateNestedOneWithoutAffectationsInput
+    matiere?: MatiereCreateNestedOneWithoutAffectationsInput
   }
 
   export type AffectationEnseignantUncheckedCreateWithoutAnneeScolaireInput = {
     id?: string
     enseignantId: string
     classeId: string
-    matiereId: string
+    matiereId?: string | null
     heuresHebdo?: number | null
     estPrincipal?: boolean
     valableDu: Date | string
@@ -126500,7 +126542,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     classe: ClasseCreateNestedOneWithoutEmploisTempsInput
     enseignant: EnseignantCreateNestedOneWithoutEmploisTempsInput
-    matiere: MatiereCreateNestedOneWithoutEmploisTempsInput
+    matiere?: MatiereCreateNestedOneWithoutEmploisTempsInput
     creeParUtilisateur: UtilisateurCreateNestedOneWithoutEmploisTempsCreesInput
   }
 
@@ -126511,7 +126553,7 @@ export namespace Prisma {
     heureFin: string
     classeId: string
     enseignantId: string
-    matiereId: string
+    matiereId?: string | null
     salle?: string | null
     estRecurrent?: boolean
     valableDu: Date | string
@@ -126825,7 +126867,7 @@ export namespace Prisma {
     id?: StringFilter<"AffectationEnseignant"> | string
     enseignantId?: StringFilter<"AffectationEnseignant"> | string
     classeId?: StringFilter<"AffectationEnseignant"> | string
-    matiereId?: StringFilter<"AffectationEnseignant"> | string
+    matiereId?: StringNullableFilter<"AffectationEnseignant"> | string | null
     anneeScolaireId?: StringFilter<"AffectationEnseignant"> | string
     heuresHebdo?: FloatNullableFilter<"AffectationEnseignant"> | number | null
     estPrincipal?: BoolFilter<"AffectationEnseignant"> | boolean
@@ -127323,8 +127365,8 @@ export namespace Prisma {
     id?: string
     nom: string
     code: string
-    coefficient?: number
-    dureeCours?: number
+    coefficient?: number | null
+    dureeCours?: number | null
     description?: string | null
     estActive?: boolean
     estArchive?: boolean
@@ -127343,8 +127385,8 @@ export namespace Prisma {
     id?: string
     nom: string
     code: string
-    coefficient?: number
-    dureeCours?: number
+    coefficient?: number | null
+    dureeCours?: number | null
     description?: string | null
     estActive?: boolean
     estArchive?: boolean
@@ -127497,8 +127539,8 @@ export namespace Prisma {
     nom?: StringFilter<"Matiere"> | string
     code?: StringFilter<"Matiere"> | string
     niveauId?: StringFilter<"Matiere"> | string
-    coefficient?: FloatFilter<"Matiere"> | number
-    dureeCours?: IntFilter<"Matiere"> | number
+    coefficient?: FloatNullableFilter<"Matiere"> | number | null
+    dureeCours?: IntNullableFilter<"Matiere"> | number | null
     description?: StringNullableFilter<"Matiere"> | string | null
     estActive?: BoolFilter<"Matiere"> | boolean
     estArchive?: BoolFilter<"Matiere"> | boolean
@@ -127673,14 +127715,14 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     enseignant: EnseignantCreateNestedOneWithoutAffectationsInput
-    matiere: MatiereCreateNestedOneWithoutAffectationsInput
+    matiere?: MatiereCreateNestedOneWithoutAffectationsInput
     anneeScolaire: AnneeScolaireCreateNestedOneWithoutAffectationsInput
   }
 
   export type AffectationEnseignantUncheckedCreateWithoutClasseInput = {
     id?: string
     enseignantId: string
-    matiereId: string
+    matiereId?: string | null
     anneeScolaireId: string
     heuresHebdo?: number | null
     estPrincipal?: boolean
@@ -127714,7 +127756,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     enseignant: EnseignantCreateNestedOneWithoutEmploisTempsInput
-    matiere: MatiereCreateNestedOneWithoutEmploisTempsInput
+    matiere?: MatiereCreateNestedOneWithoutEmploisTempsInput
     creeParUtilisateur: UtilisateurCreateNestedOneWithoutEmploisTempsCreesInput
     anneeScolaire?: AnneeScolaireCreateNestedOneWithoutEmploisTempsInput
   }
@@ -127725,7 +127767,7 @@ export namespace Prisma {
     heureDebut: string
     heureFin: string
     enseignantId: string
-    matiereId: string
+    matiereId?: string | null
     salle?: string | null
     estRecurrent?: boolean
     valableDu: Date | string
@@ -131791,14 +131833,14 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     classe: ClasseCreateNestedOneWithoutAffectationsInput
-    matiere: MatiereCreateNestedOneWithoutAffectationsInput
+    matiere?: MatiereCreateNestedOneWithoutAffectationsInput
     anneeScolaire: AnneeScolaireCreateNestedOneWithoutAffectationsInput
   }
 
   export type AffectationEnseignantUncheckedCreateWithoutEnseignantInput = {
     id?: string
     classeId: string
-    matiereId: string
+    matiereId?: string | null
     anneeScolaireId: string
     heuresHebdo?: number | null
     estPrincipal?: boolean
@@ -131832,7 +131874,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     classe: ClasseCreateNestedOneWithoutEmploisTempsInput
-    matiere: MatiereCreateNestedOneWithoutEmploisTempsInput
+    matiere?: MatiereCreateNestedOneWithoutEmploisTempsInput
     creeParUtilisateur: UtilisateurCreateNestedOneWithoutEmploisTempsCreesInput
     anneeScolaire?: AnneeScolaireCreateNestedOneWithoutEmploisTempsInput
   }
@@ -131843,7 +131885,7 @@ export namespace Prisma {
     heureDebut: string
     heureFin: string
     classeId: string
-    matiereId: string
+    matiereId?: string | null
     salle?: string | null
     estRecurrent?: boolean
     valableDu: Date | string
@@ -133309,8 +133351,8 @@ export namespace Prisma {
     id?: string
     nom: string
     code: string
-    coefficient?: number
-    dureeCours?: number
+    coefficient?: number | null
+    dureeCours?: number | null
     description?: string | null
     estActive?: boolean
     estArchive?: boolean
@@ -133330,8 +133372,8 @@ export namespace Prisma {
     nom: string
     code: string
     niveauId: string
-    coefficient?: number
-    dureeCours?: number
+    coefficient?: number | null
+    dureeCours?: number | null
     description?: string | null
     estActive?: boolean
     estArchive?: boolean
@@ -133556,8 +133598,8 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     nom?: StringFieldUpdateOperationsInput | string
     code?: StringFieldUpdateOperationsInput | string
-    coefficient?: FloatFieldUpdateOperationsInput | number
-    dureeCours?: IntFieldUpdateOperationsInput | number
+    coefficient?: NullableFloatFieldUpdateOperationsInput | number | null
+    dureeCours?: NullableIntFieldUpdateOperationsInput | number | null
     description?: NullableStringFieldUpdateOperationsInput | string | null
     estActive?: BoolFieldUpdateOperationsInput | boolean
     estArchive?: BoolFieldUpdateOperationsInput | boolean
@@ -133577,8 +133619,8 @@ export namespace Prisma {
     nom?: StringFieldUpdateOperationsInput | string
     code?: StringFieldUpdateOperationsInput | string
     niveauId?: StringFieldUpdateOperationsInput | string
-    coefficient?: FloatFieldUpdateOperationsInput | number
-    dureeCours?: IntFieldUpdateOperationsInput | number
+    coefficient?: NullableFloatFieldUpdateOperationsInput | number | null
+    dureeCours?: NullableIntFieldUpdateOperationsInput | number | null
     description?: NullableStringFieldUpdateOperationsInput | string | null
     estActive?: BoolFieldUpdateOperationsInput | boolean
     estArchive?: BoolFieldUpdateOperationsInput | boolean
@@ -133781,8 +133823,8 @@ export namespace Prisma {
     id?: string
     nom: string
     code: string
-    coefficient?: number
-    dureeCours?: number
+    coefficient?: number | null
+    dureeCours?: number | null
     description?: string | null
     estActive?: boolean
     estArchive?: boolean
@@ -133802,8 +133844,8 @@ export namespace Prisma {
     nom: string
     code: string
     niveauId: string
-    coefficient?: number
-    dureeCours?: number
+    coefficient?: number | null
+    dureeCours?: number | null
     description?: string | null
     estActive?: boolean
     estArchive?: boolean
@@ -134163,8 +134205,8 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     nom?: StringFieldUpdateOperationsInput | string
     code?: StringFieldUpdateOperationsInput | string
-    coefficient?: FloatFieldUpdateOperationsInput | number
-    dureeCours?: IntFieldUpdateOperationsInput | number
+    coefficient?: NullableFloatFieldUpdateOperationsInput | number | null
+    dureeCours?: NullableIntFieldUpdateOperationsInput | number | null
     description?: NullableStringFieldUpdateOperationsInput | string | null
     estActive?: BoolFieldUpdateOperationsInput | boolean
     estArchive?: BoolFieldUpdateOperationsInput | boolean
@@ -134184,8 +134226,8 @@ export namespace Prisma {
     nom?: StringFieldUpdateOperationsInput | string
     code?: StringFieldUpdateOperationsInput | string
     niveauId?: StringFieldUpdateOperationsInput | string
-    coefficient?: FloatFieldUpdateOperationsInput | number
-    dureeCours?: IntFieldUpdateOperationsInput | number
+    coefficient?: NullableFloatFieldUpdateOperationsInput | number | null
+    dureeCours?: NullableIntFieldUpdateOperationsInput | number | null
     description?: NullableStringFieldUpdateOperationsInput | string | null
     estActive?: BoolFieldUpdateOperationsInput | boolean
     estArchive?: BoolFieldUpdateOperationsInput | boolean
@@ -140342,8 +140384,8 @@ export namespace Prisma {
     id?: string
     nom: string
     code: string
-    coefficient?: number
-    dureeCours?: number
+    coefficient?: number | null
+    dureeCours?: number | null
     description?: string | null
     estActive?: boolean
     estArchive?: boolean
@@ -140363,8 +140405,8 @@ export namespace Prisma {
     nom: string
     code: string
     niveauId: string
-    coefficient?: number
-    dureeCours?: number
+    coefficient?: number | null
+    dureeCours?: number | null
     description?: string | null
     estActive?: boolean
     estArchive?: boolean
@@ -140485,8 +140527,8 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     nom?: StringFieldUpdateOperationsInput | string
     code?: StringFieldUpdateOperationsInput | string
-    coefficient?: FloatFieldUpdateOperationsInput | number
-    dureeCours?: IntFieldUpdateOperationsInput | number
+    coefficient?: NullableFloatFieldUpdateOperationsInput | number | null
+    dureeCours?: NullableIntFieldUpdateOperationsInput | number | null
     description?: NullableStringFieldUpdateOperationsInput | string | null
     estActive?: BoolFieldUpdateOperationsInput | boolean
     estArchive?: BoolFieldUpdateOperationsInput | boolean
@@ -140506,8 +140548,8 @@ export namespace Prisma {
     nom?: StringFieldUpdateOperationsInput | string
     code?: StringFieldUpdateOperationsInput | string
     niveauId?: StringFieldUpdateOperationsInput | string
-    coefficient?: FloatFieldUpdateOperationsInput | number
-    dureeCours?: IntFieldUpdateOperationsInput | number
+    coefficient?: NullableFloatFieldUpdateOperationsInput | number | null
+    dureeCours?: NullableIntFieldUpdateOperationsInput | number | null
     description?: NullableStringFieldUpdateOperationsInput | string | null
     estActive?: BoolFieldUpdateOperationsInput | boolean
     estArchive?: BoolFieldUpdateOperationsInput | boolean
@@ -140632,8 +140674,8 @@ export namespace Prisma {
     id?: string
     nom: string
     code: string
-    coefficient?: number
-    dureeCours?: number
+    coefficient?: number | null
+    dureeCours?: number | null
     description?: string | null
     estActive?: boolean
     estArchive?: boolean
@@ -140653,8 +140695,8 @@ export namespace Prisma {
     nom: string
     code: string
     niveauId: string
-    coefficient?: number
-    dureeCours?: number
+    coefficient?: number | null
+    dureeCours?: number | null
     description?: string | null
     estActive?: boolean
     estArchive?: boolean
@@ -141353,8 +141395,8 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     nom?: StringFieldUpdateOperationsInput | string
     code?: StringFieldUpdateOperationsInput | string
-    coefficient?: FloatFieldUpdateOperationsInput | number
-    dureeCours?: IntFieldUpdateOperationsInput | number
+    coefficient?: NullableFloatFieldUpdateOperationsInput | number | null
+    dureeCours?: NullableIntFieldUpdateOperationsInput | number | null
     description?: NullableStringFieldUpdateOperationsInput | string | null
     estActive?: BoolFieldUpdateOperationsInput | boolean
     estArchive?: BoolFieldUpdateOperationsInput | boolean
@@ -141374,8 +141416,8 @@ export namespace Prisma {
     nom?: StringFieldUpdateOperationsInput | string
     code?: StringFieldUpdateOperationsInput | string
     niveauId?: StringFieldUpdateOperationsInput | string
-    coefficient?: FloatFieldUpdateOperationsInput | number
-    dureeCours?: IntFieldUpdateOperationsInput | number
+    coefficient?: NullableFloatFieldUpdateOperationsInput | number | null
+    dureeCours?: NullableIntFieldUpdateOperationsInput | number | null
     description?: NullableStringFieldUpdateOperationsInput | string | null
     estActive?: BoolFieldUpdateOperationsInput | boolean
     estArchive?: BoolFieldUpdateOperationsInput | boolean
@@ -142127,8 +142169,8 @@ export namespace Prisma {
     id?: string
     nom: string
     code: string
-    coefficient?: number
-    dureeCours?: number
+    coefficient?: number | null
+    dureeCours?: number | null
     description?: string | null
     estActive?: boolean
     estArchive?: boolean
@@ -142148,8 +142190,8 @@ export namespace Prisma {
     nom: string
     code: string
     niveauId: string
-    coefficient?: number
-    dureeCours?: number
+    coefficient?: number | null
+    dureeCours?: number | null
     description?: string | null
     estActive?: boolean
     estArchive?: boolean
@@ -142460,8 +142502,8 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     nom?: StringFieldUpdateOperationsInput | string
     code?: StringFieldUpdateOperationsInput | string
-    coefficient?: FloatFieldUpdateOperationsInput | number
-    dureeCours?: IntFieldUpdateOperationsInput | number
+    coefficient?: NullableFloatFieldUpdateOperationsInput | number | null
+    dureeCours?: NullableIntFieldUpdateOperationsInput | number | null
     description?: NullableStringFieldUpdateOperationsInput | string | null
     estActive?: BoolFieldUpdateOperationsInput | boolean
     estArchive?: BoolFieldUpdateOperationsInput | boolean
@@ -142481,8 +142523,8 @@ export namespace Prisma {
     nom?: StringFieldUpdateOperationsInput | string
     code?: StringFieldUpdateOperationsInput | string
     niveauId?: StringFieldUpdateOperationsInput | string
-    coefficient?: FloatFieldUpdateOperationsInput | number
-    dureeCours?: IntFieldUpdateOperationsInput | number
+    coefficient?: NullableFloatFieldUpdateOperationsInput | number | null
+    dureeCours?: NullableIntFieldUpdateOperationsInput | number | null
     description?: NullableStringFieldUpdateOperationsInput | string | null
     estActive?: BoolFieldUpdateOperationsInput | boolean
     estArchive?: BoolFieldUpdateOperationsInput | boolean
@@ -148923,8 +148965,8 @@ export namespace Prisma {
     id?: string
     nom: string
     code: string
-    coefficient?: number
-    dureeCours?: number
+    coefficient?: number | null
+    dureeCours?: number | null
     description?: string | null
     estActive?: boolean
     estArchive?: boolean
@@ -148944,8 +148986,8 @@ export namespace Prisma {
     nom: string
     code: string
     niveauId: string
-    coefficient?: number
-    dureeCours?: number
+    coefficient?: number | null
+    dureeCours?: number | null
     description?: string | null
     estActive?: boolean
     estArchive?: boolean
@@ -149201,8 +149243,8 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     nom?: StringFieldUpdateOperationsInput | string
     code?: StringFieldUpdateOperationsInput | string
-    coefficient?: FloatFieldUpdateOperationsInput | number
-    dureeCours?: IntFieldUpdateOperationsInput | number
+    coefficient?: NullableFloatFieldUpdateOperationsInput | number | null
+    dureeCours?: NullableIntFieldUpdateOperationsInput | number | null
     description?: NullableStringFieldUpdateOperationsInput | string | null
     estActive?: BoolFieldUpdateOperationsInput | boolean
     estArchive?: BoolFieldUpdateOperationsInput | boolean
@@ -149222,8 +149264,8 @@ export namespace Prisma {
     nom?: StringFieldUpdateOperationsInput | string
     code?: StringFieldUpdateOperationsInput | string
     niveauId?: StringFieldUpdateOperationsInput | string
-    coefficient?: FloatFieldUpdateOperationsInput | number
-    dureeCours?: IntFieldUpdateOperationsInput | number
+    coefficient?: NullableFloatFieldUpdateOperationsInput | number | null
+    dureeCours?: NullableIntFieldUpdateOperationsInput | number | null
     description?: NullableStringFieldUpdateOperationsInput | string | null
     estActive?: BoolFieldUpdateOperationsInput | boolean
     estArchive?: BoolFieldUpdateOperationsInput | boolean
@@ -151062,8 +151104,8 @@ export namespace Prisma {
     id?: string
     nom: string
     code: string
-    coefficient?: number
-    dureeCours?: number
+    coefficient?: number | null
+    dureeCours?: number | null
     description?: string | null
     estActive?: boolean
     estArchive?: boolean
@@ -151083,8 +151125,8 @@ export namespace Prisma {
     nom: string
     code: string
     niveauId: string
-    coefficient?: number
-    dureeCours?: number
+    coefficient?: number | null
+    dureeCours?: number | null
     description?: string | null
     estActive?: boolean
     estArchive?: boolean
@@ -151542,8 +151584,8 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     nom?: StringFieldUpdateOperationsInput | string
     code?: StringFieldUpdateOperationsInput | string
-    coefficient?: FloatFieldUpdateOperationsInput | number
-    dureeCours?: IntFieldUpdateOperationsInput | number
+    coefficient?: NullableFloatFieldUpdateOperationsInput | number | null
+    dureeCours?: NullableIntFieldUpdateOperationsInput | number | null
     description?: NullableStringFieldUpdateOperationsInput | string | null
     estActive?: BoolFieldUpdateOperationsInput | boolean
     estArchive?: BoolFieldUpdateOperationsInput | boolean
@@ -151563,8 +151605,8 @@ export namespace Prisma {
     nom?: StringFieldUpdateOperationsInput | string
     code?: StringFieldUpdateOperationsInput | string
     niveauId?: StringFieldUpdateOperationsInput | string
-    coefficient?: FloatFieldUpdateOperationsInput | number
-    dureeCours?: IntFieldUpdateOperationsInput | number
+    coefficient?: NullableFloatFieldUpdateOperationsInput | number | null
+    dureeCours?: NullableIntFieldUpdateOperationsInput | number | null
     description?: NullableStringFieldUpdateOperationsInput | string | null
     estActive?: BoolFieldUpdateOperationsInput | boolean
     estArchive?: BoolFieldUpdateOperationsInput | boolean
@@ -156495,7 +156537,7 @@ export namespace Prisma {
     heureFin: string
     classeId: string
     enseignantId: string
-    matiereId: string
+    matiereId?: string | null
     salle?: string | null
     estRecurrent?: boolean
     valableDu: Date | string
@@ -158104,7 +158146,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     classe?: ClasseUpdateOneRequiredWithoutEmploisTempsNestedInput
     enseignant?: EnseignantUpdateOneRequiredWithoutEmploisTempsNestedInput
-    matiere?: MatiereUpdateOneRequiredWithoutEmploisTempsNestedInput
+    matiere?: MatiereUpdateOneWithoutEmploisTempsNestedInput
     anneeScolaire?: AnneeScolaireUpdateOneWithoutEmploisTempsNestedInput
   }
 
@@ -158115,7 +158157,7 @@ export namespace Prisma {
     heureFin?: StringFieldUpdateOperationsInput | string
     classeId?: StringFieldUpdateOperationsInput | string
     enseignantId?: StringFieldUpdateOperationsInput | string
-    matiereId?: StringFieldUpdateOperationsInput | string
+    matiereId?: NullableStringFieldUpdateOperationsInput | string | null
     salle?: NullableStringFieldUpdateOperationsInput | string | null
     estRecurrent?: BoolFieldUpdateOperationsInput | boolean
     valableDu?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -158133,7 +158175,7 @@ export namespace Prisma {
     heureFin?: StringFieldUpdateOperationsInput | string
     classeId?: StringFieldUpdateOperationsInput | string
     enseignantId?: StringFieldUpdateOperationsInput | string
-    matiereId?: StringFieldUpdateOperationsInput | string
+    matiereId?: NullableStringFieldUpdateOperationsInput | string | null
     salle?: NullableStringFieldUpdateOperationsInput | string | null
     estRecurrent?: BoolFieldUpdateOperationsInput | boolean
     valableDu?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -159739,7 +159781,7 @@ export namespace Prisma {
     id?: string
     enseignantId: string
     classeId: string
-    matiereId: string
+    matiereId?: string | null
     heuresHebdo?: number | null
     estPrincipal?: boolean
     valableDu: Date | string
@@ -159767,7 +159809,7 @@ export namespace Prisma {
     heureFin: string
     classeId: string
     enseignantId: string
-    matiereId: string
+    matiereId?: string | null
     salle?: string | null
     estRecurrent?: boolean
     valableDu: Date | string
@@ -160086,14 +160128,14 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     enseignant?: EnseignantUpdateOneRequiredWithoutAffectationsNestedInput
     classe?: ClasseUpdateOneRequiredWithoutAffectationsNestedInput
-    matiere?: MatiereUpdateOneRequiredWithoutAffectationsNestedInput
+    matiere?: MatiereUpdateOneWithoutAffectationsNestedInput
   }
 
   export type AffectationEnseignantUncheckedUpdateWithoutAnneeScolaireInput = {
     id?: StringFieldUpdateOperationsInput | string
     enseignantId?: StringFieldUpdateOperationsInput | string
     classeId?: StringFieldUpdateOperationsInput | string
-    matiereId?: StringFieldUpdateOperationsInput | string
+    matiereId?: NullableStringFieldUpdateOperationsInput | string | null
     heuresHebdo?: NullableFloatFieldUpdateOperationsInput | number | null
     estPrincipal?: BoolFieldUpdateOperationsInput | boolean
     valableDu?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -160107,7 +160149,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     enseignantId?: StringFieldUpdateOperationsInput | string
     classeId?: StringFieldUpdateOperationsInput | string
-    matiereId?: StringFieldUpdateOperationsInput | string
+    matiereId?: NullableStringFieldUpdateOperationsInput | string | null
     heuresHebdo?: NullableFloatFieldUpdateOperationsInput | number | null
     estPrincipal?: BoolFieldUpdateOperationsInput | boolean
     valableDu?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -160168,7 +160210,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     classe?: ClasseUpdateOneRequiredWithoutEmploisTempsNestedInput
     enseignant?: EnseignantUpdateOneRequiredWithoutEmploisTempsNestedInput
-    matiere?: MatiereUpdateOneRequiredWithoutEmploisTempsNestedInput
+    matiere?: MatiereUpdateOneWithoutEmploisTempsNestedInput
     creeParUtilisateur?: UtilisateurUpdateOneRequiredWithoutEmploisTempsCreesNestedInput
   }
 
@@ -160179,7 +160221,7 @@ export namespace Prisma {
     heureFin?: StringFieldUpdateOperationsInput | string
     classeId?: StringFieldUpdateOperationsInput | string
     enseignantId?: StringFieldUpdateOperationsInput | string
-    matiereId?: StringFieldUpdateOperationsInput | string
+    matiereId?: NullableStringFieldUpdateOperationsInput | string | null
     salle?: NullableStringFieldUpdateOperationsInput | string | null
     estRecurrent?: BoolFieldUpdateOperationsInput | boolean
     valableDu?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -160197,7 +160239,7 @@ export namespace Prisma {
     heureFin?: StringFieldUpdateOperationsInput | string
     classeId?: StringFieldUpdateOperationsInput | string
     enseignantId?: StringFieldUpdateOperationsInput | string
-    matiereId?: StringFieldUpdateOperationsInput | string
+    matiereId?: NullableStringFieldUpdateOperationsInput | string | null
     salle?: NullableStringFieldUpdateOperationsInput | string | null
     estRecurrent?: BoolFieldUpdateOperationsInput | boolean
     valableDu?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -160676,8 +160718,8 @@ export namespace Prisma {
     id?: string
     nom: string
     code: string
-    coefficient?: number
-    dureeCours?: number
+    coefficient?: number | null
+    dureeCours?: number | null
     description?: string | null
     estActive?: boolean
     estArchive?: boolean
@@ -160775,8 +160817,8 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     nom?: StringFieldUpdateOperationsInput | string
     code?: StringFieldUpdateOperationsInput | string
-    coefficient?: FloatFieldUpdateOperationsInput | number
-    dureeCours?: IntFieldUpdateOperationsInput | number
+    coefficient?: NullableFloatFieldUpdateOperationsInput | number | null
+    dureeCours?: NullableIntFieldUpdateOperationsInput | number | null
     description?: NullableStringFieldUpdateOperationsInput | string | null
     estActive?: BoolFieldUpdateOperationsInput | boolean
     estArchive?: BoolFieldUpdateOperationsInput | boolean
@@ -160795,8 +160837,8 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     nom?: StringFieldUpdateOperationsInput | string
     code?: StringFieldUpdateOperationsInput | string
-    coefficient?: FloatFieldUpdateOperationsInput | number
-    dureeCours?: IntFieldUpdateOperationsInput | number
+    coefficient?: NullableFloatFieldUpdateOperationsInput | number | null
+    dureeCours?: NullableIntFieldUpdateOperationsInput | number | null
     description?: NullableStringFieldUpdateOperationsInput | string | null
     estActive?: BoolFieldUpdateOperationsInput | boolean
     estArchive?: BoolFieldUpdateOperationsInput | boolean
@@ -160815,8 +160857,8 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     nom?: StringFieldUpdateOperationsInput | string
     code?: StringFieldUpdateOperationsInput | string
-    coefficient?: FloatFieldUpdateOperationsInput | number
-    dureeCours?: IntFieldUpdateOperationsInput | number
+    coefficient?: NullableFloatFieldUpdateOperationsInput | number | null
+    dureeCours?: NullableIntFieldUpdateOperationsInput | number | null
     description?: NullableStringFieldUpdateOperationsInput | string | null
     estActive?: BoolFieldUpdateOperationsInput | boolean
     estArchive?: BoolFieldUpdateOperationsInput | boolean
@@ -160936,7 +160978,7 @@ export namespace Prisma {
   export type AffectationEnseignantCreateManyClasseInput = {
     id?: string
     enseignantId: string
-    matiereId: string
+    matiereId?: string | null
     anneeScolaireId: string
     heuresHebdo?: number | null
     estPrincipal?: boolean
@@ -160953,7 +160995,7 @@ export namespace Prisma {
     heureDebut: string
     heureFin: string
     enseignantId: string
-    matiereId: string
+    matiereId?: string | null
     salle?: string | null
     estRecurrent?: boolean
     valableDu: Date | string
@@ -161101,14 +161143,14 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     enseignant?: EnseignantUpdateOneRequiredWithoutAffectationsNestedInput
-    matiere?: MatiereUpdateOneRequiredWithoutAffectationsNestedInput
+    matiere?: MatiereUpdateOneWithoutAffectationsNestedInput
     anneeScolaire?: AnneeScolaireUpdateOneRequiredWithoutAffectationsNestedInput
   }
 
   export type AffectationEnseignantUncheckedUpdateWithoutClasseInput = {
     id?: StringFieldUpdateOperationsInput | string
     enseignantId?: StringFieldUpdateOperationsInput | string
-    matiereId?: StringFieldUpdateOperationsInput | string
+    matiereId?: NullableStringFieldUpdateOperationsInput | string | null
     anneeScolaireId?: StringFieldUpdateOperationsInput | string
     heuresHebdo?: NullableFloatFieldUpdateOperationsInput | number | null
     estPrincipal?: BoolFieldUpdateOperationsInput | boolean
@@ -161122,7 +161164,7 @@ export namespace Prisma {
   export type AffectationEnseignantUncheckedUpdateManyWithoutClasseInput = {
     id?: StringFieldUpdateOperationsInput | string
     enseignantId?: StringFieldUpdateOperationsInput | string
-    matiereId?: StringFieldUpdateOperationsInput | string
+    matiereId?: NullableStringFieldUpdateOperationsInput | string | null
     anneeScolaireId?: StringFieldUpdateOperationsInput | string
     heuresHebdo?: NullableFloatFieldUpdateOperationsInput | number | null
     estPrincipal?: BoolFieldUpdateOperationsInput | boolean
@@ -161146,7 +161188,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     enseignant?: EnseignantUpdateOneRequiredWithoutEmploisTempsNestedInput
-    matiere?: MatiereUpdateOneRequiredWithoutEmploisTempsNestedInput
+    matiere?: MatiereUpdateOneWithoutEmploisTempsNestedInput
     creeParUtilisateur?: UtilisateurUpdateOneRequiredWithoutEmploisTempsCreesNestedInput
     anneeScolaire?: AnneeScolaireUpdateOneWithoutEmploisTempsNestedInput
   }
@@ -161157,7 +161199,7 @@ export namespace Prisma {
     heureDebut?: StringFieldUpdateOperationsInput | string
     heureFin?: StringFieldUpdateOperationsInput | string
     enseignantId?: StringFieldUpdateOperationsInput | string
-    matiereId?: StringFieldUpdateOperationsInput | string
+    matiereId?: NullableStringFieldUpdateOperationsInput | string | null
     salle?: NullableStringFieldUpdateOperationsInput | string | null
     estRecurrent?: BoolFieldUpdateOperationsInput | boolean
     valableDu?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -161175,7 +161217,7 @@ export namespace Prisma {
     heureDebut?: StringFieldUpdateOperationsInput | string
     heureFin?: StringFieldUpdateOperationsInput | string
     enseignantId?: StringFieldUpdateOperationsInput | string
-    matiereId?: StringFieldUpdateOperationsInput | string
+    matiereId?: NullableStringFieldUpdateOperationsInput | string | null
     salle?: NullableStringFieldUpdateOperationsInput | string | null
     estRecurrent?: BoolFieldUpdateOperationsInput | boolean
     valableDu?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -163332,7 +163374,7 @@ export namespace Prisma {
   export type AffectationEnseignantCreateManyEnseignantInput = {
     id?: string
     classeId: string
-    matiereId: string
+    matiereId?: string | null
     anneeScolaireId: string
     heuresHebdo?: number | null
     estPrincipal?: boolean
@@ -163349,7 +163391,7 @@ export namespace Prisma {
     heureDebut: string
     heureFin: string
     classeId: string
-    matiereId: string
+    matiereId?: string | null
     salle?: string | null
     estRecurrent?: boolean
     valableDu: Date | string
@@ -163602,14 +163644,14 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     classe?: ClasseUpdateOneRequiredWithoutAffectationsNestedInput
-    matiere?: MatiereUpdateOneRequiredWithoutAffectationsNestedInput
+    matiere?: MatiereUpdateOneWithoutAffectationsNestedInput
     anneeScolaire?: AnneeScolaireUpdateOneRequiredWithoutAffectationsNestedInput
   }
 
   export type AffectationEnseignantUncheckedUpdateWithoutEnseignantInput = {
     id?: StringFieldUpdateOperationsInput | string
     classeId?: StringFieldUpdateOperationsInput | string
-    matiereId?: StringFieldUpdateOperationsInput | string
+    matiereId?: NullableStringFieldUpdateOperationsInput | string | null
     anneeScolaireId?: StringFieldUpdateOperationsInput | string
     heuresHebdo?: NullableFloatFieldUpdateOperationsInput | number | null
     estPrincipal?: BoolFieldUpdateOperationsInput | boolean
@@ -163623,7 +163665,7 @@ export namespace Prisma {
   export type AffectationEnseignantUncheckedUpdateManyWithoutEnseignantInput = {
     id?: StringFieldUpdateOperationsInput | string
     classeId?: StringFieldUpdateOperationsInput | string
-    matiereId?: StringFieldUpdateOperationsInput | string
+    matiereId?: NullableStringFieldUpdateOperationsInput | string | null
     anneeScolaireId?: StringFieldUpdateOperationsInput | string
     heuresHebdo?: NullableFloatFieldUpdateOperationsInput | number | null
     estPrincipal?: BoolFieldUpdateOperationsInput | boolean
@@ -163647,7 +163689,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     classe?: ClasseUpdateOneRequiredWithoutEmploisTempsNestedInput
-    matiere?: MatiereUpdateOneRequiredWithoutEmploisTempsNestedInput
+    matiere?: MatiereUpdateOneWithoutEmploisTempsNestedInput
     creeParUtilisateur?: UtilisateurUpdateOneRequiredWithoutEmploisTempsCreesNestedInput
     anneeScolaire?: AnneeScolaireUpdateOneWithoutEmploisTempsNestedInput
   }
@@ -163658,7 +163700,7 @@ export namespace Prisma {
     heureDebut?: StringFieldUpdateOperationsInput | string
     heureFin?: StringFieldUpdateOperationsInput | string
     classeId?: StringFieldUpdateOperationsInput | string
-    matiereId?: StringFieldUpdateOperationsInput | string
+    matiereId?: NullableStringFieldUpdateOperationsInput | string | null
     salle?: NullableStringFieldUpdateOperationsInput | string | null
     estRecurrent?: BoolFieldUpdateOperationsInput | boolean
     valableDu?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -163676,7 +163718,7 @@ export namespace Prisma {
     heureDebut?: StringFieldUpdateOperationsInput | string
     heureFin?: StringFieldUpdateOperationsInput | string
     classeId?: StringFieldUpdateOperationsInput | string
-    matiereId?: StringFieldUpdateOperationsInput | string
+    matiereId?: NullableStringFieldUpdateOperationsInput | string | null
     salle?: NullableStringFieldUpdateOperationsInput | string | null
     estRecurrent?: BoolFieldUpdateOperationsInput | boolean
     valableDu?: DateTimeFieldUpdateOperationsInput | Date | string

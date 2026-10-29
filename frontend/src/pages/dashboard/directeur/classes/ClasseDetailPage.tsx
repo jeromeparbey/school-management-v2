@@ -1,8 +1,8 @@
 // frontend2/src/pages/dashboard/directeur/classes/ClasseDetailPage.tsx
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   BuildingOfficeIcon,
   ArrowLeftIcon,
@@ -21,7 +21,15 @@ import {
   IdentificationIcon,
   ClockIcon,
   ArrowPathIcon,
-  DocumentArrowDownIcon,
+  MagnifyingGlassIcon,
+  XMarkIcon,
+  ArrowTopRightOnSquareIcon,
+  StarIcon,
+  PlusIcon,
+  BookOpenIcon,
+  PhoneIcon,
+  EnvelopeIcon,
+  UserCircleIcon,
 } from '@heroicons/react/24/outline';
 import {
   useClasse,
@@ -30,15 +38,26 @@ import {
   useSoftDeleteClasse,
   useHardDeleteClasse,
 } from '../../../../hooks/useClasses';
+import { useAffectationsByClasse } from '../../../../hooks/useAffectations';
 
-// ============================================
+// ═══════════════════════════════════════════════════════════
 // HELPERS
-// ============================================
+// ═══════════════════════════════════════════════════════════
+
 const formatDate = (date: string | null | undefined) => {
   if (!date) return '—';
   return new Date(date).toLocaleDateString('fr-FR', {
     day: 'numeric',
     month: 'long',
+    year: 'numeric',
+  });
+};
+
+const formatDateShort = (date: string | null | undefined) => {
+  if (!date) return '—';
+  return new Date(date).toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
     year: 'numeric',
   });
 };
@@ -54,9 +73,26 @@ const formatDateTime = (date: string | null | undefined) => {
   });
 };
 
-// ============================================
-// COMPOSANT : InfoRow
-// ============================================
+const calculerAge = (dateNaissance: string) => {
+  const diff = Date.now() - new Date(dateNaissance).getTime();
+  return Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
+};
+
+const JOURS_ORDER = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI'];
+const JOURS_LABEL: Record<string, string> = {
+  LUNDI: 'Lundi',
+  MARDI: 'Mardi',
+  MERCREDI: 'Mercredi',
+  JEUDI: 'Jeudi',
+  VENDREDI: 'Vendredi',
+  SAMEDI: 'Samedi',
+  DIMANCHE: 'Dimanche',
+};
+
+// ═══════════════════════════════════════════════════════════
+// SOUS-COMPOSANTS
+// ═══════════════════════════════════════════════════════════
+
 interface InfoRowProps {
   label: string;
   value: React.ReactNode;
@@ -79,15 +115,13 @@ const InfoRow: React.FC<InfoRowProps> = ({ label, value, icon: Icon }) => (
   </div>
 );
 
-// ============================================
-// COMPOSANT : StatCard
-// ============================================
 interface StatCardProps {
   label: string;
   value: number | string;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   color: string;
   bgColor: string;
+  hint?: string;
 }
 
 const StatCard: React.FC<StatCardProps> = ({
@@ -96,46 +130,136 @@ const StatCard: React.FC<StatCardProps> = ({
   icon: Icon,
   color,
   bgColor,
+  hint,
 }) => (
   <div className="bg-white rounded-xl border border-gray-100 p-4">
-    <div className="flex items-center justify-between">
-      <div>
+    <div className="flex items-center justify-between gap-2">
+      <div className="min-w-0">
         <p className="text-xs text-gray-500">{label}</p>
-        <p className="text-xl font-bold text-gray-900 mt-1">{value}</p>
+        <p className="text-xl font-bold text-gray-900 mt-1 truncate">{value}</p>
+        {hint && (
+          <p className="text-[10px] text-gray-400 mt-0.5 truncate">{hint}</p>
+        )}
       </div>
-      <div className={`p-2 rounded-lg ${bgColor}`}>
+      <div className={`p-2 rounded-lg ${bgColor} shrink-0`}>
         <Icon className={`w-5 h-5 ${color}`} />
       </div>
     </div>
   </div>
 );
 
-// ============================================
-// PAGE PRINCIPALE
-// ============================================
+// ═══════════════════════════════════════════════════════════
+// PAGE
+// ═══════════════════════════════════════════════════════════
+
+type TabKey = 'infos' | 'eleves' | 'emploiTemps' | 'equipe' | 'statistiques';
+
 const ClasseDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<
-    'infos' | 'eleves' | 'statistiques'
-  >('infos');
+  const [activeTab, setActiveTab] = useState<TabKey>('infos');
 
-  // Requêtes
+  // Recherche élèves
+  const [searchEleve, setSearchEleve] = useState('');
+  const [filterSexe, setFilterSexe] = useState<'all' | 'M' | 'F'>('all');
+
+  // ─── Requêtes ───
   const { data: classeData, isLoading, isError, error, refetch } = useClasse(id);
-  const { data: elevesData, isLoading: loadingEleves } = useClasseEleves(
-    activeTab === 'eleves' ? id : undefined
-  );
-  const { data: statsData, isLoading: loadingStats } = useClasseStatistiques(
-    activeTab === 'statistiques' ? id : undefined
-  );
+  const { data: elevesData, isLoading: loadingEleves } = useClasseEleves(id);
+  const { data: statsData, isLoading: loadingStats } =
+    useClasseStatistiques(id);
+  const { data: affectationsData, isLoading: loadingAffectations } =
+    useAffectationsByClasse(id);
 
-  // Mutations
+  // ─── Mutations ───
   const softDeleteMutation = useSoftDeleteClasse();
   const hardDeleteMutation = useHardDeleteClasse();
 
   const classe = classeData?.data;
 
-  // Handlers
+  // ─── Élèves ───
+  const eleves = useMemo(() => {
+    if (!elevesData) return [];
+    const any = elevesData as any;
+    if (Array.isArray(any?.data?.eleves)) return any.data.eleves;
+    if (Array.isArray(any?.eleves)) return any.eleves;
+    if (Array.isArray(any?.data)) return any.data;
+    return [];
+  }, [elevesData]);
+
+  // ─── Élèves filtrés ───
+  const filteredEleves = useMemo(() => {
+    let list = eleves;
+    if (filterSexe !== 'all') {
+      list = list.filter((e: any) => e.sexe === filterSexe);
+    }
+    const q = searchEleve.trim().toLowerCase();
+    if (q) {
+      list = list.filter((e: any) => {
+        const hay = `${e.prenom ?? ''} ${e.nom ?? ''} ${
+          e.matricule ?? ''
+        }`.toLowerCase();
+        return hay.includes(q);
+      });
+    }
+    return list;
+  }, [eleves, searchEleve, filterSexe]);
+
+  // ─── Emploi du temps (à plat, groupé par jour) ───
+  const emploiTemps = useMemo(() => {
+    if (!classe) return [];
+    const any = classe as any;
+    const raw = any.emploisTemps ?? any.emploiTemps ?? [];
+    if (!Array.isArray(raw)) return [];
+
+    return JOURS_ORDER.map((jour) => ({
+      jour,
+      label: JOURS_LABEL[jour],
+      cours: raw
+        .filter((c: any) => c.jour === jour)
+        .sort((a: any, b: any) =>
+          (a.heureDebut ?? '').localeCompare(b.heureDebut ?? '')
+        ),
+    })).filter((d) => d.cours.length > 0);
+  }, [classe]);
+
+  // ─── Équipe pédagogique / Titulaire ───
+  const affectations = useMemo(() => {
+    if (!affectationsData) return [];
+    const any = affectationsData as any;
+    if (Array.isArray(any?.data)) return any.data;
+    if (Array.isArray(any)) return any;
+    return [];
+  }, [affectationsData]);
+
+  const titulaire = useMemo(
+    () =>
+      affectations.find(
+        (a: any) => a.estPrincipal === true || a.matiereId === null
+      ) ?? null,
+    [affectations]
+  );
+
+  const autresEnseignants = useMemo(
+    () =>
+      affectations.filter(
+        (a: any) => a.id !== titulaire?.id && a.matiereId !== null
+      ),
+    [affectations, titulaire]
+  );
+
+  // ─── Stats ───
+  const stats = statsData?.data;
+  const effectif =
+    classe?._count?.inscriptions ?? eleves.length ?? 0;
+  const capacite = classe?.capacite ?? 0;
+  const placesRestantes =
+    stats?.classe?.placesRestantes ??
+    (capacite > 0 ? Math.max(capacite - effectif, 0) : null);
+  const tauxOccupation =
+    capacite > 0 ? Math.round((effectif / capacite) * 100) : 0;
+
+  // ─── Handlers ───
   const handleSoftDelete = async () => {
     if (!classe) return;
     if (
@@ -175,23 +299,19 @@ const ClasseDetailPage: React.FC = () => {
     }
   };
 
-  // ─────────────────────────────────────────
-  // Loading
-  // ─────────────────────────────────────────
+  // ─── Loading ───
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto" />
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto" />
           <p className="text-gray-500 mt-4">Chargement de la classe…</p>
         </div>
       </div>
     );
   }
 
-  // ─────────────────────────────────────────
-  // Erreur
-  // ─────────────────────────────────────────
+  // ─── Erreur ───
   if (isError || !classe) {
     return (
       <div className="max-w-2xl mx-auto py-12">
@@ -222,20 +342,10 @@ const ClasseDetailPage: React.FC = () => {
     );
   }
 
-  const effectif = classe._count?.inscriptions ?? 0;
-  const capacite = classe.capacite ?? 0;
-  const tauxOccupation =
-    capacite > 0 ? Math.round((effectif / capacite) * 100) : 0;
-
-  const eleves = elevesData?.data?.eleves ?? [];
-  const stats = statsData?.data;
-
   return (
-    <div className="space-y-6">
-      {/* ============================================
-          BREADCRUMB
-          ============================================ */}
-      <nav className="flex items-center gap-2 text-sm text-gray-500">
+    <div className="space-y-6 max-w-[1400px] mx-auto">
+      {/* ═══════════ BREADCRUMB ═══════════ */}
+      <nav className="flex items-center gap-2 text-sm text-gray-500 flex-wrap">
         <Link to="/dashboard" className="hover:text-gray-900">
           Dashboard
         </Link>
@@ -249,26 +359,22 @@ const ClasseDetailPage: React.FC = () => {
         </span>
       </nav>
 
-      {/* ============================================
-          EN-TÊTE
-          ============================================ */}
+      {/* ═══════════ EN-TÊTE ═══════════ */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         className="bg-white rounded-2xl shadow-sm border border-gray-100/50 p-6"
       >
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-          {/* Identité */}
           <div className="flex items-start gap-4 flex-1 min-w-0">
             <Link
               to="/dashboard/classes"
-              className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0"
-              title="Retour"
+              className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 shrink-0"
             >
               <ArrowLeftIcon className="w-5 h-5" />
             </Link>
 
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold text-2xl flex-shrink-0">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shrink-0 shadow-md">
               <BuildingOfficeIcon className="w-10 h-10" />
             </div>
 
@@ -293,6 +399,13 @@ const ClasseDetailPage: React.FC = () => {
                     Inactive
                   </span>
                 )}
+                {titulaire && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-amber-50 text-amber-700 rounded-full">
+                    <StarIcon className="w-3.5 h-3.5" />
+                    Titulaire : {titulaire.enseignant?.prenom}{' '}
+                    {titulaire.enseignant?.nom}
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center gap-4 mt-2 flex-wrap text-sm text-gray-500">
@@ -309,6 +422,17 @@ const ClasseDetailPage: React.FC = () => {
                   <span className="flex items-center gap-1">
                     <BuildingOfficeIcon className="w-4 h-4" />
                     Salle {classe.salle}
+                  </span>
+                )}
+                {classe.anneeScolaire && (
+                  <span className="flex items-center gap-1">
+                    <CalendarDaysIcon className="w-4 h-4" />
+                    {classe.anneeScolaire.nom}
+                    {classe.anneeScolaire.estActive && (
+                      <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-medium">
+                        active
+                      </span>
+                    )}
                   </span>
                 )}
               </div>
@@ -349,31 +473,28 @@ const ClasseDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex flex-wrap items-center gap-2 lg:flex-shrink-0">
+          <div className="flex flex-wrap items-center gap-2 lg:shrink-0">
             <Link
               to={`/dashboard/classes/${classe.id}/editer`}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-50 text-amber-700 font-medium rounded-lg hover:bg-amber-100 transition-colors border border-amber-200"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-50 text-amber-700 font-medium rounded-lg hover:bg-amber-100 border border-amber-200"
             >
               <PencilSquareIcon className="w-4 h-4" />
               Modifier
             </Link>
-
             {!classe.estArchive && (
               <button
                 onClick={handleSoftDelete}
                 disabled={softDeleteMutation.isPending}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-orange-50 text-orange-700 font-medium rounded-lg hover:bg-orange-100 transition-colors border border-orange-200 disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-orange-50 text-orange-700 font-medium rounded-lg hover:bg-orange-100 border border-orange-200 disabled:opacity-50"
               >
                 <ArchiveBoxIcon className="w-4 h-4" />
                 Archiver
               </button>
             )}
-
             <button
               onClick={handleHardDelete}
               disabled={hardDeleteMutation.isPending}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-red-50 text-red-700 font-medium rounded-lg hover:bg-red-100 transition-colors border border-red-200 disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-red-50 text-red-700 font-medium rounded-lg hover:bg-red-100 border border-red-200 disabled:opacity-50"
             >
               <TrashIcon className="w-4 h-4" />
               Supprimer
@@ -382,39 +503,40 @@ const ClasseDetailPage: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* ============================================
-          STATS RAPIDES
-          ============================================ */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* ═══════════ KPI ═══════════ */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard
           label="Inscrits"
           value={effectif}
           icon={UsersIcon}
-          color="text-blue-600"
-          bgColor="bg-blue-50"
-        />
-        <StatCard
-          label="Capacité"
-          value={capacite || '—'}
-          icon={UserGroupIcon}
-          color="text-purple-600"
-          bgColor="bg-purple-50"
+          color="text-emerald-600"
+          bgColor="bg-emerald-50"
+          hint={capacite > 0 ? `sur ${capacite}` : undefined}
         />
         <StatCard
           label="Places restantes"
-          value={
-            stats?.classe?.placesRestantes ??
-            (capacite > 0 ? Math.max(capacite - effectif, 0) : '—')
-          }
+          value={placesRestantes ?? '—'}
           icon={CheckCircleIcon}
-          color="text-emerald-600"
-          bgColor="bg-emerald-50"
+          color="text-blue-600"
+          bgColor="bg-blue-50"
+          hint={
+            tauxOccupation > 0
+              ? `${tauxOccupation}% occupé`
+              : undefined
+          }
+        />
+        <StatCard
+          label="Enseignants"
+          value={affectations.length}
+          icon={AcademicCapIcon}
+          color="text-purple-600"
+          bgColor="bg-purple-50"
+          hint={titulaire ? 'Titulaire désigné' : 'Sans titulaire'}
         />
         <StatCard
           label="Moyenne générale"
           value={
-            stats?.moyenneGenerale !== null &&
-            stats?.moyenneGenerale !== undefined
+            stats?.moyenneGenerale != null
               ? `${stats.moyenneGenerale.toFixed(2)}/20`
               : '—'
           }
@@ -424,9 +546,7 @@ const ClasseDetailPage: React.FC = () => {
         />
       </div>
 
-      {/* ============================================
-          ONGLETS
-          ============================================ */}
+      {/* ═══════════ ONGLETS ═══════════ */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100/50 overflow-hidden">
         <div className="flex overflow-x-auto border-b border-gray-100">
           {[
@@ -438,6 +558,21 @@ const ClasseDetailPage: React.FC = () => {
               badge: effectif,
             },
             {
+              key: 'emploiTemps',
+              label: 'Emploi du temps',
+              icon: ClockIcon,
+              badge: emploiTemps.reduce(
+                (s, d) => s + d.cours.length,
+                0
+              ),
+            },
+            {
+              key: 'equipe',
+              label: 'Équipe pédagogique',
+              icon: UserGroupIcon,
+              badge: affectations.length,
+            },
+            {
               key: 'statistiques',
               label: 'Statistiques',
               icon: ChartBarIcon,
@@ -445,10 +580,10 @@ const ClasseDetailPage: React.FC = () => {
           ].map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key as any)}
-              className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
+              onClick={() => setActiveTab(tab.key as TabKey)}
+              className={`flex items-center gap-2 px-5 py-4 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
                 activeTab === tab.key
-                  ? 'border-blue-500 text-blue-600 bg-blue-50/50'
+                  ? 'border-emerald-500 text-emerald-600 bg-emerald-50/50'
                   : 'border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50'
               }`}
             >
@@ -475,7 +610,7 @@ const ClasseDetailPage: React.FC = () => {
             >
               <div>
                 <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <IdentificationIcon className="w-4 h-4 text-blue-500" />
+                  <IdentificationIcon className="w-4 h-4 text-emerald-500" />
                   Identité
                 </h3>
                 <div className="bg-gray-50 rounded-xl p-4">
@@ -513,7 +648,7 @@ const ClasseDetailPage: React.FC = () => {
 
               <div>
                 <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <CalendarDaysIcon className="w-4 h-4 text-blue-500" />
+                  <CalendarDaysIcon className="w-4 h-4 text-emerald-500" />
                   Année scolaire
                 </h3>
                 <div className="bg-gray-50 rounded-xl p-4">
@@ -542,18 +677,56 @@ const ClasseDetailPage: React.FC = () => {
                   />
                   <InfoRow
                     label="Emplois du temps"
-                    value={classe._count?.emploisTemps ?? 0}
+                    value={classe._count?.emploisTemps ?? emploiTemps.reduce(
+                      (s, d) => s + d.cours.length,
+                      0
+                    )}
                     icon={ClockIcon}
                   />
                   <InfoRow
                     label="Affectations"
-                    value={classe._count?.affectations ?? 0}
+                    value={classe._count?.affectations ?? affectations.length}
                     icon={AcademicCapIcon}
                   />
                 </div>
 
                 <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3 mt-6 flex items-center gap-2">
-                  <ClockIcon className="w-4 h-4 text-blue-500" />
+                  <StarIcon className="w-4 h-4 text-amber-500" />
+                  Titulaire de classe
+                </h3>
+                <div className="bg-amber-50 rounded-xl p-4 border border-amber-100">
+                  {titulaire ? (
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white font-bold shrink-0">
+                        {titulaire.enseignant?.prenom?.[0]}
+                        {titulaire.enseignant?.nom?.[0]}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 truncate">
+                          {titulaire.enseignant?.prenom}{' '}
+                          {titulaire.enseignant?.nom}
+                        </p>
+                        <p className="text-xs text-gray-600 truncate">
+                          {titulaire.enseignant?.matricule}
+                        </p>
+                      </div>
+                      <Link
+                        to={`/dashboard/enseignants/${titulaire.enseignantId}`}
+                        className="p-2 text-amber-600 hover:bg-white rounded-lg"
+                        title="Voir la fiche"
+                      >
+                        <ArrowTopRightOnSquareIcon className="w-4 h-4" />
+                      </Link>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-amber-800 text-center">
+                      Aucun titulaire désigné pour cette classe
+                    </p>
+                  )}
+                </div>
+
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3 mt-6 flex items-center gap-2">
+                  <ClockIcon className="w-4 h-4 text-emerald-500" />
                   Métadonnées
                 </h3>
                 <div className="bg-gray-50 rounded-xl p-4">
@@ -588,10 +761,69 @@ const ClasseDetailPage: React.FC = () => {
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
+              className="space-y-4"
             >
+              {/* Recherche + filtre */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Rechercher un élève (nom, matricule)…"
+                    value={searchEleve}
+                    onChange={(e) => setSearchEleve(e.target.value)}
+                    className="w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                  {searchEleve && (
+                    <button
+                      onClick={() => setSearchEleve('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded"
+                    >
+                      <XMarkIcon className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                <select
+                  value={filterSexe}
+                  onChange={(e) =>
+                    setFilterSexe(e.target.value as 'all' | 'M' | 'F')
+                  }
+                  className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+                >
+                  <option value="all">Tous les sexes</option>
+                  <option value="M">Garçons</option>
+                  <option value="F">Filles</option>
+                </select>
+
+                <Link
+                  to={`/dashboard/inscriptions/nouvelle?classeId=${classe.id}&anneeScolaireId=${classe.anneeScolaireId}`}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 whitespace-nowrap"
+                >
+                  <PlusIcon className="w-4 h-4" />
+                  Inscrire
+                </Link>
+              </div>
+
+              {/* Info */}
+              {!loadingEleves && eleves.length > 0 && (
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <span>
+                    {filteredEleves.length} élève(s) affiché(s)
+                    {filteredEleves.length < eleves.length &&
+                      ` sur ${eleves.length}`}
+                  </span>
+                  <span>
+                    Effectif : {effectif}
+                    {capacite > 0 && ` / ${capacite}`}
+                  </span>
+                </div>
+              )}
+
+              {/* Liste */}
               {loadingEleves ? (
                 <div className="text-center py-12">
-                  <ArrowPathIcon className="w-8 h-8 text-blue-600 mx-auto animate-spin" />
+                  <ArrowPathIcon className="w-8 h-8 text-emerald-600 mx-auto animate-spin" />
                   <p className="text-sm text-gray-500 mt-2">
                     Chargement des élèves…
                   </p>
@@ -606,86 +838,315 @@ const ClasseDetailPage: React.FC = () => {
                     Les élèves inscrits dans cette classe apparaîtront ici.
                   </p>
                   <Link
-                    to="/dashboard/eleves"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    to={`/dashboard/inscriptions/nouvelle?classeId=${classe.id}&anneeScolaireId=${classe.anneeScolaireId}`}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
                   >
-                    <UsersIcon className="w-4 h-4" />
-                    Gérer les inscriptions
+                    <PlusIcon className="w-4 h-4" />
+                    Inscrire un élève
                   </Link>
                 </div>
+              ) : filteredEleves.length === 0 ? (
+                <div className="text-center py-12">
+                  <MagnifyingGlassIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500">
+                    Aucun élève ne correspond à votre recherche.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setSearchEleve('');
+                      setFilterSexe('all');
+                    }}
+                    className="mt-3 text-sm text-emerald-600 hover:underline font-medium"
+                  >
+                    Réinitialiser
+                  </button>
+                </div>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto rounded-xl border border-gray-100">
                   <table className="w-full">
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
-                          Matricule
+                          Élève
                         </th>
                         <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
-                          Nom & Prénom
-                        </th>
-                        <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
-                          Sexe
+                          Matricule
                         </th>
                         <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
                           Naissance
                         </th>
                         <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                          Sexe
+                        </th>
+                        <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
                           Statut
+                        </th>
+                        <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                          Actions
                         </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {eleves.map((eleve) => (
-                        <tr
-                          key={eleve.id}
-                          className="hover:bg-gray-50 transition-colors"
-                        >
-                          <td className="px-4 py-3 text-sm font-mono text-gray-700">
-                            {eleve.matricule}
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-3">
-                              {eleve.photo ? (
-                                <img
-                                  src={eleve.photo}
-                                  alt={eleve.nom}
-                                  className="w-8 h-8 rounded-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white text-xs font-bold">
-                                  {eleve.prenom.charAt(0)}
-                                  {eleve.nom.charAt(0)}
+                      {filteredEleves.map((eleve: any) => {
+                        const age = eleve.dateNaissance
+                          ? calculerAge(eleve.dateNaissance)
+                          : null;
+                        return (
+                          <tr
+                            key={eleve.id}
+                            className="hover:bg-gray-50/50"
+                          >
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3 min-w-0">
+                                {eleve.photo ? (
+                                  <img
+                                    src={eleve.photo}
+                                    alt={eleve.nom}
+                                    className="w-9 h-9 rounded-full object-cover shrink-0"
+                                  />
+                                ) : (
+                                  <div
+                                    className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${
+                                      eleve.sexe === 'F'
+                                        ? 'bg-gradient-to-br from-pink-500 to-rose-500'
+                                        : 'bg-gradient-to-br from-blue-500 to-indigo-500'
+                                    }`}
+                                  >
+                                    {eleve.prenom?.[0]}
+                                    {eleve.nom?.[0]}
+                                  </div>
+                                )}
+                                <div className="min-w-0">
+                                  <Link
+                                    to={`/dashboard/eleves/${eleve.id}`}
+                                    className="text-sm font-medium text-gray-900 hover:text-emerald-600 truncate block"
+                                  >
+                                    {eleve.prenom} {eleve.nom}
+                                  </Link>
+                                  {age != null && (
+                                    <p className="text-[10px] text-gray-500">
+                                      {age} ans
+                                    </p>
+                                  )}
                                 </div>
-                              )}
-                              <div>
-                                <p className="font-medium text-gray-900">
-                                  {eleve.nom} {eleve.prenom}
-                                </p>
                               </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-center text-sm text-gray-700">
-                            {eleve.sexe === 'M' ? '♂' : '♀'}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">
-                            {formatDate(eleve.dateNaissance)}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <span
-                              className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
-                                eleve.statut === 'ACTIF'
-                                  ? 'bg-emerald-50 text-emerald-700'
-                                  : 'bg-gray-100 text-gray-600'
-                              }`}
-                            >
-                              {eleve.statut}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="text-xs font-mono text-gray-700">
+                                {eleve.matricule}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-600">
+                              {formatDateShort(eleve.dateNaissance)}
+                            </td>
+                            <td className="px-4 py-3 text-center text-sm">
+                              {eleve.sexe === 'M' ? '♂' : '♀'}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span
+                                className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${
+                                  eleve.statut === 'ACTIF'
+                                    ? 'bg-emerald-50 text-emerald-700'
+                                    : 'bg-gray-100 text-gray-600'
+                                }`}
+                              >
+                                {eleve.statut}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <Link
+                                to={`/dashboard/eleves/${eleve.id}`}
+                                className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:underline font-medium"
+                              >
+                                Fiche
+                                <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5" />
+                              </Link>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ═══════════════════════════════════════
+              ONGLET : EMPLOI DU TEMPS
+              ═══════════════════════════════════════ */}
+          {activeTab === 'emploiTemps' && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-4"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
+                  <ClockIcon className="w-4 h-4 text-emerald-500" />
+                  Emploi du temps de la classe
+                </h3>
+                <Link
+                  to={`/dashboard/emploi-temps?classeId=${classe.id}`}
+                  className="text-xs text-emerald-600 hover:underline font-medium"
+                >
+                  Gérer l'emploi du temps →
+                </Link>
+              </div>
+
+              {emploiTemps.length === 0 ? (
+                <div className="text-center py-12">
+                  <ClockIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">
+                    Aucun créneau
+                  </h3>
+                  <p className="text-gray-500 mb-4 max-w-md mx-auto">
+                    Aucun emploi du temps n'est défini pour cette classe.
+                  </p>
+                  <Link
+                    to={`/dashboard/emploi-temps/nouveau?classeId=${classe.id}`}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+                  >
+                    <PlusIcon className="w-4 h-4" />
+                    Créer un emploi du temps
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {emploiTemps.map((jour) => (
+                    <div key={jour.jour}>
+                      <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        {jour.label}
+                        <span className="text-[10px] font-normal text-gray-400">
+                          ({jour.cours.length} cours)
+                        </span>
+                      </p>
+                      <div className="space-y-2">
+                        {jour.cours.map((c: any) => (
+                          <div
+                            key={c.id}
+                            className="bg-gray-50 rounded-lg p-3 flex items-center gap-3"
+                          >
+                            <div className="w-16 text-center font-mono text-xs shrink-0 text-gray-700">
+                              <p className="font-bold">{c.heureDebut}</p>
+                              <p className="text-[10px] text-gray-400">→</p>
+                              <p>{c.heureFin}</p>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {c.matiere?.nom ?? 'Cours générique'}
+                              </p>
+                              <p className="text-xs text-gray-500 truncate">
+                                {c.enseignant?.prenom}{' '}
+                                {c.enseignant?.nom}
+                                {c.salle && ` · Salle ${c.salle}`}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ═══════════════════════════════════════
+              ONGLET : ÉQUIPE PÉDAGOGIQUE
+              ═══════════════════════════════════════ */}
+          {activeTab === 'equipe' && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-4"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
+                  <UserGroupIcon className="w-4 h-4 text-emerald-500" />
+                  Équipe pédagogique ({affectations.length})
+                </h3>
+                <Link
+                  to={`/dashboard/affectations?classeId=${classe.id}`}
+                  className="text-xs text-emerald-600 hover:underline font-medium"
+                >
+                  Gérer les affectations →
+                </Link>
+              </div>
+
+              {loadingAffectations ? (
+                <div className="text-center py-8">
+                  <ArrowPathIcon className="w-8 h-8 text-emerald-600 mx-auto animate-spin" />
+                  <p className="text-sm text-gray-500 mt-2">
+                    Chargement…
+                  </p>
+                </div>
+              ) : affectations.length === 0 ? (
+                <div className="text-center py-12">
+                  <UserGroupIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">
+                    Aucun enseignant affecté
+                  </h3>
+                  <p className="text-gray-500 mb-4 max-w-md mx-auto">
+                    Assignez des enseignants à cette classe pour qu'ils
+                    apparaissent ici.
+                  </p>
+                  <Link
+                    to={`/dashboard/affectations/nouveau?classeId=${classe.id}`}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+                  >
+                    <PlusIcon className="w-4 h-4" />
+                    Affecter un enseignant
+                  </Link>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {affectations.map((aff: any) => (
+                    <div
+                      key={aff.id}
+                      className={`rounded-xl border p-4 flex items-start gap-3 ${
+                        aff.estPrincipal
+                          ? 'bg-amber-50 border-amber-200'
+                          : 'bg-gray-50 border-gray-200'
+                      }`}
+                    >
+                      <div
+                        className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shrink-0 ${
+                          aff.estPrincipal
+                            ? 'bg-gradient-to-br from-amber-500 to-orange-600'
+                            : 'bg-gradient-to-br from-blue-500 to-indigo-600'
+                        }`}
+                      >
+                        {aff.enseignant?.prenom?.[0]}
+                        {aff.enseignant?.nom?.[0]}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <Link
+                            to={`/dashboard/enseignants/${aff.enseignantId}`}
+                            className="text-sm font-semibold text-gray-900 hover:text-emerald-600 truncate"
+                          >
+                            {aff.enseignant?.prenom} {aff.enseignant?.nom}
+                          </Link>
+                          {aff.estPrincipal && (
+                            <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-bold flex items-center gap-0.5">
+                              <StarIcon className="w-2.5 h-2.5" />
+                              PRINCIPAL
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-600 mt-0.5">
+                          {aff.matiere?.nom ?? 'Titulaire de classe'}
+                        </p>
+                        {aff.heuresHebdo != null && aff.heuresHebdo > 0 && (
+                          <p className="text-[10px] text-gray-500 mt-0.5">
+                            {aff.heuresHebdo}h/semaine
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </motion.div>
@@ -701,7 +1162,7 @@ const ClasseDetailPage: React.FC = () => {
             >
               {loadingStats ? (
                 <div className="text-center py-12">
-                  <ArrowPathIcon className="w-8 h-8 text-blue-600 mx-auto animate-spin" />
+                  <ArrowPathIcon className="w-8 h-8 text-emerald-600 mx-auto animate-spin" />
                   <p className="text-sm text-gray-500 mt-2">
                     Chargement des statistiques…
                   </p>
@@ -718,10 +1179,9 @@ const ClasseDetailPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {/* Effectif */}
                   <div>
                     <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
-                      <UsersIcon className="w-4 h-4 text-blue-500" />
+                      <UsersIcon className="w-4 h-4 text-emerald-500" />
                       Effectif
                     </h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -754,7 +1214,6 @@ const ClasseDetailPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Répartition par sexe */}
                   <div>
                     <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3">
                       Répartition par sexe
@@ -763,7 +1222,7 @@ const ClasseDetailPage: React.FC = () => {
                       {Object.keys(stats.effectif.parSexe).length > 0 ? (
                         <div className="space-y-3">
                           {Object.entries(stats.effectif.parSexe).map(
-                            ([sexe, nb]) => {
+                            ([sexe, nb]: any) => {
                               const total = stats.effectif.actifs || 1;
                               const pct = Math.round((nb / total) * 100);
                               return (
@@ -803,12 +1262,11 @@ const ClasseDetailPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Moyenne */}
                   <div>
                     <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3">
                       Performance
                     </h3>
-                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
+                    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-6 border border-emerald-100">
                       <p className="text-xs text-gray-600 uppercase tracking-wider">
                         Moyenne générale de la classe
                       </p>

@@ -12,7 +12,7 @@ import type {
 export interface PaiementContext {
   schemaName: string;
   etablissementId: string;
-  userId: string;               // Caissier (utilisateur qui encaisse)
+  userId: string;
 }
 
 async function getClient(schemaName: string) {
@@ -21,13 +21,21 @@ async function getClient(schemaName: string) {
   return client;
 }
 
-// ──────────────────────────────────────────
-// GÉNÉRATION DE RÉFÉRENCE UNIQUE
-// ──────────────────────────────────────────
+// ══════════════════════════════════════════
+// CONSTANTES MÉTIER
+// ══════════════════════════════════════════
+
+const MONTANT_MIN_PARTIEL = 500;
+const TOLERANCE = 0.01;
+
+// ══════════════════════════════════════════
+// GÉNÉRATION DE RÉFÉRENCE
+// ══════════════════════════════════════════
 
 async function generateReference(client: any): Promise<string> {
-  const year = new Date().getFullYear();
-  const month = String(new Date().getMonth() + 1).padStart(2, '0');
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
   const prefix = `PAY-${year}${month}-`;
 
   const last = await client.paiement.findFirst({
@@ -45,9 +53,9 @@ async function generateReference(client: any): Promise<string> {
   return `${prefix}${String(next).padStart(6, '0')}`;
 }
 
-// ──────────────────────────────────────────
-// INCLUDES PARTAGÉS
-// ──────────────────────────────────────────
+// ══════════════════════════════════════════
+// INCLUDES
+// ══════════════════════════════════════════
 
 const paiementInclude = {
   eleve: {
@@ -59,7 +67,6 @@ const paiementInclude = {
       sexe: true,
       photo: true,
       statut: true,
-      // 🆕 Inscription active pour récupérer la classe
       inscriptions: {
         where: { estActive: true },
         select: {
@@ -72,19 +79,10 @@ const paiementInclude = {
     },
   },
   caissier: {
-    select: {
-      id: true,
-      prenom: true,
-      nom: true,
-      email: true,
-    },
+    select: { id: true, prenom: true, nom: true, email: true },
   },
   annuleParUtilisateur: {
-    select: {
-      id: true,
-      prenom: true,
-      nom: true,
-    },
+    select: { id: true, prenom: true, nom: true },
   },
   allocations: {
     include: {
@@ -101,11 +99,7 @@ const paiementInclude = {
     },
   },
   recu: {
-    select: {
-      id: true,
-      numeroRecu: true,
-      cheminPDF: true,
-    },
+    select: { id: true, numeroRecu: true, cheminPDF: true },
   },
   assignment: {
     select: {
@@ -116,13 +110,13 @@ const paiementInclude = {
   },
 } as const;
 
-// ──────────────────────────────────────────
+// ══════════════════════════════════════════
 // HELPERS
-// ──────────────────────────────────────────
+// ══════════════════════════════════════════
 
 /**
- * Retourne le montant déjà payé (cumul des allocations de paiements COMPLETS)
- * sur une échéance donnée, en excluant éventuellement un paiement en cours.
+ * Calcule le montant déjà payé sur une échéance (paiements COMPLETS),
+ * en excluant éventuellement un paiement.
  */
 async function getMontantPayeSurEcheance(
   client: any,
@@ -141,13 +135,115 @@ async function getMontantPayeSurEcheance(
 }
 
 /**
- * 🆕 Extrait la classe active d'un élève depuis ses inscriptions
+ * Retourne le résumé COMPLET d'une tranche pour UN élève :
+ *  - le montant nominal de la tranche
+ *  - le total payé sur cette tranche (cumul TOUS paiements COMPLETS)
+ *  - le restant à payer
+ *  - le statut (PAYEE / PARTIELLE / IMPAYEE / EN_RETARD)
+ *  - le détail des paiements antérieurs
+ *
+ * C'est LA fonction à utiliser partout où on affiche une tranche
+ * dans le contexte d'un paiement.
  */
-function extractClasseActive(eleve: any): {
-  classeId: string | null;
-  classeNom: string | null;
-  classeCode: string | null;
-} {
+async function getResumeTranche(
+  client: any,
+  echeanceId: string,
+  eleveId: string,
+  excludePaiementId?: string
+) {
+  // 1. Charger l'échéance
+  const echeance = await client.echeance.findUnique({
+    where: { id: echeanceId },
+    select: {
+      id: true,
+      nom: true,
+      ordre: true,
+      montant: true,
+      dateLimite: true,
+      estPayee: true,
+    },
+  });
+  if (!echeance) throw new AppError('Échéance introuvable', 404);
+
+  // 2. Charger TOUS les paiements COMPLETS de CET élève sur CETTE échéance
+  //    (on exclut le paiement en cours si fourni)
+  const allocations = await client.allocationPaiement.findMany({
+    where: {
+      echeanceId,
+      paiement: { eleveId, statut: 'COMPLET' },
+      ...(excludePaiementId && { paiementId: { not: excludePaiementId } }),
+    },
+    include: {
+      paiement: {
+        select: {
+          id: true,
+          reference: true,
+          datePaiement: true,
+          moyen: true,
+          caissier: { select: { prenom: true, nom: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  // 3. Construire l'historique
+  const historique = allocations.map((a: any) => ({
+    paiementId: a.paiement.id,
+    reference: a.paiement.reference,
+    datePaiement: a.paiement.datePaiement,
+    moyen: a.paiement.moyen,
+    montant: a.montant,
+    caissier: a.paiement.caissier
+      ? `${a.paiement.caissier.prenom} ${a.paiement.caissier.nom}`
+      : null,
+  }));
+
+  // 4. Calculs financiers
+  const montantTotal = echeance.montant;
+  const totalPaye = historique.reduce(
+    (s: number, h: any) => s + h.montant,
+    0
+  );
+  const restant = Math.max(0, montantTotal - totalPaye);
+
+  // 5. Statut
+  const maintenant = Date.now();
+  const dateLimiteMs = new Date(echeance.dateLimite).getTime();
+  const enRetard = maintenant > dateLimiteMs && restant > TOLERANCE;
+  const joursRetard = enRetard
+    ? Math.floor((maintenant - dateLimiteMs) / (1000 * 60 * 60 * 24))
+    : 0;
+
+  let statut: 'PAYEE' | 'PARTIELLE' | 'IMPAYEE' | 'EN_RETARD';
+  if (restant <= TOLERANCE) statut = 'PAYEE';
+  else if (totalPaye > TOLERANCE) statut = 'PARTIELLE';
+  else if (joursRetard > 0) statut = 'EN_RETARD';
+  else statut = 'IMPAYEE';
+
+  return {
+    echeance: {
+      id: echeance.id,
+      nom: echeance.nom,
+      ordre: echeance.ordre,
+      montant: echeance.montant,
+      dateLimite: echeance.dateLimite,
+    },
+    montantTotal,
+    totalPaye,
+    restant,
+    statut,
+    enRetard,
+    joursRetard,
+    nombrePaiements: historique.length,
+    historique,
+  };
+}
+
+/**
+ * Extrait la classe active d'un élève.
+ */
+function extractClasseActive(eleve: any) {
   const ins = eleve?.inscriptions?.find((i: any) => i.classe) ?? null;
   return {
     classeId: ins?.classeId ?? null,
@@ -157,22 +253,93 @@ function extractClasseActive(eleve: any): {
 }
 
 /**
- * 🆕 Enrichit un paiement avec les infos de classe à la racine
+ * Enrichit un paiement avec les infos de classe à la racine.
  */
 function enrichirPaiementAvecClasse(paiement: any) {
   if (!paiement) return paiement;
-  const { classeId, classeNom, classeCode } = extractClasseActive(paiement.eleve);
+  const { classeId, classeNom, classeCode } = extractClasseActive(
+    paiement.eleve
+  );
+  return { ...paiement, classeId, classeNom, classeCode };
+}
+
+/**
+ * Enrichit une allocation avec le résumé complet de sa tranche
+ * (montant total, total payé, restant, statut, historique).
+ *
+ * ⚠️ C'est ce qui permet à l'UI d'afficher pour chaque allocation :
+ *    - Tranche "1ère tranche" — Total 30 000 F CFA
+ *    - Payé 5 000 F CFA
+ *    - Restant 25 000 F CFA
+ */
+async function enrichirAllocation(
+  client: any,
+  alloc: any,
+  eleveId: string,
+  currentPaiementId?: string
+) {
+  const echeance = alloc.echeance;
+  if (!echeance) return alloc;
+
+  // ⚠️ IMPORTANT : on exclut le paiement en cours pour avoir
+  //    le "total payé AVANT" et calculer le restant après
+  const resume = await getResumeTranche(
+    client,
+    alloc.echeanceId,
+    eleveId,
+    currentPaiementId
+  );
+
+  // Total payé après CE paiement (résumé + allocation courante)
+  const totalPayeApres = resume.totalPaye + alloc.montant;
+  const restantApres = Math.max(0, resume.montantTotal - totalPayeApres);
+
+  // Statut après ce paiement
+  let statutApres: 'PAYEE' | 'PARTIELLE' | 'IMPAYEE' | 'EN_RETARD';
+  if (restantApres <= TOLERANCE) statutApres = 'PAYEE';
+  else if (totalPayeApres > TOLERANCE) statutApres = 'PARTIELLE';
+  else if (resume.joursRetard > 0) statutApres = 'EN_RETARD';
+  else statutApres = 'IMPAYEE';
+
   return {
-    ...paiement,
-    classeId,
-    classeNom,
-    classeCode,
+    ...alloc,
+    // 🆕 Résumé complet de la tranche pour l'UI
+    tranche: {
+      id: resume.echeance.id,
+      nom: resume.echeance.nom,
+      ordre: resume.echeance.ordre,
+      dateLimite: resume.echeance.dateLimite,
+      montantTotal: resume.montantTotal,
+      totalPaye: totalPayeApres,
+      restant: restantApres,
+      statut: statutApres,
+      enRetard: resume.enRetard && restantApres > TOLERANCE,
+      joursRetard: resume.joursRetard,
+      nombrePaiements: resume.nombrePaiements + 1,
+      historique: resume.historique,
+    },
+    _meta: {
+      montantEcheance: resume.montantTotal,
+      totalPayeAvant: resume.totalPaye,
+      totalPayeApres,
+      restantAvant: resume.restant,
+      restantApres,
+      estPayeeCompletement: restantApres <= TOLERANCE,
+      estPartielle: totalPayeApres > TOLERANCE && restantApres > TOLERANCE,
+      enRetard: resume.enRetard && restantApres > TOLERANCE,
+      joursRetard: resume.joursRetard,
+      statut: statutApres,
+      dateLimite: resume.echeance.dateLimite,
+      ordre: resume.echeance.ordre,
+      paiementsAnterieurs: resume.historique,
+      nombrePaiementsAnterieurs: resume.nombrePaiements,
+    },
   };
 }
 
-// ──────────────────────────────────────────
+// ══════════════════════════════════════════
 // SERVICE
-// ──────────────────────────────────────────
+// ══════════════════════════════════════════
 
 export class PaiementService {
   // ──────────────────────────────────────────
@@ -182,7 +349,7 @@ export class PaiementService {
   async create(ctx: PaiementContext, input: CreatePaiementInput) {
     const client = await getClient(ctx.schemaName);
 
-    // 1. Vérifier l'élève
+    // ── 1. Vérifier l'élève ──
     const eleve = await client.eleve.findUnique({
       where: { id: input.eleveId },
       select: { id: true, statut: true, prenom: true, nom: true },
@@ -195,22 +362,28 @@ export class PaiementService {
       );
     }
 
-    // 2. Validation des allocations (partiels autorisés)
+    // ── 2. Montant minimum ──
+    if (input.montant < MONTANT_MIN_PARTIEL) {
+      throw new AppError(
+        `Le montant minimum d'un paiement est de ${MONTANT_MIN_PARTIEL} F CFA`,
+        400
+      );
+    }
+
+    // ── 3. Valider les allocations ──
     if (input.allocations && input.allocations.length > 0) {
       const totalAlloue = input.allocations.reduce(
         (sum, a) => sum + a.montant,
         0
       );
 
-      // Seule règle stricte : ne pas dépasser le montant
-      if (totalAlloue > input.montant + 0.01) {
+      if (totalAlloue > input.montant + TOLERANCE) {
         throw new AppError(
           `Le total des allocations (${totalAlloue}) ne peut pas dépasser le montant du paiement (${input.montant})`,
           400
         );
       }
 
-      // Vérifier chaque échéance
       for (const alloc of input.allocations) {
         if (alloc.montant <= 0) {
           throw new AppError(
@@ -221,7 +394,7 @@ export class PaiementService {
 
         const echeance = await client.echeance.findUnique({
           where: { id: alloc.echeanceId },
-          select: { id: true, nom: true, montant: true, estPayee: true },
+          select: { id: true, nom: true, montant: true },
         });
         if (!echeance) {
           throw new AppError(
@@ -236,14 +409,14 @@ export class PaiementService {
         );
         const restantDu = Math.max(0, echeance.montant - dejaPaye);
 
-        if (restantDu <= 0.01) {
+        if (restantDu <= TOLERANCE) {
           throw new AppError(
             `L'échéance "${echeance.nom}" est déjà entièrement payée`,
             400
           );
         }
 
-        if (alloc.montant > restantDu + 0.01) {
+        if (alloc.montant > restantDu + TOLERANCE) {
           throw new AppError(
             `L'allocation sur "${echeance.nom}" (${alloc.montant}) dépasse le restant dû (${restantDu})`,
             400
@@ -252,7 +425,7 @@ export class PaiementService {
       }
     }
 
-    // 3. Vérifier l'assignment
+    // ── 4. Vérifier l'assignment ──
     if (input.assignmentId) {
       const assignment = await client.assignmentScolarite.findUnique({
         where: { id: input.assignmentId },
@@ -263,10 +436,16 @@ export class PaiementService {
       }
     }
 
-    // 4. Générer la référence
+    // ── 5. Générer la référence ──
     const reference = await generateReference(client);
 
-    // 5. Transaction
+    // 🆕 6. Date de paiement : on utilise la date fournie OU l'instant présent
+    //    (l'heure est préservée si datePaiement est fourni avec heure)
+    const datePaiement = input.datePaiement
+      ? new Date(input.datePaiement)
+      : new Date();
+
+    // ── 7. Transaction ──
     try {
       const result = await client.$transaction(async (tx: any) => {
         const paiement = await tx.paiement.create({
@@ -274,9 +453,7 @@ export class PaiementService {
             reference,
             eleveId: input.eleveId,
             montant: input.montant,
-            datePaiement: input.datePaiement
-              ? new Date(input.datePaiement)
-              : new Date(),
+            datePaiement, // 🆕 avec heure réelle
             moyen: input.moyen,
             referenceMoyen: input.referenceMoyen ?? null,
             caissierId: ctx.userId,
@@ -286,7 +463,6 @@ export class PaiementService {
           },
         });
 
-        // Allocations
         if (input.allocations && input.allocations.length > 0) {
           await tx.allocationPaiement.createMany({
             data: input.allocations.map((a) => ({
@@ -296,6 +472,7 @@ export class PaiementService {
             })),
           });
 
+          // Mettre à jour estPayee sur chaque échéance
           for (const alloc of input.allocations) {
             const totalAlloueEcheance =
               await tx.allocationPaiement.aggregate({
@@ -313,7 +490,8 @@ export class PaiementService {
 
             if (
               echeance &&
-              (totalAlloueEcheance._sum.montant ?? 0) >= echeance.montant - 0.01
+              (totalAlloueEcheance._sum.montant ?? 0) >=
+                echeance.montant - TOLERANCE
             ) {
               await tx.echeance.update({
                 where: { id: alloc.echeanceId },
@@ -326,7 +504,7 @@ export class PaiementService {
         return paiement;
       });
 
-      // 6. Recharger + enrichir
+      // ── 8. Recharger + enrichir ──
       const paiementComplet = await client.paiement.findUnique({
         where: { id: result.id },
         include: paiementInclude,
@@ -336,27 +514,16 @@ export class PaiementService {
         throw new AppError('Erreur lors du rechargement du paiement', 500);
       }
 
-      // Enrichir chaque allocation
+      // 🆕 Enrichir chaque allocation avec le résumé de sa tranche
       const allocationsEnrichies = await Promise.all(
-        (paiementComplet.allocations ?? []).map(async (alloc: any) => {
-          const totalPaye = await getMontantPayeSurEcheance(
+        (paiementComplet.allocations ?? []).map((alloc: any) =>
+          enrichirAllocation(
             client,
-            alloc.echeanceId
-          );
-          const montantEcheance = alloc.echeance?.montant ?? 0;
-          const restant = Math.max(0, montantEcheance - totalPaye);
-
-          return {
-            ...alloc,
-            _meta: {
-              montantEcheance,
-              totalPayeApres: totalPaye,
-              restantApres: restant,
-              estPayeeCompletement: restant <= 0.01,
-              estPartielle: totalPaye > 0 && restant > 0.01,
-            },
-          };
-        })
+            alloc,
+            paiementComplet.eleveId,
+            paiementComplet.id
+          )
+        )
       );
 
       const totalAlloue = (input.allocations ?? []).reduce(
@@ -365,7 +532,11 @@ export class PaiementService {
       );
       const resteNonAlloue = Math.max(0, input.montant - totalAlloue);
 
-      // 🆕 Ajouter la classe à la racine
+      const warningNonAlloue =
+        resteNonAlloue > TOLERANCE
+          ? `⚠️ ${resteNonAlloue} F CFA du paiement ne sont pas alloués à une échéance.`
+          : null;
+
       const enriched = enrichirPaiementAvecClasse(paiementComplet);
 
       return {
@@ -376,6 +547,8 @@ export class PaiementService {
           totalAlloue,
           resteNonAlloue,
           nombreEcheances: (input.allocations ?? []).length,
+          warningNonAlloue,
+          estPartiel: resteNonAlloue > TOLERANCE,
         },
       };
     } catch (err: any) {
@@ -395,14 +568,12 @@ export class PaiementService {
 
     const where: any = {};
 
-    // Recherche texte
     if (q.search) {
       where.OR = [
         { reference: { contains: q.search, mode: 'insensitive' } },
         { eleve: { nom: { contains: q.search, mode: 'insensitive' } } },
         { eleve: { prenom: { contains: q.search, mode: 'insensitive' } } },
         { eleve: { matricule: { contains: q.search, mode: 'insensitive' } } },
-        // 🆕 Recherche par classe (nom ou code)
         {
           eleve: {
             inscriptions: {
@@ -425,7 +596,6 @@ export class PaiementService {
     if (q.moyen) where.moyen = q.moyen;
     if (q.statut) where.statut = q.statut;
 
-    // 🆕 Filtre par classe
     if (q.classeId) {
       where.eleve = {
         ...(where.eleve ?? {}),
@@ -435,14 +605,12 @@ export class PaiementService {
       };
     }
 
-    // Filtre dates
     if (q.dateDebut || q.dateFin) {
       where.datePaiement = {};
       if (q.dateDebut) where.datePaiement.gte = new Date(q.dateDebut);
       if (q.dateFin) where.datePaiement.lte = new Date(q.dateFin);
     }
 
-    // Tri
     const allowedSort = ['datePaiement', 'montant', 'createdAt'];
     const sortBy = allowedSort.includes(q.sortBy) ? q.sortBy : 'datePaiement';
     const sortOrder = q.sortOrder === 'asc' ? 'asc' : 'desc';
@@ -463,8 +631,29 @@ export class PaiementService {
       _sum: { montant: true },
     });
 
-    // 🆕 Enrichir chaque paiement avec la classe à la racine
-    const dataEnrichie = data.map(enrichirPaiementAvecClasse);
+    // 🆕 Enrichir chaque paiement AVEC le résumé de ses tranches
+    const dataEnrichie = await Promise.all(
+      data.map(async (paiement: any) => {
+        const enriched = enrichirPaiementAvecClasse(paiement);
+
+        // Enrichir chaque allocation de CE paiement
+        const allocationsEnrichies = await Promise.all(
+          (paiement.allocations ?? []).map((alloc: any) =>
+            enrichirAllocation(
+              client,
+              alloc,
+              paiement.eleveId,
+              paiement.id
+            )
+          )
+        );
+
+        return {
+          ...enriched,
+          allocations: allocationsEnrichies,
+        };
+      })
+    );
 
     return {
       data: dataEnrichie,
@@ -494,26 +683,11 @@ export class PaiementService {
 
     if (!paiement) throw new AppError('Paiement introuvable', 404);
 
+    // 🆕 Enrichir chaque allocation avec le résumé COMPLET de sa tranche
     const allocationsEnrichies = await Promise.all(
-      (paiement.allocations ?? []).map(async (alloc: any) => {
-        const totalPaye = await getMontantPayeSurEcheance(
-          client,
-          alloc.echeanceId
-        );
-        const montantEcheance = alloc.echeance?.montant ?? 0;
-        const restant = Math.max(0, montantEcheance - totalPaye);
-
-        return {
-          ...alloc,
-          _meta: {
-            montantEcheance,
-            totalPayeApres: totalPaye,
-            restantApres: restant,
-            estPayeeCompletement: restant <= 0.01,
-            estPartielle: totalPaye > 0 && restant > 0.01,
-          },
-        };
-      })
+      (paiement.allocations ?? []).map((alloc: any) =>
+        enrichirAllocation(client, alloc, paiement.eleveId, paiement.id)
+      )
     );
 
     const totalAlloue = (paiement.allocations ?? []).reduce(
@@ -522,7 +696,6 @@ export class PaiementService {
     );
     const resteNonAlloue = Math.max(0, paiement.montant - totalAlloue);
 
-    // 🆕 Classe à la racine
     const enriched = enrichirPaiementAvecClasse(paiement);
 
     return {
@@ -533,6 +706,10 @@ export class PaiementService {
         totalAlloue,
         resteNonAlloue,
         nombreEcheances: (paiement.allocations ?? []).length,
+        warningNonAlloue:
+          resteNonAlloue > TOLERANCE
+            ? `⚠️ ${resteNonAlloue} F CFA non alloués à une échéance.`
+            : null,
       },
     };
   }
@@ -554,13 +731,82 @@ export class PaiementService {
       .filter((p: any) => p.statut === 'COMPLET')
       .reduce((sum: number, p: any) => sum + p.montant, 0);
 
-    const dataEnrichie = paiements.map(enrichirPaiementAvecClasse);
+    // 🆕 Enrichir chaque paiement
+    const dataEnrichie = await Promise.all(
+      paiements.map(async (paiement: any) => {
+        const enriched = enrichirPaiementAvecClasse(paiement);
+        const allocationsEnrichies = await Promise.all(
+          (paiement.allocations ?? []).map((alloc: any) =>
+            enrichirAllocation(
+              client,
+              alloc,
+              paiement.eleveId,
+              paiement.id
+            )
+          )
+        );
+        return { ...enriched, allocations: allocationsEnrichies };
+      })
+    );
 
     return { paiements: dataEnrichie, total };
   }
 
   // ──────────────────────────────────────────
-  // UPDATE (notes uniquement)
+  // GET HISTORIQUE D'UNE ÉCHÉANCE (pour un élève)
+  // ──────────────────────────────────────────
+
+  async getHistoriqueEcheanceEleve(
+    ctx: PaiementContext,
+    eleveId: string,
+    echeanceId: string
+  ) {
+    const client = await getClient(ctx.schemaName);
+
+    // Réutilise le helper
+    const resume = await getResumeTranche(
+      client,
+      echeanceId,
+      eleveId
+    );
+
+    // Récupérer l'échéance avec plan pour info complémentaire
+    const echeance = await client.echeance.findUnique({
+      where: { id: echeanceId },
+      select: {
+        id: true,
+        nom: true,
+        montant: true,
+        dateLimite: true,
+        ordre: true,
+        estPayee: true,
+        planScolarite: {
+          select: { id: true, nom: true, devise: true },
+        },
+      },
+    });
+    if (!echeance) throw new AppError('Échéance introuvable', 404);
+
+    return {
+      echeance: {
+        ...echeance,
+        planScolarite: echeance.planScolarite,
+      },
+      // 🆕 Résumé complet
+      montantTotal: resume.montantTotal,
+      totalPaye: resume.totalPaye,
+      restant: resume.restant,
+      statut: resume.statut,
+      enRetard: resume.enRetard,
+      joursRetard: resume.joursRetard,
+      nombrePaiements: resume.nombrePaiements,
+      // 🆕 Historique détaillé
+      historique: resume.historique,
+    };
+  }
+
+  // ──────────────────────────────────────────
+  // UPDATE
   // ──────────────────────────────────────────
 
   async update(ctx: PaiementContext, id: string, input: UpdatePaiementInput) {
@@ -634,7 +880,7 @@ export class PaiementService {
 
         const estPayee =
           echeance &&
-          (totalRestant._sum.montant ?? 0) >= echeance.montant - 0.01;
+          (totalRestant._sum.montant ?? 0) >= echeance.montant - TOLERANCE;
 
         await tx.echeance.update({
           where: { id: alloc.echeanceId },
@@ -650,7 +896,7 @@ export class PaiementService {
   }
 
   // ──────────────────────────────────────────
-  // STATISTIQUES
+  // STATS
   // ──────────────────────────────────────────
 
   async stats(
@@ -690,7 +936,7 @@ export class PaiementService {
   }
 
   // ──────────────────────────────────────────
-  // HARD DELETE (rare)
+  // HARD DELETE
   // ──────────────────────────────────────────
 
   async hardDelete(ctx: PaiementContext, id: string) {

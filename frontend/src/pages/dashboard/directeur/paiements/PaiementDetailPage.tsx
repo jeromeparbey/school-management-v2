@@ -2,12 +2,12 @@
 
 import React, { useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeftIcon,
   TrashIcon,
   BanknotesIcon,
   UserCircleIcon,
-  CalendarDaysIcon,
   ArrowPathIcon,
   CheckCircleIcon,
   XCircleIcon,
@@ -20,12 +20,22 @@ import {
   DocumentTextIcon,
   AcademicCapIcon,
   ChartBarIcon,
+  ArrowTrendingDownIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  UserIcon,
+  PrinterIcon,
 } from '@heroicons/react/24/outline';
 import {
   usePaiement,
   useAnnulerPaiement,
   useHardDeletePaiement,
 } from '../../../../hooks/usePaiements';
+import {
+  useGenererRecu,
+  useDownloadRecuPDF,
+  usePreviewRecuPDF,
+} from '../../../../hooks/useRecus';
 import { useToast } from '../../../../context/ToastContext';
 
 // ══════════════════════════════════════════════
@@ -41,54 +51,55 @@ const MOYENS_LABEL: Record<string, string> = {
   AUTRE: 'Autre',
 };
 
-/**
- * Formate un montant avec la devise fournie.
- * - Si devise est un code ISO connu (XOF, XAF, EUR, USD…) → format court avec symbole/code
- * - Sinon → suffixe avec la devise fournie (ex: "F CFA")
- */
-const formatMoney = (
-  amount: number | null | undefined,
-  devise: string = 'F CFA'
-): string => {
-  if (amount == null) return '—';
-  const value = amount.toLocaleString('fr-FR', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
+/** 💰 F CFA */
+const formatMoney = (n: number | null | undefined) => {
+  if (n == null) return '0 F CFA';
+  return new Intl.NumberFormat('fr-FR').format(Math.round(n)) + ' F CFA';
+};
+
+/** 📅 Date string */
+const formatDateStr = (d: string | null | undefined): string => {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
   });
-
-  const upper = devise.toUpperCase();
-  // Codes ISO courants → symbole/code court
-  if (upper === 'XOF' || upper === 'XAF') return `${value} F CFA`;
-  if (upper === 'EUR') return `${value} €`;
-  if (upper === 'USD') return `${value} $`;
-  if (upper === 'GBP') return `${value} £`;
-  if (upper === 'MAD') return `${value} DH`;
-  if (upper === 'NGN') return `${value} ₦`;
-  // Fallback : on affiche la devise telle que fournie
-  return `${value} ${devise}`;
 };
 
-/**
- * Extrait la devise de manière robuste depuis le paiement :
- * 1. Reçu (snapshot figé) → le plus fiable
- * 2. Assignment → planScolarite.devise
- * 3. Fallback 'F CFA'
- */
-function resolveDevise(paiement: any): string {
-  return (
-    paiement?.recu?.etablissementDevise ||
-    paiement?.recu?.devise ||
-    paiement?.assignment?.planScolarite?.devise ||
-    'F CFA'
-  );
+/** 🕐 Heure string */
+const formatHeureStr = (d: string | null | undefined): string => {
+  if (!d) return '—';
+  return new Date(d).toLocaleTimeString('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+/** Extrait les tranches avec leur résumé */
+function getTranches(paiement: any) {
+  if (!Array.isArray(paiement?.allocations)) return [];
+  return paiement.allocations.map((alloc: any) => {
+    const tranche = alloc.tranche ?? null;
+    const meta = alloc._meta ?? null;
+    return {
+      id: alloc.id,
+      echeanceId: alloc.echeanceId,
+      nom: tranche?.nom ?? alloc.echeance?.nom ?? '—',
+      ordre: tranche?.ordre ?? alloc.echeance?.ordre ?? 0,
+      dateLimite: tranche?.dateLimite ?? alloc.echeance?.dateLimite,
+      montantTotal: tranche?.montantTotal ?? alloc.echeance?.montant ?? 0,
+      totalPaye: tranche?.totalPaye ?? meta?.totalPayeApres ?? alloc.montant ?? 0,
+      restant: tranche?.restant ?? meta?.restantApres ?? 0,
+      montantAlloue: alloc.montant ?? 0,
+      statut: tranche?.statut ?? meta?.statut ?? 'IMPAYEE',
+      enRetard: tranche?.enRetard ?? meta?.enRetard ?? false,
+      joursRetard: tranche?.joursRetard ?? meta?.joursRetard ?? 0,
+      historique: tranche?.historique ?? meta?.paiementsAnterieurs ?? [],
+      nombrePaiements: tranche?.nombrePaiements ?? 0,
+    };
+  });
 }
-
-const STATUT_COLORS: Record<string, { bg: string; text: string; label: string }> = {
-  PAYEE: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Payée' },
-  PARTIELLE: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Partielle' },
-  IMPAYEE: { bg: 'bg-gray-100', text: 'text-gray-700', label: 'Impayée' },
-  EN_RETARD: { bg: 'bg-red-100', text: 'text-red-700', label: 'En retard' },
-};
 
 // ══════════════════════════════════════════════
 // PAGE
@@ -99,13 +110,19 @@ const PaiementDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const toast = useToast();
 
-  const { data: paiement, isLoading, isError } = usePaiement(id);
+  const { data: paiement, isLoading, isError, refetch } = usePaiement(id);
   const annulerMutation = useAnnulerPaiement();
   const hardDeleteMutation = useHardDeletePaiement();
+
+  // Reçus
+  const genererRecu = useGenererRecu();
+  const downloadPDF = useDownloadRecuPDF();
+  const previewPDF = usePreviewRecuPDF();
 
   const [showAnnuler, setShowAnnuler] = useState(false);
   const [motifAnnulation, setMotifAnnulation] = useState('');
   const [showHardDelete, setShowHardDelete] = useState(false);
+  const [expandedTranche, setExpandedTranche] = useState<string | null>(null);
 
   const handleAnnuler = async () => {
     if (!id) return;
@@ -134,6 +151,48 @@ const PaiementDetailPage: React.FC = () => {
       /* toasté */
     }
   };
+
+  /** Garantit qu'un reçu existe pour ce paiement, sinon le génère */
+  const ensureRecu = async (): Promise<{
+    id: string;
+    numeroRecu: string;
+  } | null> => {
+    if (!paiement) return null;
+    if (paiement.recu?.id && paiement.recu?.numeroRecu) {
+      return {
+        id: paiement.recu.id,
+        numeroRecu: paiement.recu.numeroRecu,
+      };
+    }
+    try {
+      const res = await genererRecu.mutateAsync({ paiementId: paiement.id });
+      const created = (res as any)?.data ?? res;
+      if (created?.id && created?.numeroRecu) {
+        return { id: created.id, numeroRecu: created.numeroRecu };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  const handlePreviewRecu = async () => {
+    const recu = await ensureRecu();
+    if (!recu) return;
+    previewPDF.mutate({ id: recu.id, format: 'A4' });
+  };
+
+  const handleDownloadRecu = async (format: 'A4' | 'A5' | '80MM' = 'A4') => {
+    const recu = await ensureRecu();
+    if (!recu) return;
+    downloadPDF.mutate({
+      id: recu.id,
+      numeroRecu: recu.numeroRecu,
+      format,
+    });
+  };
+
+  const isPendingPDF = downloadPDF.isPending || previewPDF.isPending;
 
   // ─────────── Loading ───────────
   if (isLoading) {
@@ -179,22 +238,28 @@ const PaiementDetailPage: React.FC = () => {
   const eleveNom = `${paiement.eleve?.prenom ?? ''} ${paiement.eleve?.nom ?? ''}`.trim();
   const canAnnuler = paiement.statut === 'COMPLET';
   const canHardDelete = paiement.statut === 'ANNULE';
+  const hasRecu = !!paiement.recu?.id;
 
-  // 🆕 Devise dynamique
-  const devise = resolveDevise(paiement);
+  // ─── Tranches ───
+  const tranches = getTranches(paiement);
 
-  // 🆕 Récapitulatif financier
+  // ─── Totaux ───
   const totalAlloue = (paiement.allocations ?? []).reduce(
     (s: number, a: any) => s + (a.montant ?? 0),
     0
   );
   const resteNonAlloue = Math.max(0, (paiement.montant ?? 0) - totalAlloue);
-  const nombreEcheancesCouvertes = paiement.allocations?.length ?? 0;
+  const resteGlobal = tranches.reduce((s: number, t: any) => s + t.restant, 0);
+  const tranchesEnRetard = tranches.filter((t: any) => t.enRetard).length;
+  const tranchesSoldees = tranches.filter((t: any) => t.statut === 'PAYEE').length;
 
-  // 🆕 Classe active de l'élève (via inscriptions du paiement.eleve)
+  // ─── Classe ───
   const classeActive =
-    paiement.eleve?.inscriptions?.find((i: any) => i.estActive)?.classe ??
-    null;
+    paiement.eleve?.inscriptions?.find((i: any) => i.estActive)?.classe ?? null;
+
+  // ─── Dates ───
+  const datePaiementStr = formatDateStr(paiement.datePaiement);
+  const heurePaiementStr = formatHeureStr(paiement.datePaiement);
 
   return (
     <div className="w-full max-w-[1400px] mx-auto space-y-6">
@@ -226,18 +291,51 @@ const PaiementDetailPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          {paiement.recu?.cheminPDF && (
-            <a
-              href={paiement.recu.cheminPDF}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700"
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          {/* 🆕 Voir le reçu */}
+          {hasRecu && (
+            <Link
+              to={`/dashboard/recus/${paiement.recu!.id}`}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-blue-200 text-blue-700 font-medium rounded-lg hover:bg-blue-50"
             >
-              <ArrowDownTrayIcon className="w-4 h-4" />
-              Reçu PDF
-            </a>
+              <DocumentTextIcon className="w-4 h-4" />
+              Voir le reçu
+            </Link>
           )}
+
+          {/* 🆕 Aperçu PDF */}
+          <button
+            type="button"
+            onClick={handlePreviewRecu}
+            disabled={isPendingPDF}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-purple-50 text-purple-700 font-medium rounded-lg hover:bg-purple-100 border border-purple-200 disabled:opacity-50"
+          >
+            <PrinterIcon className="w-4 h-4" />
+            Aperçu
+          </button>
+
+          {/* 🆕 Télécharger A4 */}
+          <button
+            type="button"
+            onClick={() => handleDownloadRecu('A4')}
+            disabled={isPendingPDF}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            <ArrowDownTrayIcon className="w-4 h-4" />
+            PDF A4
+          </button>
+
+          {/* 🆕 Ticket 80mm */}
+          <button
+            type="button"
+            onClick={() => handleDownloadRecu('80MM')}
+            disabled={isPendingPDF}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+          >
+            <ReceiptPercentIcon className="w-4 h-4" />
+            Ticket 80mm
+          </button>
+
           {canAnnuler && (
             <button
               type="button"
@@ -248,6 +346,7 @@ const PaiementDetailPage: React.FC = () => {
               Annuler
             </button>
           )}
+
           {canHardDelete && (
             <button
               type="button"
@@ -262,32 +361,38 @@ const PaiementDetailPage: React.FC = () => {
       </div>
 
       {/* ═══════════════════════════════════════════
-          STATS RAPIDES (4 cartes)
+          STATS RAPIDES
           ═══════════════════════════════════════════ */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-white rounded-xl border border-gray-100 p-4">
           <p className="text-xs text-gray-500">Montant encaissé</p>
           <p className="text-xl font-bold text-emerald-700 mt-1 truncate">
-            {formatMoney(paiement.montant, devise)}
-          </p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-100 p-4">
-          <p className="text-xs text-gray-500">Alloué aux échéances</p>
-          <p className="text-xl font-bold text-blue-700 mt-1 truncate">
-            {formatMoney(totalAlloue, devise)}
+            {formatMoney(paiement.montant)}
           </p>
           <p className="text-[10px] text-gray-400 mt-0.5">
-            {nombreEcheancesCouvertes} échéance(s)
+            {datePaiementStr} · {heurePaiementStr}
           </p>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-4">
-          <p className="text-xs text-gray-500">Reste non alloué</p>
+          <p className="text-xs text-gray-500">Alloué aux tranches</p>
+          <p className="text-xl font-bold text-blue-700 mt-1 truncate">
+            {formatMoney(totalAlloue)}
+          </p>
+          <p className="text-[10px] text-gray-400 mt-0.5">
+            {tranches.length} tranche(s)
+          </p>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 p-4">
+          <p className="text-xs text-gray-500">Reste sur tranches</p>
           <p
             className={`text-xl font-bold mt-1 truncate ${
-              resteNonAlloue > 0 ? 'text-orange-600' : 'text-gray-400'
+              resteGlobal > 0.01 ? 'text-red-600' : 'text-gray-400'
             }`}
           >
-            {formatMoney(resteNonAlloue, devise)}
+            {formatMoney(resteGlobal)}
+          </p>
+          <p className="text-[10px] text-gray-400 mt-0.5">
+            {tranchesSoldees}/{tranches.length} soldée(s)
           </p>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-4">
@@ -369,19 +474,19 @@ const PaiementDetailPage: React.FC = () => {
                   {paiement.statut === 'COMPLET' &&
                     'Ce paiement a été encaissé et validé.'}
                   {paiement.statut === 'ANNULE' &&
-                    `Annulé le ${new Date(
-                      paiement.annuleLe!
-                    ).toLocaleDateString('fr-FR')} pour motif : ${
+                    `Annulé le ${formatDateStr(
+                      paiement.annuleLe
+                    )} à ${formatHeureStr(paiement.annuleLe)} — Motif : ${
                       paiement.motifAnnulation ?? '—'
                     }`}
                   {paiement.statut === 'REMBOURSE' &&
-                    'Le montant a été remboursé à l\'élève ou sa famille.'}
+                    "Le montant a été remboursé à l'élève ou sa famille."}
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Montant & référence (🆕 devise dynamique) */}
+          {/* Montant & Référence */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 flex items-center gap-2">
               <ReceiptPercentIcon className="w-4 h-4 text-emerald-500" />
@@ -391,7 +496,11 @@ const PaiementDetailPage: React.FC = () => {
               <div>
                 <p className="text-xs text-gray-500">Montant encaissé</p>
                 <p className="text-3xl font-bold text-emerald-700 mt-1">
-                  {formatMoney(paiement.montant, devise)}
+                  {formatMoney(paiement.montant)}
+                </p>
+                <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                  <ClockIcon className="w-3.5 h-3.5" />
+                  {datePaiementStr} à {heurePaiementStr}
                 </p>
               </div>
               <div>
@@ -399,6 +508,12 @@ const PaiementDetailPage: React.FC = () => {
                 <p className="text-lg font-mono font-semibold text-gray-900 mt-1">
                   {paiement.reference}
                 </p>
+                {paiement.recu?.numeroRecu && (
+                  <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                    <DocumentTextIcon className="w-3.5 h-3.5" />
+                    Reçu N° {paiement.recu.numeroRecu}
+                  </p>
+                )}
               </div>
               <div>
                 <p className="text-xs text-gray-500">Moyen de paiement</p>
@@ -408,9 +523,7 @@ const PaiementDetailPage: React.FC = () => {
               </div>
               {paiement.referenceMoyen && (
                 <div>
-                  <p className="text-xs text-gray-500">
-                    Référence du moyen
-                  </p>
+                  <p className="text-xs text-gray-500">Référence du moyen</p>
                   <p className="text-sm font-mono text-gray-900 mt-1">
                     {paiement.referenceMoyen}
                   </p>
@@ -419,7 +532,7 @@ const PaiementDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Élève (🆕 avec classe active) */}
+          {/* Élève */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
@@ -456,126 +569,265 @@ const PaiementDetailPage: React.FC = () => {
                       {classeActive.nom}
                     </span>
                   )}
-                  {paiement.eleve?.statut && (
-                    <span className="inline-block px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
-                      {paiement.eleve.statut}
-                    </span>
-                  )}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Allocations (🆕 avec statut par échéance + devise dynamique) */}
-          {paiement.allocations && paiement.allocations.length > 0 && (
+          {/* ═══ TRANCHES CONCERNÉES ═══ */}
+          {tranches.length > 0 && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
                   <DocumentTextIcon className="w-4 h-4 text-indigo-500" />
-                  Allocations aux échéances
+                  Tranches concernées
                 </h2>
                 <span className="text-xs text-gray-500">
-                  {paiement.allocations.length} échéance(s)
+                  {tranches.length} tranche(s)
                 </span>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-200 text-xs text-gray-500 uppercase">
-                      <th className="text-left py-2 font-semibold">Échéance</th>
-                      <th className="text-left py-2 font-semibold">
-                        Date limite
-                      </th>
-                      <th className="text-right py-2 font-semibold">
-                        Montant
-                      </th>
-                      <th className="text-right py-2 font-semibold">
-                        Alloué
-                      </th>
-                      <th className="text-right py-2 font-semibold">
-                        Statut
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {paiement.allocations.map((a: any) => {
-                      // 🆕 métadonnées enrichies par le backend (_meta)
-                      const meta = a._meta;
-                      const statutKey =
-                        meta?.estPayeeCompletement
-                          ? 'PAYEE'
-                          : meta?.estPartielle
-                          ? 'PARTIELLE'
-                          : meta?.enRetard
-                          ? 'EN_RETARD'
-                          : 'IMPAYEE';
-                      const st =
-                        STATUT_COLORS[statutKey] ?? STATUT_COLORS.IMPAYEE;
+              <div className="space-y-3">
+                {tranches.map((t: any, i: number) => {
+                  const isExpanded = expandedTranche === t.id;
+                  const pct =
+                    t.montantTotal > 0
+                      ? Math.min(100, (t.totalPaye / t.montantTotal) * 100)
+                      : 0;
 
-                      return (
-                        <tr key={a.id}>
-                          <td className="py-2 text-gray-900">
-                            {a.echeance?.nom ?? '—'}
-                          </td>
-                          <td className="py-2 text-gray-600">
-                            {a.echeance?.dateLimite
-                              ? new Date(
-                                  a.echeance.dateLimite
-                                ).toLocaleDateString('fr-FR')
-                              : '—'}
-                          </td>
-                          <td className="py-2 text-right text-gray-600">
-                            {formatMoney(a.echeance?.montant ?? 0, devise)}
-                          </td>
-                          <td className="py-2 text-right font-medium text-gray-900">
-                            {formatMoney(a.montant, devise)}
-                          </td>
-                          <td className="py-2 text-right">
-                            <span
-                              className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${st.bg} ${st.text}`}
+                  return (
+                    <div
+                      key={t.id}
+                      className={`rounded-xl border ${
+                        t.enRetard
+                          ? 'border-amber-200 bg-amber-50/30'
+                          : t.statut === 'PAYEE'
+                          ? 'border-emerald-200 bg-emerald-50/30'
+                          : 'border-gray-200 bg-gray-50/50'
+                      }`}
+                    >
+                      {/* En-tête */}
+                      <div className="p-4">
+                        <div className="flex items-start justify-between gap-3 flex-wrap">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold shrink-0">
+                              {i + 1}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-sm font-semibold text-gray-900 truncate">
+                                  {t.nom}
+                                </p>
+                                {t.statut === 'PAYEE' && (
+                                  <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                                    <CheckCircleIcon className="w-3 h-3" />
+                                    Payée
+                                  </span>
+                                )}
+                                {t.statut === 'PARTIELLE' && (
+                                  <span className="text-[10px] font-bold uppercase text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+                                    Partielle
+                                  </span>
+                                )}
+                                {t.enRetard && (
+                                  <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+                                    <ClockIcon className="w-3 h-3" />
+                                    +{t.joursRetard}j
+                                  </span>
+                                )}
+                              </div>
+                              {t.dateLimite && (
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                  Limite : {formatDateStr(t.dateLimite)}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          {t.nombrePaiements > 0 && (
+                            <button
+                              onClick={() =>
+                                setExpandedTranche(isExpanded ? null : t.id)
+                              }
+                              className="inline-flex items-center gap-1 px-2 py-1 text-xs text-indigo-600 hover:bg-indigo-50 rounded-lg font-medium"
                             >
-                              {st.label}
+                              {isExpanded ? (
+                                <>
+                                  <ChevronUpIcon className="w-3.5 h-3.5" />
+                                  Masquer
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDownIcon className="w-3.5 h-3.5" />
+                                  Historique ({t.nombrePaiements})
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Progression */}
+                        <div className="mt-3">
+                          <div className="flex items-center justify-between text-xs mb-1">
+                            <span className="text-gray-600">Payé sur la tranche</span>
+                            <span
+                              className={`font-bold ${
+                                pct >= 100
+                                  ? 'text-emerald-700'
+                                  : t.enRetard
+                                  ? 'text-amber-700'
+                                  : 'text-blue-700'
+                              }`}
+                            >
+                              {pct.toFixed(0)}%
                             </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot className="border-t-2 border-gray-200">
-                    <tr>
-                      <td colSpan={3} className="py-2 text-right text-xs font-medium text-gray-600">
-                        Total alloué
-                      </td>
-                      <td className="py-2 text-right font-bold text-gray-900">
-                        {formatMoney(totalAlloue, devise)}
-                      </td>
-                      <td />
-                    </tr>
-                    {resteNonAlloue > 0 && (
-                      <tr>
-                        <td colSpan={3} className="py-1 text-right text-xs font-medium text-orange-600">
-                          Reste non alloué
-                        </td>
-                        <td className="py-1 text-right font-bold text-orange-600">
-                          {formatMoney(resteNonAlloue, devise)}
-                        </td>
-                        <td />
-                      </tr>
-                    )}
-                  </tfoot>
-                </table>
+                          </div>
+                          <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                pct >= 100
+                                  ? 'bg-emerald-500'
+                                  : t.enRetard
+                                  ? 'bg-amber-500'
+                                  : 'bg-blue-500'
+                              }`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Montants */}
+                        <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                          <div>
+                            <p className="text-gray-500">Montant total</p>
+                            <p className="font-bold text-gray-900">
+                              {formatMoney(t.montantTotal)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Payé (cumulé)</p>
+                            <p className="font-bold text-emerald-700">
+                              {formatMoney(t.totalPaye)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Restant</p>
+                            <p
+                              className={`font-bold ${
+                                t.restant > 0.01 ? 'text-red-600' : 'text-gray-400'
+                              }`}
+                            >
+                              {formatMoney(t.restant)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Ce paiement</p>
+                            <p className="font-bold text-indigo-700">
+                              {formatMoney(t.montantAlloue)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Historique expandable */}
+                      <AnimatePresence>
+                        {isExpanded && t.historique.length > 0 && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="px-4 pb-4 pt-2 border-t border-gray-200/50">
+                              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                                Historique des paiements sur cette tranche
+                              </p>
+                              <div className="space-y-1">
+                                {t.historique.map((h: any) => (
+                                  <div
+                                    key={h.paiementId}
+                                    className="flex items-center justify-between gap-2 bg-white rounded-lg px-3 py-2 border border-gray-100 text-xs"
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                                      <span className="font-mono font-medium text-gray-900">
+                                        {h.reference}
+                                      </span>
+                                      <span className="text-gray-400">•</span>
+                                      <span className="text-gray-600">
+                                        {formatDateStr(h.datePaiement)}
+                                      </span>
+                                      {h.caissier && (
+                                        <>
+                                          <span className="text-gray-400">•</span>
+                                          <span className="text-gray-500 flex items-center gap-1">
+                                            <UserIcon className="w-3 h-3" />
+                                            {h.caissier}
+                                          </span>
+                                        </>
+                                      )}
+                                      <span className="px-1.5 py-0.5 rounded text-[10px] bg-gray-100 text-gray-600">
+                                        {MOYENS_LABEL[h.moyen] ?? h.moyen}
+                                      </span>
+                                    </div>
+                                    <span className="font-bold text-emerald-700 shrink-0">
+                                      {formatMoney(h.montant)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  );
+                })}
               </div>
 
-              {resteNonAlloue > 0 && (
-                <div className="mt-3 flex items-start gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                  <ExclamationTriangleIcon className="w-4 h-4 text-orange-600 shrink-0 mt-0.5" />
-                  <p className="text-xs text-orange-700">
-                    Une partie du paiement ({formatMoney(resteNonAlloue, devise)}) n'est pas allouée à une échéance.
-                    Vérifiez avec le caissier si cela est intentionnel.
-                  </p>
+              {/* Résumé */}
+              <div className="mt-4 pt-4 border-t border-gray-100 space-y-2 text-sm">
+                <div className="flex justify-between gap-2">
+                  <span className="text-gray-500">Montant encaissé</span>
+                  <span className="font-bold text-gray-900">
+                    {formatMoney(paiement.montant)}
+                  </span>
                 </div>
-              )}
+                <div className="flex justify-between gap-2">
+                  <span className="text-gray-500">Total alloué</span>
+                  <span className="font-bold text-blue-700">
+                    {formatMoney(totalAlloue)}
+                  </span>
+                </div>
+                {resteNonAlloue > 0.01 && (
+                  <div className="flex justify-between gap-2">
+                    <span className="text-gray-500">Reste non alloué</span>
+                    <span className="font-bold text-orange-600">
+                      {formatMoney(resteNonAlloue)}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between gap-2 pt-2 border-t border-gray-100">
+                  <span className="text-gray-500 font-medium">
+                    Reste global sur les tranches
+                  </span>
+                  <span
+                    className={`font-bold ${
+                      resteGlobal > 0.01 ? 'text-red-600' : 'text-emerald-700'
+                    }`}
+                  >
+                    {resteGlobal > 0.01 ? (
+                      <span className="flex items-center gap-1">
+                        <ArrowTrendingDownIcon className="w-3.5 h-3.5" />
+                        {formatMoney(resteGlobal)}
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        <CheckCircleIcon className="w-3.5 h-3.5" />
+                        Soldé
+                      </span>
+                    )}
+                  </span>
+                </div>
+              </div>
             </div>
           )}
 
@@ -595,7 +847,7 @@ const PaiementDetailPage: React.FC = () => {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 flex items-center gap-2">
               <ClockIcon className="w-4 h-4 text-blue-500" />
-              Historique
+              Historique du paiement
             </h2>
             <ol className="relative border-l-2 border-gray-200 ml-2 space-y-6">
               <li className="ml-6">
@@ -605,13 +857,8 @@ const PaiementDetailPage: React.FC = () => {
                     Paiement créé
                   </p>
                   <p className="text-xs text-gray-500">
-                    {new Date(paiement.createdAt).toLocaleString('fr-FR', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                    {formatDateStr(paiement.createdAt)} ·{' '}
+                    {formatHeureStr(paiement.createdAt)}
                   </p>
                 </div>
                 <p className="text-xs text-gray-600 mt-0.5">
@@ -619,8 +866,7 @@ const PaiementDetailPage: React.FC = () => {
                   <strong>
                     {paiement.caissier?.prenom} {paiement.caissier?.nom}
                   </strong>{' '}
-                  le{' '}
-                  {new Date(paiement.datePaiement).toLocaleDateString('fr-FR')}
+                  le {datePaiementStr} à {heurePaiementStr}
                 </p>
               </li>
 
@@ -632,13 +878,8 @@ const PaiementDetailPage: React.FC = () => {
                       Paiement annulé
                     </p>
                     <p className="text-xs text-gray-500">
-                      {new Date(paiement.annuleLe).toLocaleString('fr-FR', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                      {formatDateStr(paiement.annuleLe)} ·{' '}
+                      {formatHeureStr(paiement.annuleLe)}
                     </p>
                   </div>
                   {paiement.annuleParUtilisateur && (
@@ -681,6 +922,52 @@ const PaiementDetailPage: React.FC = () => {
 
         {/* ─────────── SIDEBAR ─────────── */}
         <div className="space-y-6">
+          {/* Actions reçu */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <DocumentTextIcon className="w-4 h-4 text-blue-600" />
+              Reçu
+            </h3>
+            <div className="space-y-2">
+              {hasRecu && (
+                <Link
+                  to={`/dashboard/recus/${paiement.recu!.id}`}
+                  className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 font-medium"
+                >
+                  <DocumentTextIcon className="w-4 h-4" />
+                  Voir le reçu N° {paiement.recu!.numeroRecu}
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={handlePreviewRecu}
+                disabled={isPendingPDF}
+                className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-purple-700 bg-purple-50 rounded-lg hover:bg-purple-100 font-medium disabled:opacity-50"
+              >
+                <PrinterIcon className="w-4 h-4" />
+                Aperçu du reçu
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDownloadRecu('A4')}
+                disabled={isPendingPDF}
+                className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-emerald-700 bg-emerald-50 rounded-lg hover:bg-emerald-100 font-medium disabled:opacity-50"
+              >
+                <ArrowDownTrayIcon className="w-4 h-4" />
+                Télécharger PDF A4
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDownloadRecu('80MM')}
+                disabled={isPendingPDF}
+                className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-indigo-700 bg-indigo-50 rounded-lg hover:bg-indigo-100 font-medium disabled:opacity-50"
+              >
+                <ReceiptPercentIcon className="w-4 h-4" />
+                Ticket 80mm
+              </button>
+            </div>
+          </div>
+
           {/* Actions rapides */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
@@ -695,17 +982,6 @@ const PaiementDetailPage: React.FC = () => {
                   <UserCircleIcon className="w-4 h-4 text-blue-600" />
                   Voir la fiche élève
                 </Link>
-              )}
-              {paiement.recu?.cheminPDF && (
-                <a
-                  href={paiement.recu.cheminPDF}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-gray-700 bg-gray-50 rounded-lg hover:bg-gray-100 font-medium"
-                >
-                  <ArrowDownTrayIcon className="w-4 h-4 text-blue-600" />
-                  Télécharger le reçu
-                </a>
               )}
               {canAnnuler && (
                 <button
@@ -730,7 +1006,7 @@ const PaiementDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* 🆕 Récapitulatif financier */}
+          {/* Récapitulatif */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <ChartBarIcon className="w-4 h-4 text-emerald-600" />
@@ -738,29 +1014,53 @@ const PaiementDetailPage: React.FC = () => {
             </h3>
             <dl className="space-y-2 text-sm">
               <div className="flex justify-between gap-2">
-                <dt className="text-gray-500">Montant</dt>
+                <dt className="text-gray-500">Montant encaissé</dt>
                 <dd className="font-semibold text-gray-900 text-right">
-                  {formatMoney(paiement.montant, devise)}
+                  {formatMoney(paiement.montant)}
                 </dd>
               </div>
               <div className="flex justify-between gap-2">
-                <dt className="text-gray-500">Alloué</dt>
+                <dt className="text-gray-500">Alloué aux tranches</dt>
                 <dd className="font-semibold text-blue-700 text-right">
-                  {formatMoney(totalAlloue, devise)}
+                  {formatMoney(totalAlloue)}
                 </dd>
               </div>
-              {resteNonAlloue > 0 && (
+              {resteNonAlloue > 0.01 && (
                 <div className="flex justify-between gap-2">
                   <dt className="text-gray-500">Reste non alloué</dt>
                   <dd className="font-semibold text-orange-600 text-right">
-                    {formatMoney(resteNonAlloue, devise)}
+                    {formatMoney(resteNonAlloue)}
                   </dd>
                 </div>
               )}
               <div className="flex justify-between gap-2 pt-2 border-t border-gray-100">
-                <dt className="text-gray-500">Échéances couvertes</dt>
+                <dt className="text-gray-500">Tranches concernées</dt>
                 <dd className="font-semibold text-gray-900 text-right">
-                  {nombreEcheancesCouvertes}
+                  {tranches.length}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-gray-500">Tranches soldées</dt>
+                <dd className="font-semibold text-emerald-700 text-right">
+                  {tranchesSoldees}
+                </dd>
+              </div>
+              {tranchesEnRetard > 0 && (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-gray-500">En retard</dt>
+                  <dd className="font-semibold text-amber-700 text-right">
+                    {tranchesEnRetard}
+                  </dd>
+                </div>
+              )}
+              <div className="flex justify-between gap-2 pt-2 border-t border-gray-100">
+                <dt className="text-gray-500">Reste global</dt>
+                <dd
+                  className={`font-bold text-right ${
+                    resteGlobal > 0.01 ? 'text-red-600' : 'text-emerald-700'
+                  }`}
+                >
+                  {formatMoney(resteGlobal)}
                 </dd>
               </div>
             </dl>

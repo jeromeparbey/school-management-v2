@@ -14,6 +14,7 @@ import {
   ReceiptPercentIcon,
   AcademicCapIcon,
   DocumentTextIcon,
+  ClockIcon,
 } from '@heroicons/react/24/outline';
 import { useCreatePaiement } from '../../../../hooks/usePaiements';
 import { useEleves } from '../../../../hooks/useEleves';
@@ -28,6 +29,10 @@ import type {
   AllocationInput,
 } from '../../../../types/paiement.types';
 
+// ═══════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════
+
 const MOYENS: { value: MoyenPaiement; label: string }[] = [
   { value: 'ESPECES', label: 'Espèces' },
   { value: 'VIREMENT', label: 'Virement bancaire' },
@@ -37,11 +42,33 @@ const MOYENS: { value: MoyenPaiement; label: string }[] = [
   { value: 'AUTRE', label: 'Autre' },
 ];
 
-const formatMontant = (n: number) =>
-  n.toLocaleString('fr-FR', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
+/** 💰 Formate en F CFA (jamais XOF) */
+const formatMoney = (n: number | null | undefined) => {
+  if (n == null) return '0 F CFA';
+  return new Intl.NumberFormat('fr-FR').format(Math.round(n)) + ' F CFA';
+};
+
+const formatDate = (d: string | null | undefined) => {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
   });
+};
+
+const joursRestants = (dateLimite: string): number => {
+  const diff = new Date(dateLimite).getTime() - Date.now();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+};
+
+const toDateInput = (d: Date) => d.toISOString().slice(0, 10);
+
+const TOLERANCE = 0.01;
+
+// ═══════════════════════════════════════════════════════════
+// PAGE
+// ═══════════════════════════════════════════════════════════
 
 const PaiementNouveauPage: React.FC = () => {
   const navigate = useNavigate();
@@ -65,12 +92,13 @@ const PaiementNouveauPage: React.FC = () => {
   const [montant, setMontant] = useState<number>(0);
   const [moyen, setMoyen] = useState<MoyenPaiement>('ESPECES');
   const [referenceMoyen, setReferenceMoyen] = useState('');
-  const [datePaiement, setDatePaiement] = useState(
-    new Date().toISOString().slice(0, 10)
-  );
+  const [datePaiement, setDatePaiement] = useState(toDateInput(new Date()));
   const [notes, setNotes] = useState('');
   const [allocations, setAllocations] = useState<AllocationInput[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // 🆕 Option : masquer les tranches en retard
+  const [hideRetards, setHideRetards] = useState(false);
 
   const createMutation = useCreatePaiement();
   const genererRecu = useGenererRecu();
@@ -170,6 +198,9 @@ const PaiementNouveauPage: React.FC = () => {
     return [];
   }, [echeancesData]);
 
+  /**
+   * Enrichit les échéances avec montantPaye / montantRestant / retards.
+   */
   const echeancesAvecEtat = useMemo(() => {
     return echeances.map((e: any) => {
       const allocationsExistantes = Array.isArray(e.allocationsPaiement)
@@ -177,16 +208,27 @@ const PaiementNouveauPage: React.FC = () => {
         : Array.isArray(e.allocations)
         ? e.allocations
         : [];
+
       const montantPaye = allocationsExistantes
         .filter((a: any) => !a.paiement || a.paiement.statut === 'COMPLET')
         .reduce((s: number, a: any) => s + (a.montant ?? 0), 0);
+
       const montantRestant = Math.max(0, (e.montant ?? 0) - montantPaye);
+      const estPayeeCompletement = montantRestant <= TOLERANCE;
+      const estPartielle = montantPaye > TOLERANCE && montantRestant > TOLERANCE;
+
+      const jours = joursRestants(e.dateLimite);
+      const estEnRetard = !estPayeeCompletement && jours < 0;
+
       return {
         ...e,
         montantPaye,
         montantRestant,
-        estPayeeCompletement: montantRestant <= 0.01,
-        estPartielle: montantPaye > 0 && montantRestant > 0.01,
+        estPayeeCompletement,
+        estPartielle,
+        estEnRetard,
+        joursRetard: estEnRetard ? Math.abs(jours) : 0,
+        joursRestants: jours,
       };
     });
   }, [echeances]);
@@ -194,11 +236,17 @@ const PaiementNouveauPage: React.FC = () => {
   const echeancesImpayees = useMemo(
     () =>
       echeancesAvecEtat.filter(
-        (e: any) =>
-          !e.estPayee && !e.estPayeeCompletement && e.montantRestant > 0.01
+        (e: any) => !e.estPayeeCompletement && e.montantRestant > TOLERANCE
       ),
     [echeancesAvecEtat]
   );
+
+  const echeancesAffichees = useMemo(() => {
+    if (hideRetards) {
+      return echeancesImpayees.filter((e: any) => !e.estEnRetard);
+    }
+    return echeancesImpayees;
+  }, [echeancesImpayees, hideRetards]);
 
   // ─────────── Auto-sélection via query ───────────
   useEffect(() => {
@@ -247,123 +295,152 @@ const PaiementNouveauPage: React.FC = () => {
     setMontant(0);
   };
 
-  // ─────────── Allocations ───────────
+  // ══════════════════════════════════════════════════════════
+  // 🆕 SYNCHRONISATION BIDIRECTIONNELLE montant ⟷ allocations
+  // ══════════════════════════════════════════════════════════
 
   /**
-   * Plafond d'une allocation :
-   * = min(montantRestant échéance, montant du paiement dispo hors autres allocations)
-   */
-  const getPlafond = (
-    echeance: any,
-    allocationsActuelles: AllocationInput[],
-    montantPaiement: number,
-    echeanceIdEnCours?: string
-  ): number => {
-    const autresAllocations = allocationsActuelles
-      .filter((a) => a.echeanceId !== echeanceIdEnCours)
-      .reduce((s, a) => s + a.montant, 0);
-    const montantDisponible = Math.max(0, montantPaiement - autresAllocations);
-    return Math.min(echeance.montantRestant, montantDisponible);
-  };
-
-  /**
-   * 🆕 Coche une échéance :
-   * - Ajoute une allocation initiale = min(montantRestant, montant total allouable)
-   * - Si le montant du paiement est vide (0), on l'initialise au montant de l'échéance
+   * Coche une échéance :
+   *  → elle prend son restant dû COMPLET
+   *  → montant = somme des allocations (recalculé)
    */
   const addAllocation = (echeanceId: string) => {
     const echeance = echeancesImpayees.find((e: any) => e.id === echeanceId);
     if (!echeance) return;
     if (allocations.some((a) => a.echeanceId === echeanceId)) return;
 
-    // Si le montant est vide, on l'initialise au montant de l'échéance
-    const montantBase = montant > 0 ? montant : echeance.montantRestant;
+    const nouvelles = [
+      ...allocations,
+      { echeanceId, montant: echeance.montantRestant },
+    ];
 
-    // Calcul du plafond avec les autres allocations déjà posées
-    const autresTotal = allocations.reduce((s, a) => s + a.montant, 0);
-    const plafondDispo = Math.max(0, montantBase - autresTotal);
-    const allocationInitiale = Math.min(echeance.montantRestant, plafondDispo);
-
-    if (allocationInitiale <= 0) {
-      toast.warning(
-        'Montant insuffisant',
-        'Augmentez le montant du paiement pour allouer cette échéance.'
-      );
-      return;
-    }
-
-    setAllocations((prev) => [
-      ...prev,
-      { echeanceId, montant: allocationInitiale },
-    ]);
-
-    // 🆕 Auto-remplissage du montant du paiement si vide
-    if (montant <= 0) {
-      setMontant(allocationInitiale);
-      setErrors((x) => ({ ...x, montant: '' }));
-    }
-  };
-
-  const removeAllocation = (echeanceId: string) => {
-    setAllocations((prev) => {
-      const removed = prev.find((a) => a.echeanceId === echeanceId);
-      const next = prev.filter((a) => a.echeanceId !== echeanceId);
-      // Ajuster le montant du paiement si c'était la seule allocation
-      if (next.length === 0 && removed) {
-        setMontant(0);
-      }
-      return next;
-    });
-  };
-
-  const updateAllocationMontant = (echeanceId: string, newMontant: number) => {
-    const echeance = echeancesImpayees.find((e: any) => e.id === echeanceId);
-    if (!echeance) return;
-
-    const plafond = getPlafond(
-      echeance,
-      allocations,
-      montant,
-      echeanceId
-    );
-    const clamped = Math.min(Math.max(0, newMontant), plafond);
-
-    setAllocations((prev) =>
-      prev.map((a) =>
-        a.echeanceId === echeanceId ? { ...a, montant: clamped } : a
-      )
-    );
+    setAllocations(nouvelles);
+    // 🆕 Synchronisation : montant = total des allocations
+    setMontant(nouvelles.reduce((s, a) => s + a.montant, 0));
+    setErrors((x) => ({ ...x, montant: '', allocations: '' }));
   };
 
   /**
-   * 🆕 Quand l'utilisateur modifie le montant du paiement :
-   * re-clampe les allocations si nécessaire (ne dépasse pas le nouveau montant)
+   * Décoche une échéance :
+   *  → retirée des allocations
+   *  → montant = somme des allocations restantes
    */
-  const handleMontantChange = (newMontant: number) => {
-    setMontant(newMontant);
-    setErrors((x) => ({ ...x, montant: '' }));
-
-    // Re-clamper les allocations si la somme dépasse le nouveau montant
-    if (newMontant > 0) {
-      setAllocations((prev) => {
-        let cumul = 0;
-        return prev.map((a) => {
-          const ech = echeancesImpayees.find((e: any) => e.id === a.echeanceId);
-          if (!ech) return a;
-          const dispo = Math.max(0, newMontant - cumul);
-          const nouveau = Math.min(a.montant, ech.montantRestant, dispo);
-          cumul += nouveau;
-          return { ...a, montant: nouveau };
-        });
-      });
-    }
+  const removeAllocation = (echeanceId: string) => {
+    const nouvelles = allocations.filter((a) => a.echeanceId !== echeanceId);
+    setAllocations(nouvelles);
+    // 🆕 Synchronisation
+    setMontant(nouvelles.reduce((s, a) => s + a.montant, 0));
+    setErrors((x) => ({ ...x, montant: '', allocations: '' }));
   };
 
-  // ─────────── Validation ───────────
-  const totalAllocations = allocations.reduce((s, a) => s + a.montant, 0);
-  const resteNonAlloue = Math.max(0, montant - totalAllocations);
-  const allocationsValides = totalAllocations <= montant + 0.01;
+  /**
+   * L'utilisateur modifie une allocation :
+   *  → clampée sur le restant dû de l'échéance
+   *  → montant = somme des allocations
+   */
+  const updateAllocationMontant = (
+    echeanceId: string,
+    newMontant: number
+  ) => {
+    const echeance = echeancesImpayees.find((e: any) => e.id === echeanceId);
+    if (!echeance) return;
 
+    const clamped = Math.min(
+      Math.max(0, newMontant),
+      echeance.montantRestant
+    );
+
+    const nouvelles = allocations.map((a) =>
+      a.echeanceId === echeanceId ? { ...a, montant: clamped } : a
+    );
+    setAllocations(nouvelles);
+    // 🆕 Synchronisation
+    setMontant(nouvelles.reduce((s, a) => s + a.montant, 0));
+    setErrors((x) => ({ ...x, montant: '', allocations: '' }));
+  };
+
+  /**
+   * 🆕 L'utilisateur modifie le montant total :
+   *  → si augmentation : répartir le surplus sur les échéances cochées
+   *    (jusqu'à leur restant dû)
+   *  → si diminution : réduire les allocations (dernières d'abord)
+   */
+  const handleMontantChange = (newMontant: number) => {
+    const montantCible = Math.max(0, newMontant);
+
+    if (allocations.length === 0) {
+      setMontant(montantCible);
+      setErrors((x) => ({ ...x, montant: '', allocations: '' }));
+      return;
+    }
+
+    const totalActuel = allocations.reduce((s, a) => s + a.montant, 0);
+    const delta = montantCible - totalActuel;
+
+    // Pas de changement significatif
+    if (Math.abs(delta) <= TOLERANCE) {
+      setMontant(montantCible);
+      return;
+    }
+
+    const nouvelles = allocations.map((a) => ({ ...a }));
+
+    // ── Cas 1 : AUGMENTER (delta > 0) ──
+    if (delta > 0) {
+      let resteARepartir = delta;
+      for (let i = 0; i < nouvelles.length && resteARepartir > TOLERANCE; i++) {
+        const ech = echeancesImpayees.find(
+          (e: any) => e.id === nouvelles[i].echeanceId
+        );
+        if (!ech) continue;
+        const restantDu = Math.max(
+          0,
+          ech.montantRestant - nouvelles[i].montant
+        );
+        const ajout = Math.min(restantDu, resteARepartir);
+        nouvelles[i].montant += ajout;
+        resteARepartir -= ajout;
+      }
+
+      setAllocations(nouvelles);
+      const nouveauTotal = nouvelles.reduce((s, a) => s + a.montant, 0);
+      setMontant(nouveauTotal);
+
+      // Si on n'a pas pu tout répartir → warning
+      if (resteARepartir > TOLERANCE) {
+        toast.warning(
+          'Montant non réparti',
+          `${formatMoney(
+            resteARepartir
+          )} n'ont pas pu être alloués (plafond des échéances atteint). Cochez d'autres échéances.`
+        );
+      }
+      return;
+    }
+
+    // ── Cas 2 : RÉDUIRE (delta < 0) ──
+    let resteARetirer = -delta;
+    for (let i = nouvelles.length - 1; i >= 0 && resteARetirer > TOLERANCE; i--) {
+      const retrait = Math.min(nouvelles[i].montant, resteARetirer);
+      nouvelles[i].montant -= retrait;
+      resteARetirer -= retrait;
+    }
+
+    // Retirer les allocations tombées à 0
+    const filtrees = nouvelles.filter((a) => a.montant > TOLERANCE);
+    setAllocations(filtrees);
+    const nouveauTotal = filtrees.reduce((s, a) => s + a.montant, 0);
+    setMontant(nouveauTotal);
+    setErrors((x) => ({ ...x, montant: '', allocations: '' }));
+  };
+
+  // ─────────── Totaux & équilibre ───────────
+  const totalAllocations = allocations.reduce((s, a) => s + a.montant, 0);
+  const ecart = montant - totalAllocations;
+  const estEquilibre = Math.abs(ecart) <= TOLERANCE;
+  const allocationsValides = estEquilibre && allocations.length > 0;
+
+  // ─────────── Validation ───────────
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
     if (!classeId) errs.classeId = 'Sélectionnez une classe';
@@ -373,17 +450,19 @@ const PaiementNouveauPage: React.FC = () => {
       errs.eleveId =
         "Cet élève n'a pas d'assignement de scolarité actif. Vérifiez son inscription.";
     }
-    if (!allocationsValides) {
-      errs.allocations = `Le total alloué (${formatMontant(
+    if (!estEquilibre) {
+      errs.allocations = `Le total alloué (${formatMoney(
         totalAllocations
-      )}) ne peut pas dépasser le montant du paiement (${formatMontant(
-        montant
-      )})`;
+      )}) ne correspond pas au montant du paiement (${formatMoney(montant)})`;
     }
     for (const alloc of allocations) {
       const ech = echeancesImpayees.find((e: any) => e.id === alloc.echeanceId);
-      if (ech && alloc.montant > ech.montantRestant + 0.01) {
+      if (ech && alloc.montant > ech.montantRestant + TOLERANCE) {
         errs.allocations = `L'allocation sur "${ech.nom}" dépasse le restant dû`;
+        break;
+      }
+      if (alloc.montant <= 0) {
+        errs.allocations = `Le montant alloué sur "${ech?.nom ?? '—'}" doit être supérieur à 0`;
         break;
       }
     }
@@ -391,7 +470,7 @@ const PaiementNouveauPage: React.FC = () => {
     return Object.keys(errs).length === 0;
   };
 
-  // ─────────── Submit + redirection ───────────
+  // ─────────── Submit ───────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) {
@@ -432,11 +511,7 @@ const PaiementNouveauPage: React.FC = () => {
         }
 
         if (autoPrint && numeroRecu) {
-          downloadPDF.mutate({
-            id: recuId,
-            numeroRecu,
-            format: 'A4',
-          });
+          downloadPDF.mutate({ id: recuId, numeroRecu, format: 'A4' });
         }
 
         toast.success('Paiement enregistré et reçu généré');
@@ -533,7 +608,7 @@ const PaiementNouveauPage: React.FC = () => {
                         }}
                         className="w-full text-left px-3 py-2.5 hover:bg-emerald-50 flex items-center gap-3 border-b last:border-b-0"
                       >
-                        <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700 font-semibold text-xs shrink-0">
+                        <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700 shrink-0">
                           <AcademicCapIcon className="w-4 h-4" />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -724,22 +799,42 @@ const PaiementNouveauPage: React.FC = () => {
               <input
                 type="number"
                 min={0}
-                step="0.01"
+                step="1"
                 value={montant || ''}
                 onChange={(e) => handleMontantChange(Number(e.target.value))}
                 placeholder="0"
-                className={`w-full pl-10 pr-16 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none ${
+                className={`w-full pl-10 pr-20 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none ${
                   errors.montant
                     ? 'border-red-300 bg-red-50'
                     : 'border-gray-200'
                 }`}
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500">
-                XOF
+                F CFA
               </span>
             </div>
             {errors.montant && (
               <p className="text-xs text-red-600 mt-1.5">{errors.montant}</p>
+            )}
+            {/* 🆕 Indicateur de synchronisation */}
+            {montant > 0 && allocations.length > 0 && (
+              <p
+                className={`text-xs mt-1 font-medium flex items-center gap-1 ${
+                  estEquilibre ? 'text-emerald-600' : 'text-red-600'
+                }`}
+              >
+                {estEquilibre ? (
+                  <>
+                    <CheckCircleIcon className="w-3.5 h-3.5" />
+                    Synchronisé avec le total alloué
+                  </>
+                ) : (
+                  <>
+                    <ExclamationTriangleIcon className="w-3.5 h-3.5" />
+                    Écart de {formatMoney(Math.abs(ecart))}
+                  </>
+                )}
+              </p>
             )}
           </div>
 
@@ -783,7 +878,7 @@ const PaiementNouveauPage: React.FC = () => {
               type="date"
               value={datePaiement}
               onChange={(e) => setDatePaiement(e.target.value)}
-              max={new Date().toISOString().slice(0, 10)}
+              max={toDateInput(new Date())}
               className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
             />
           </div>
@@ -792,14 +887,25 @@ const PaiementNouveauPage: React.FC = () => {
         {/* ═══════════ ALLOCATIONS ═══════════ */}
         {selectedEleve && activeAssignment && (
           <div className="border-t border-gray-100 pt-6">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
                 <ReceiptPercentIcon className="w-4 h-4 text-indigo-500" />
                 Échéances impayées
               </h3>
-              <p className="text-xs text-gray-500">
-                {allocations.length} / {echeancesImpayees.length} sélectionnée(s)
-              </p>
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={hideRetards}
+                    onChange={(e) => setHideRetards(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded"
+                  />
+                  Masquer les tranches en retard
+                </label>
+                <p className="text-xs text-gray-500">
+                  {allocations.length} / {echeancesAffichees.length} sélectionnée(s)
+                </p>
+              </div>
             </div>
 
             {echeancesLoading ? (
@@ -807,25 +913,28 @@ const PaiementNouveauPage: React.FC = () => {
                 <ArrowPathIcon className="w-4 h-4 animate-spin" />
                 Chargement des échéances…
               </div>
-            ) : echeancesImpayees.length === 0 ? (
+            ) : echeancesAffichees.length === 0 ? (
               <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-start gap-2">
                 <CheckCircleIcon className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
                 <p className="text-xs text-emerald-800">
-                  Toutes les échéances sont déjà payées pour cet élève.
+                  {hideRetards
+                    ? 'Aucune échéance impayée hors retard.'
+                    : 'Toutes les échéances sont déjà payées pour cet élève.'}
                 </p>
               </div>
             ) : (
               <div className="space-y-2">
-                {echeancesImpayees.map((e: any) => {
+                {echeancesAffichees.map((e: any) => {
                   const isAllocated = allocations.some(
                     (a) => a.echeanceId === e.id
                   );
                   const alloc = allocations.find(
                     (a) => a.echeanceId === e.id
                   );
-                  const plafond = getPlafond(e, allocations, montant, e.id);
-                  const nonAllouable =
-                    !isAllocated && plafond <= 0 && montant > 0;
+                  // 🆕 Nouveau restant après ce paiement
+                  const nouveauRestant = alloc
+                    ? Math.max(0, e.montantRestant - alloc.montant)
+                    : e.montantRestant;
 
                   return (
                     <div
@@ -833,8 +942,8 @@ const PaiementNouveauPage: React.FC = () => {
                       className={`p-3 rounded-lg border ${
                         isAllocated
                           ? 'bg-indigo-50 border-indigo-200'
-                          : nonAllouable
-                          ? 'bg-gray-100 border-gray-200 opacity-60'
+                          : e.estEnRetard
+                          ? 'bg-rose-50/50 border-rose-200'
                           : 'bg-gray-50 border-gray-200'
                       }`}
                     >
@@ -846,8 +955,7 @@ const PaiementNouveauPage: React.FC = () => {
                             if (ev.target.checked) addAllocation(e.id);
                             else removeAllocation(e.id);
                           }}
-                          disabled={nonAllouable}
-                          className="w-4 h-4 rounded disabled:cursor-not-allowed"
+                          className="w-4 h-4 rounded"
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -859,32 +967,51 @@ const PaiementNouveauPage: React.FC = () => {
                                 Partielle
                               </span>
                             )}
-                          </div>
-                          <p className="text-xs text-gray-500">
-                            Limite :{' '}
-                            {new Date(e.dateLimite).toLocaleDateString(
-                              'fr-FR'
+                            {e.estEnRetard && (
+                              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded">
+                                <ClockIcon className="w-3 h-3" />
+                                +{e.joursRetard}j
+                              </span>
                             )}
+                          </div>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            Limite : {formatDate(e.dateLimite)}
                             {' — '}
                             Restant :{' '}
-                            <strong>
-                              {formatMontant(e.montantRestant)} XOF
+                            <strong className="text-gray-900">
+                              {formatMoney(e.montantRestant)}
                             </strong>
                             {e.montantPaye > 0 && (
                               <>
                                 {' '}
-                                (déjà payé {formatMontant(e.montantPaye)})
+                                (déjà payé {formatMoney(e.montantPaye)})
                               </>
                             )}
                           </p>
+                          {/* 🆕 Aperçu du nouveau restant */}
+                          {isAllocated && alloc && alloc.montant > 0 && (
+                            <p className="text-xs text-indigo-700 mt-1 font-medium">
+                              → Après ce paiement :{' '}
+                              {nouveauRestant <= TOLERANCE ? (
+                                <span className="text-emerald-700">
+                                  ✓ Soldée
+                                </span>
+                              ) : (
+                                <span>
+                                  restera{' '}
+                                  <strong>{formatMoney(nouveauRestant)}</strong>
+                                </span>
+                              )}
+                            </p>
+                          )}
                         </div>
                         {isAllocated && alloc && (
                           <div className="flex items-center gap-2">
                             <input
                               type="number"
                               min={0}
-                              step="0.01"
-                              max={plafond}
+                              step="1"
+                              max={e.montantRestant}
                               value={alloc.montant}
                               onChange={(ev) =>
                                 updateAllocationMontant(
@@ -894,7 +1021,7 @@ const PaiementNouveauPage: React.FC = () => {
                               }
                               className="w-24 px-2 py-1 text-sm bg-white border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                             />
-                            <span className="text-xs text-gray-500">XOF</span>
+                            <span className="text-xs text-gray-500">F CFA</span>
                           </div>
                         )}
                       </div>
@@ -904,69 +1031,64 @@ const PaiementNouveauPage: React.FC = () => {
               </div>
             )}
 
-            {/* Résumé allocations */}
+            {/* 🆕 Résumé ALLOCATIONS / MONTANT (synchronisés) */}
             {allocations.length > 0 && (
               <div
                 className={`mt-3 p-3 rounded-lg flex items-start gap-2 border ${
-                  allocationsValides
-                    ? resteNonAlloue > 0
-                      ? 'bg-blue-50 border-blue-200'
-                      : 'bg-emerald-50 border-emerald-200'
+                  estEquilibre
+                    ? 'bg-emerald-50 border-emerald-200'
                     : 'bg-red-50 border-red-200'
                 }`}
               >
-                {!allocationsValides ? (
-                  <ExclamationTriangleIcon className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
-                ) : resteNonAlloue > 0 ? (
-                  <InformationCircleIcon className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-                ) : (
+                {estEquilibre ? (
                   <CheckCircleIcon className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                ) : (
+                  <ExclamationTriangleIcon className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
                 )}
-                <div className="flex-1 text-xs space-y-0.5">
-                  <p
-                    className={`font-semibold ${
-                      !allocationsValides
-                        ? 'text-red-800'
-                        : resteNonAlloue > 0
-                        ? 'text-blue-800'
-                        : 'text-emerald-800'
-                    }`}
-                  >
-                    Total alloué : {formatMontant(totalAllocations)} XOF
-                  </p>
-                  {!allocationsValides && (
-                    <p className="text-red-700">
-                      Dépasse le montant du paiement (
-                      {formatMontant(montant)} XOF)
+                <div className="flex-1 text-xs space-y-1">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-gray-500">Montant payé</p>
+                      <p className="font-bold text-gray-900 text-sm">
+                        {formatMoney(montant)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Total alloué</p>
+                      <p
+                        className={`font-bold text-sm ${
+                          estEquilibre ? 'text-emerald-700' : 'text-red-700'
+                        }`}
+                      >
+                        {formatMoney(totalAllocations)}
+                      </p>
+                    </div>
+                  </div>
+                  {estEquilibre ? (
+                    <p className="text-emerald-700 font-medium pt-1 border-t border-emerald-200">
+                      ✅ Montant entièrement alloué sur les échéances
                     </p>
-                  )}
-                  {allocationsValides && resteNonAlloue > 0 && (
-                    <p className="text-blue-700">
-                      Reste <strong>{formatMontant(resteNonAlloue)} XOF</strong>{' '}
-                      non alloué → comptabilisé comme <strong>acompte</strong>
-                    </p>
-                  )}
-                  {allocationsValides && resteNonAlloue === 0 && (
-                    <p className="text-emerald-700">
-                      Toutes les allocations correspondent au montant payé
+                  ) : (
+                    <p className="text-red-700 font-medium pt-1 border-t border-red-200">
+                      ⚠️ Écart de {formatMoney(Math.abs(ecart))} — vérifiez votre
+                      saisie
                     </p>
                   )}
                 </div>
               </div>
             )}
 
-            {/* Acompte pur (aucune allocation) */}
+            {/* 🆕 Message si aucune allocation */}
             {allocations.length === 0 && montant > 0 && (
-              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2">
-                <InformationCircleIcon className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+              <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+                <ExclamationTriangleIcon className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
                 <div className="flex-1 text-xs">
-                  <p className="font-semibold text-blue-800">
-                    Aucune allocation sélectionnée
+                  <p className="font-semibold text-amber-800">
+                    Cochez au moins une échéance
                   </p>
-                  <p className="text-blue-700 mt-0.5">
-                    Le montant de {formatMontant(montant)} XOF sera enregistré
-                    comme <strong>acompte</strong> (non affecté à une échéance
-                    précise).
+                  <p className="text-amber-700 mt-0.5">
+                    Le montant de {formatMoney(montant)} doit être réparti sur
+                    les échéances impayées.
                   </p>
                 </div>
               </div>
@@ -1019,10 +1141,11 @@ const PaiementNouveauPage: React.FC = () => {
               !classeId ||
               !eleveId ||
               montant <= 0 ||
-              !allocationsValides ||
+              !estEquilibre ||
+              allocations.length === 0 ||
               !activeAssignment
             }
-            className="inline-flex items-center gap-2 px-6 py-2.5 bg-linear-to-r from-emerald-600 to-teal-600 text-white font-semibold rounded-lg shadow-md hover:shadow-lg disabled:opacity-60"
+            className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-semibold rounded-lg shadow-md hover:shadow-lg disabled:opacity-60"
           >
             {createMutation.isPending || genererRecu.isPending ? (
               <>

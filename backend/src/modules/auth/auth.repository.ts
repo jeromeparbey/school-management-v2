@@ -364,6 +364,106 @@ export class AuthRepository {
     }) as Promise<Surveillant | null>;
   }
 
+  // ══════════════════════════════════════════
+  // 🆕 RECHERCHE DES PROFILS MÉTIER PAR USER ID
+  // (enseignant, parent, directeur, admin)
+  // ══════════════════════════════════════════
+
+  /**
+   * Retourne l'enseignant lié à un utilisateur (ou null).
+   * Utilisé par `AuthService.loadProfilMetier` pour injecter
+   * `enseignantId` dans le JWT.
+   */
+  async findEnseignantByUserId(
+    schemaName: string,
+    userId: string
+  ): Promise<{ id: string } | null> {
+    try {
+      const prisma = await this.getClient(schemaName);
+      if (!prisma) return null;
+
+      const enseignant = await prisma.enseignant.findFirst({
+        where: { utilisateurId: userId },
+        select: { id: true },
+      });
+      return enseignant ?? null;
+    } catch (err) {
+      console.error('⚠️ findEnseignantByUserId:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Retourne le parent lié à un utilisateur (ou null).
+   * Retourne `{ parent: { id } | null }` pour cohérence avec
+   * `findEleveByUserId` / `findSurveillantByUserId`.
+   */
+  async findParentByUserId(
+    schemaName: string,
+    userId: string
+  ): Promise<{ parent: { id: string } | null } | null> {
+    try {
+      const prisma = await this.getClient(schemaName);
+      if (!prisma) return null;
+
+      const user = await prisma.utilisateur.findUnique({
+        where: { id: userId },
+        select: { parent: { select: { id: true } } },
+      });
+      if (!user) return null;
+      return { parent: user.parent ?? null };
+    } catch (err) {
+      console.error('⚠️ findParentByUserId:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Retourne le directeur lié à un utilisateur (ou null).
+   */
+  async findDirecteurByUserId(
+    schemaName: string,
+    userId: string
+  ): Promise<{ directeur: { id: string } | null } | null> {
+    try {
+      const prisma = await this.getClient(schemaName);
+      if (!prisma) return null;
+
+      const user = await prisma.utilisateur.findUnique({
+        where: { id: userId },
+        select: { directeur: { select: { id: true } } },
+      });
+      if (!user) return null;
+      return { directeur: user.directeur ?? null };
+    } catch (err) {
+      console.error('⚠️ findDirecteurByUserId:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Retourne l'admin lié à un utilisateur (ou null).
+   */
+  async findAdminByUserId(
+    schemaName: string,
+    userId: string
+  ): Promise<{ admin: { id: string } | null } | null> {
+    try {
+      const prisma = await this.getClient(schemaName);
+      if (!prisma) return null;
+
+      const user = await prisma.utilisateur.findUnique({
+        where: { id: userId },
+        select: { admin: { select: { id: true } } },
+      });
+      if (!user) return null;
+      return { admin: user.admin ?? null };
+    } catch (err) {
+      console.error('⚠️ findAdminByUserId:', err);
+      return null;
+    }
+  }
+
   // ------------------------------------------
   // CRÉATION
   // ------------------------------------------

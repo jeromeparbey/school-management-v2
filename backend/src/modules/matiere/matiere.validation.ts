@@ -2,6 +2,10 @@
 
 import { z } from 'zod';
 
+// ══════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════
+
 const cuidLike = z.string().min(1).max(64);
 
 const booleanCoerce = z
@@ -15,9 +19,10 @@ const intCoerce = (min?: number, max?: number) => {
   return s;
 };
 
-// ──────────────────────────────────────────
-// CREATE
-// ──────────────────────────────────────────
+// ══════════════════════════════════════════
+// CREATE (avec affectation optionnelle)
+// ══════════════════════════════════════════
+
 export const createMatiereSchema = z.object({
   body: z
     .object({
@@ -29,19 +34,43 @@ export const createMatiereSchema = z.object({
         .max(50)
         .regex(/^[A-Z0-9_-]+$/, 'Majuscules, chiffres, _ ou - uniquement'),
       niveauId: cuidLike,
-      coefficient: z.number().min(0).max(10).optional().default(1.0),
-      dureeCours: z.number().int().min(15).max(300).optional().default(60),
+
+      // ✅ coefficient optionnel + nullable (cas primaire : matière générique)
+      coefficient: z.number().min(0).max(100).nullable().optional(),
+
+      // ✅ dureeCours optionnel + nullable (cas primaire)
+      dureeCours: z.number().int().min(0).max(600).nullable().optional(),
+
       description: z.string().trim().max(500).nullable().optional(),
       estActive: z.boolean().optional().default(true),
+
+      // 🆕 Affectation optionnelle d'enseignant (transaction)
+      enseignantId: cuidLike.optional(),
+      classeId: cuidLike.optional(),
+      anneeScolaireId: cuidLike.optional(),
+      heuresHebdo: z.number().min(0).max(100).optional(),
     })
-    .strict(),
+    .strict()
+    // 🆕 Si un enseignant est fourni → classe + année obligatoires
+    .refine(
+      (d) => {
+        if (!d.enseignantId) return true;
+        return !!d.classeId && !!d.anneeScolaireId;
+      },
+      {
+        message:
+          'Si enseignantId est fourni, classeId et anneeScolaireId sont requis',
+        path: ['classeId'],
+      }
+    ),
   params: z.object({}).optional(),
   query: z.object({}).optional(),
 });
 
-// ──────────────────────────────────────────
+// ══════════════════════════════════════════
 // UPDATE
-// ──────────────────────────────────────────
+// ══════════════════════════════════════════
+
 export const updateMatiereSchema = z.object({
   body: z
     .object({
@@ -54,8 +83,13 @@ export const updateMatiereSchema = z.object({
         .regex(/^[A-Z0-9_-]+$/)
         .optional(),
       niveauId: cuidLike.optional(),
-      coefficient: z.number().min(0).max(10).optional(),
-      dureeCours: z.number().int().min(15).max(300).optional(),
+
+      // ✅ nullable : on peut "effacer" le coefficient
+      coefficient: z.number().min(0).max(100).nullable().optional(),
+
+      // ✅ nullable : on peut "effacer" la durée
+      dureeCours: z.number().int().min(0).max(600).nullable().optional(),
+
       description: z.string().trim().max(500).nullable().optional(),
       estActive: z.boolean().optional(),
       estArchive: z.boolean().optional(),
@@ -68,18 +102,20 @@ export const updateMatiereSchema = z.object({
   query: z.object({}).optional(),
 });
 
-// ──────────────────────────────────────────
+// ══════════════════════════════════════════
 // ID
-// ──────────────────────────────────────────
+// ══════════════════════════════════════════
+
 export const matiereIdSchema = z.object({
   params: z.object({ id: cuidLike }),
   body: z.object({}).optional(),
   query: z.object({}).optional(),
 });
 
-// ──────────────────────────────────────────
+// ══════════════════════════════════════════
 // LIST
-// ──────────────────────────────────────────
+// ══════════════════════════════════════════
+
 export const listMatieresSchema = z.object({
   query: z
     .object({
@@ -100,6 +136,30 @@ export const listMatieresSchema = z.object({
   body: z.object({}).optional(),
 });
 
+// ══════════════════════════════════════════
+// 🆕 AFFECTER UN ENSEIGNANT (après création)
+// ══════════════════════════════════════════
+
+export const affecterEnseignantSchema = z.object({
+  body: z
+    .object({
+      enseignantId: cuidLike,
+      classeId: cuidLike,
+      anneeScolaireId: cuidLike,
+      heuresHebdo: z.number().min(0).max(100).optional().default(0),
+    })
+    .strict(),
+  params: z.object({ id: cuidLike }),
+  query: z.object({}).optional(),
+});
+
+// ══════════════════════════════════════════
+// TYPES
+// ══════════════════════════════════════════
+
 export type CreateMatiereInput = z.infer<typeof createMatiereSchema>['body'];
 export type UpdateMatiereInput = z.infer<typeof updateMatiereSchema>['body'];
 export type ListMatieresQuery = z.infer<typeof listMatieresSchema>['query'];
+export type AffecterEnseignantInput = z.infer<
+  typeof affecterEnseignantSchema
+>['body'];

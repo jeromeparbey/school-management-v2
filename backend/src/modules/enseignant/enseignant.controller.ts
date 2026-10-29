@@ -37,15 +37,59 @@ function getParam(req: Request, name: string): string {
 }
 
 export class EnseignantController {
-  create = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  // ══════════════════════════════════════════
+  // ⭐ GET /enseignants/me  (ou /moi/enseignant/me)
+  // Retourne la fiche complète de l'enseignant connecté.
+  // L'ID provient EXCLUSIVEMENT de `req.user.enseignantId` (JWT).
+  // Impossible de lire la fiche d'un autre enseignant via cette route.
+  // ══════════════════════════════════════════
+
+  getMe = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const ctx = requireAuthContext(req);
+
+      const enseignantId = req.user?.enseignantId;
+      if (!enseignantId) {
+        throw new AppError(
+          'Aucun profil enseignant lié à ce compte utilisateur',
+          404
+        );
+      }
+
+      const data = await enseignantService.findById(ctx, enseignantId);
+      sendSuccess(res, data);
+    } catch (e) {
+      next(e);
+    }
+  };
+
+  // ══════════════════════════════════════════
+  // Routes admin existantes (inchangées)
+  // ══════════════════════════════════════════
+
+  create = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const ctx = requireAuthContext(req);
       const data = await enseignantService.create(ctx, req.body);
       sendSuccess(res, data, 'Enseignant créé avec succès', 201);
-    } catch (e) { next(e); }
+    } catch (e) {
+      next(e);
+    }
   };
 
-  list = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  list = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const ctx = requireAuthContext(req);
       const q: any = (req as any).validated?.query ?? req.query;
@@ -61,39 +105,75 @@ export class EnseignantController {
         sortOrder: q.sortOrder ?? 'desc',
       });
       res.json({ success: true, ...result });
-    } catch (e) { next(e); }
+    } catch (e) {
+      next(e);
+    }
   };
 
-  getById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  getById = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const ctx = requireAuthContext(req);
       const data = await enseignantService.findById(ctx, getParam(req, 'id'));
       sendSuccess(res, data);
-    } catch (e) { next(e); }
+    } catch (e) {
+      next(e);
+    }
   };
 
-  update = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  update = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const ctx = requireAuthContext(req);
-      const data = await enseignantService.update(ctx, getParam(req, 'id'), req.body);
+      const data = await enseignantService.update(
+        ctx,
+        getParam(req, 'id'),
+        req.body
+      );
       sendSuccess(res, data, 'Enseignant mis à jour');
-    } catch (e) { next(e); }
+    } catch (e) {
+      next(e);
+    }
   };
 
-  softDelete = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  softDelete = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const ctx = requireAuthContext(req);
-      const result = await enseignantService.softDelete(ctx, getParam(req, 'id'));
+      const result = await enseignantService.softDelete(
+        ctx,
+        getParam(req, 'id')
+      );
       sendSuccess(res, result, 'Enseignant archivé');
-    } catch (e) { next(e); }
+    } catch (e) {
+      next(e);
+    }
   };
 
-  hardDelete = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  hardDelete = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const ctx = requireAuthContext(req);
-      const result = await enseignantService.hardDelete(ctx, getParam(req, 'id'));
+      const result = await enseignantService.hardDelete(
+        ctx,
+        getParam(req, 'id')
+      );
       sendSuccess(res, result, 'Enseignant supprimé définitivement');
-    } catch (e) { next(e); }
+    } catch (e) {
+      next(e);
+    }
   };
 }
 

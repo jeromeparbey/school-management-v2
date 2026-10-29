@@ -2,7 +2,12 @@
 
 import { z } from 'zod';
 
+// ══════════════════════════════════════════
+// HELPERS RÉUTILISABLES
+// ══════════════════════════════════════════
+
 const cuidLike = z.string().min(1).max(64);
+
 const dateLike = z
   .union([z.string(), z.date()])
   .transform((v) => (v instanceof Date ? v : new Date(v)));
@@ -18,9 +23,68 @@ const intCoerce = (min?: number, max?: number) => {
   return s;
 };
 
-// ──────────────────────────────────────────
+// ══════════════════════════════════════════
+// CONSTANTES DE DOMAINE
+// ══════════════════════════════════════════
+
+const STATUTS_ELEVE = [
+  'PAYEE',
+  'PARTIELLE',
+  'IMPAYEE',
+  'EN_RETARD',
+] as const;
+
+const SORT_BY_ELEVES = ['restant', 'nom', 'statut', 'paye'] as const;
+
+const SORT_BY_ECHEANCES = [
+  'ordre',
+  'nom',
+  'montant',
+  'dateLimite',
+  'createdAt',
+] as const;
+
+// ══════════════════════════════════════════
+// 🆕 LIST ELEVES D'UNE ÉCHÉANCE (vue classe)
+// GET /echeances/:id/eleves
+// ══════════════════════════════════════════
+// backend/src/modules/echeance/echeance.validation.ts
+
+// ══════════════════════════════════════════
+// 🆕 LIST ELEVES D'UNE ÉCHÉANCE (vue classe)
+// GET /echeances/:id/eleves
+// ══════════════════════════════════════════
+
+export const listElevesEcheanceSchema = z.object({
+  params: z.object({
+    id: cuidLike,
+  }),
+  query: z
+    .object({
+      page: intCoerce(1).default(1),
+      limit: intCoerce(1, 200).default(50),
+      search: z.string().trim().max(120).optional(),
+      statut: z.enum([...STATUTS_ELEVE, 'all']).default('all'),
+      sortBy: z.enum(SORT_BY_ELEVES).default('restant'),
+      sortOrder: z.enum(['asc', 'desc']).default('desc'),
+    })
+    .strict()
+    .optional()
+    .transform((v) => v ?? {
+      page: 1,
+      limit: 50,
+      statut: 'all' as const,
+      sortBy: 'restant' as const,
+      sortOrder: 'desc' as const,
+    }),
+  body: z.object({}).optional(),
+});
+
+// ══════════════════════════════════════════
 // CREATE
-// ──────────────────────────────────────────
+// POST /echeances
+// ══════════════════════════════════════════
+
 export const createEcheanceSchema = z.object({
   body: z
     .object({
@@ -35,9 +99,11 @@ export const createEcheanceSchema = z.object({
   query: z.object({}).optional(),
 });
 
-// ──────────────────────────────────────────
+// ══════════════════════════════════════════
 // UPDATE
-// ──────────────────────────────────────────
+// PUT /echeances/:id
+// ══════════════════════════════════════════
+
 export const updateEcheanceSchema = z.object({
   body: z
     .object({
@@ -54,18 +120,21 @@ export const updateEcheanceSchema = z.object({
   query: z.object({}).optional(),
 });
 
-// ──────────────────────────────────────────
-// ID
-// ──────────────────────────────────────────
+// ══════════════════════════════════════════
+// BY ID (DELETE, GET /:id)
+// ══════════════════════════════════════════
+
 export const echeanceIdSchema = z.object({
   params: z.object({ id: cuidLike }),
   body: z.object({}).optional(),
   query: z.object({}).optional(),
 });
 
-// ──────────────────────────────────────────
-// LIST
-// ──────────────────────────────────────────
+// ══════════════════════════════════════════
+// LIST (échéances)
+// GET /echeances
+// ══════════════════════════════════════════
+
 export const listEcheancesSchema = z.object({
   query: z
     .object({
@@ -74,10 +143,7 @@ export const listEcheancesSchema = z.object({
       search: z.string().trim().max(100).optional(),
       planScolariteId: cuidLike.optional(),
       estPayee: booleanCoerce.optional(),
-      sortBy: z
-        .enum(['ordre', 'nom', 'montant', 'dateLimite', 'createdAt'])
-        .optional()
-        .default('ordre'),
+      sortBy: z.enum(SORT_BY_ECHEANCES).optional().default('ordre'),
       sortOrder: z.enum(['asc', 'desc']).optional().default('asc'),
     })
     .strict(),
@@ -85,9 +151,22 @@ export const listEcheancesSchema = z.object({
   body: z.object({}).optional(),
 });
 
-// ──────────────────────────────────────────
+// ══════════════════════════════════════════
 // TYPES
-// ──────────────────────────────────────────
-export type CreateEcheanceInput = z.infer<typeof createEcheanceSchema>['body'];
-export type UpdateEcheanceInput = z.infer<typeof updateEcheanceSchema>['body'];
-export type ListEcheancesQuery = z.infer<typeof listEcheancesSchema>['query'];
+// ══════════════════════════════════════════
+
+export type CreateEcheanceInput = z.infer<
+  typeof createEcheanceSchema
+>['body'];
+
+export type UpdateEcheanceInput = z.infer<
+  typeof updateEcheanceSchema
+>['body'];
+
+export type ListEcheancesQuery = z.infer<
+  typeof listEcheancesSchema
+>['query'];
+
+export type ListElevesEcheanceQuery = z.infer<
+  typeof listElevesEcheanceSchema
+>['query'];

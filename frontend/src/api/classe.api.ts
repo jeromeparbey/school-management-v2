@@ -16,6 +16,7 @@ import type {
 // ============================================
 // SERVICE CLASSE — 1 fonction = 1 route backend
 // ============================================
+
 export const classeApi = {
   /** GET /classes — 🔒 Liste paginée + filtres */
   list: (params?: ListClassesParams) =>
@@ -29,7 +30,7 @@ export const classeApi = {
       .get<ApiResponse<Classe[]>>(`/classes/by-annee/${anneeScolaireId}`)
       .then((r) => r.data),
 
-  /** GET /classes/:id — 🔒 Détail */
+  /** GET /classes/:id — 🔒 Détail (avec emploisTemps + affectations) */
   getById: (id: string) =>
     apiClient
       .get<ApiResponse<Classe>>(`/classes/${id}`)

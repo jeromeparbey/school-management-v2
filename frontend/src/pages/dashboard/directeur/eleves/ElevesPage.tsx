@@ -20,12 +20,16 @@ import {
   AcademicCapIcon,
   FunnelIcon,
   ArrowsUpDownIcon,
+CloudArrowUpIcon
 } from '@heroicons/react/24/outline';
 import {
   useEleves,
   useSoftDeleteEleve,
   useHardDeleteEleve,
 } from '../../../../hooks/useEleves';
+import { useClasses } from '../../../../hooks/useClasses';
+import { useAnneesScolaires } from '../../../../hooks/useAnneesScolaires';
+import { ExportElevesButton } from '../../../../components/ExportElevesButton';
 import type {
   Eleve,
   ListElevesParams,
@@ -78,6 +82,7 @@ interface StatCardProps {
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   color: string;
   bgColor: string;
+  hint?: string;
 }
 
 const StatCard: React.FC<StatCardProps> = ({
@@ -86,14 +91,16 @@ const StatCard: React.FC<StatCardProps> = ({
   icon: Icon,
   color,
   bgColor,
+  hint,
 }) => (
   <div className="bg-white rounded-xl border border-gray-100 p-4">
     <div className="flex items-center justify-between">
-      <div>
+      <div className="min-w-0">
         <p className="text-xs text-gray-500">{label}</p>
-        <p className="text-xl font-bold text-gray-900 mt-1">{value}</p>
+        <p className="text-xl font-bold text-gray-900 mt-1 truncate">{value}</p>
+        {hint && <p className="text-[10px] text-gray-400 mt-0.5">{hint}</p>}
       </div>
-      <div className={`p-2 rounded-lg ${bgColor}`}>
+      <div className={`p-2 rounded-lg ${bgColor} shrink-0`}>
         <Icon className={`w-5 h-5 ${color}`} />
       </div>
     </div>
@@ -101,7 +108,7 @@ const StatCard: React.FC<StatCardProps> = ({
 );
 
 // ============================================
-// SOUS-COMPOSANT : Carte élève (mobile)
+// SOUS-COMPOSANT : Carte élève
 // ============================================
 
 interface EleveCardProps {
@@ -118,6 +125,7 @@ const EleveCard: React.FC<EleveCardProps> = ({
   isDeleting,
 }) => {
   const classeActuelle = eleve.inscriptions?.[0]?.classe;
+  const anneeActuelle = eleve.inscriptions?.[0]?.anneeScolaire;
   const age = calculerAge(eleve.dateNaissance);
 
   return (
@@ -145,7 +153,7 @@ const EleveCard: React.FC<EleveCardProps> = ({
             className={`w-14 h-14 rounded-xl flex items-center justify-center text-white font-bold text-lg shrink-0 ${
               eleve.sexe === 'F'
                 ? 'bg-gradient-to-br from-pink-500 to-rose-500'
-                : 'bg-gradient-to-br from-blue-500 to-indigo-500'
+                : 'bg-gradient-to-br from-indigo-500 to-violet-600'
             }`}
           >
             {eleve.prenom.charAt(0)}
@@ -178,20 +186,39 @@ const EleveCard: React.FC<EleveCardProps> = ({
       </div>
 
       {/* Infos */}
-      <div className="px-5 py-3 border-t border-gray-100 space-y-1.5 text-sm">
-        {classeActuelle && (
-          <div className="flex items-center gap-2 text-gray-600">
-            <AcademicCapIcon className="w-4 h-4 text-gray-400" />
-            <strong className="text-gray-900">{classeActuelle.nom}</strong>
+      <div className="px-5 py-3 border-t border-gray-100 space-y-2 text-sm">
+        {classeActuelle ? (
+          <div className="flex items-center gap-2">
+            <AcademicCapIcon className="w-4 h-4 text-indigo-500 shrink-0" />
+            <strong className="text-gray-900 truncate">
+              {classeActuelle.nom}
+            </strong>
+            {classeActuelle.code && (
+              <span className="text-[10px] font-mono text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded shrink-0">
+                {classeActuelle.code}
+              </span>
+            )}
+            {anneeActuelle && (
+              <span className="text-[10px] text-gray-400 ml-auto shrink-0">
+                {anneeActuelle.nom}
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-gray-400 text-xs">
+            <AcademicCapIcon className="w-4 h-4" />
+            Aucune classe active
           </div>
         )}
-        <div className="flex items-center gap-2 text-gray-600">
-          <span className="text-xs">🎂</span>
+
+        <div className="flex items-center gap-2 text-gray-600 text-xs">
+          <span>🎂</span>
           <span>
             {age} ans — né{eleve.sexe === 'F' ? 'e' : ''} le{' '}
             {formatDate(eleve.dateNaissance)}
           </span>
         </div>
+
         {eleve.telephone && (
           <p className="text-gray-600 text-xs flex items-center gap-1.5">
             <PhoneIcon className="w-3.5 h-3.5 text-gray-400" />
@@ -210,7 +237,7 @@ const EleveCard: React.FC<EleveCardProps> = ({
       <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
         <Link
           to={`/dashboard/eleves/${eleve.id}`}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-700"
         >
           <EyeIcon className="w-4 h-4" />
           Voir le détail
@@ -263,11 +290,19 @@ const ElevesPage: React.FC = () => {
   const [hasCompteFilter, setHasCompteFilter] = useState<
     'all' | 'true' | 'false'
   >('all');
+  const [classeId, setClasseId] = useState<string>('');
+  const [anneeScolaireId, setAnneeScolaireId] = useState<string>('');
   const [showArchived, setShowArchived] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [showFilters, setShowFilters] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Référentiels
+  const { data: classesData } = useClasses({ limit: 100});
+  const { data: anneesData } = useAnneesScolaires({ limit: 50 });
+  const classes = classesData?.classes ?? [];
+  const annees = anneesData?.annees ?? [];
 
   // Params API
   const params = useMemo<ListElevesParams>(
@@ -279,10 +314,23 @@ const ElevesPage: React.FC = () => {
       sexe: sexeFilter || undefined,
       hasCompte:
         hasCompteFilter === 'all' ? undefined : hasCompteFilter === 'true',
+      classeId: classeId || undefined,
+      anneeScolaireId: anneeScolaireId || undefined,
       sortBy,
       sortOrder,
     }),
-    [page, search, statutFilter, sexeFilter, hasCompteFilter, showArchived, sortBy, sortOrder]
+    [
+      page,
+      search,
+      statutFilter,
+      sexeFilter,
+      hasCompteFilter,
+      classeId,
+      anneeScolaireId,
+      showArchived,
+      sortBy,
+      sortOrder,
+    ]
   );
 
   const { data, isLoading, isFetching, isError, error, refetch } =
@@ -300,7 +348,21 @@ const ElevesPage: React.FC = () => {
     const actifs = eleves.filter((e) => e.statut === 'ACTIF').length;
     const avecCompte = eleves.filter((e) => e.utilisateur).length;
     const sansCompte = eleves.filter((e) => !e.utilisateur).length;
-    return { actifs, avecCompte, sansCompte };
+    const filles = eleves.filter((e) => e.sexe === 'F').length;
+    const garcons = eleves.filter((e) => e.sexe === 'M').length;
+    const classesSet = new Set(
+      eleves
+        .map((e) => e.inscriptions?.[0]?.classe?.id)
+        .filter((id): id is string => Boolean(id))
+    );
+    return {
+      actifs,
+      avecCompte,
+      sansCompte,
+      filles,
+      garcons,
+      nbClasses: classesSet.size,
+    };
   }, [eleves]);
 
   // Handlers
@@ -339,17 +401,26 @@ const ElevesPage: React.FC = () => {
     setStatutFilter('');
     setSexeFilter('');
     setHasCompteFilter('all');
+    setClasseId('');
+    setAnneeScolaireId('');
     setSortBy('createdAt');
     setSortOrder('desc');
     setPage(1);
   };
 
+  // Compte des filtres actifs (inclut classe + année)
   const activeFiltersCount = [
     search,
     statutFilter,
     sexeFilter,
     hasCompteFilter !== 'all' ? 'x' : '',
+    classeId ? 'x' : '',
+    anneeScolaireId ? 'x' : '',
   ].filter(Boolean).length;
+
+  // Labels pour badges
+  const classeLabel = classes.find((c: any) => c.id === classeId)?.nom;
+  const anneeLabel = annees.find((a: any) => a.id === anneeScolaireId)?.nom;
 
   return (
     <div className="p-6 space-y-5">
@@ -359,62 +430,80 @@ const ElevesPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <UserGroupIcon className="h-7 w-7 text-blue-600" />
+            <UserGroupIcon className="h-7 w-7 text-indigo-600" />
             Gestion des élèves
           </h1>
           <p className="mt-1 text-sm text-gray-500">
             {pagination?.total ?? 0} élève(s) au total
             {activeFiltersCount > 0 && (
-              <span className="ml-2 text-blue-600 font-medium">
+              <span className="ml-2 text-indigo-600 font-medium">
                 ({eleves.length} filtré{eleves.length > 1 ? 's' : ''})
               </span>
             )}
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-            title="Rafraîchir"
-            aria-label="Rafraîchir"
-          >
-            <ArrowPathIcon
-              className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`}
-            />
-          </button>
+      <div className="flex items-center gap-2">
+  {/* Rafraîchir */}
+  <button
+    onClick={() => refetch()}
+    disabled={isFetching}
+    className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+    title="Rafraîchir"
+    aria-label="Rafraîchir"
+  >
+    <ArrowPathIcon
+      className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`}
+    />
+  </button>
 
-          <Link
-            to="/dashboard/classes"
-            className="hidden sm:inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
-            title="Gérer les classes"
-          >
-            <AcademicCapIcon className="h-4 w-4" />
-            Classes
-          </Link>
+  {/* Classes */}
+  <Link
+    to="/dashboard/classes"
+    className="hidden sm:inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
+    title="Gérer les classes"
+  >
+    <AcademicCapIcon className="h-4 w-4" />
+    Classes
+  </Link>
+ <ExportElevesButton
+    params={{
+      classeId: classeId || undefined,
+      anneeScolaireId: anneeScolaireId || undefined,
+    }}
+  />
+  {/* 🆕 Importer */}
+  <Link
+    to="/dashboard/import/eleves"
+    className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-emerald-200 text-emerald-700 rounded-lg hover:bg-emerald-50 text-sm font-medium shadow-sm"
+    title="Importer des élèves depuis un fichier CSV"
+  >
+    <CloudArrowUpIcon className="h-4 w-4" />
+    <span className="hidden sm:inline">Importer</span>
+  </Link>
 
-          <Link
-            to="/dashboard/eleves/nouveau"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium shadow-sm"
-          >
-            <PlusIcon className="h-4 w-4" />
-            Nouvel élève
-          </Link>
-        </div>
+  {/* Nouvel élève */}
+  <Link
+    to="/dashboard/eleves/nouveau"
+    className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium shadow-sm"
+  >
+    <PlusIcon className="h-4 w-4" />
+    Nouvel élève
+  </Link>
+</div>
       </div>
 
       {/* ============================================
           STATISTIQUES RAPIDES
           ============================================ */}
       {!isLoading && !isError && eleves.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           <StatCard
-            label="Élèves affichés"
+            label="Affichés"
             value={eleves.length}
             icon={UserGroupIcon}
-            color="text-blue-600"
-            bgColor="bg-blue-50"
+            color="text-indigo-600"
+            bgColor="bg-indigo-50"
           />
           <StatCard
             label="Actifs"
@@ -424,18 +513,33 @@ const ElevesPage: React.FC = () => {
             bgColor="bg-emerald-50"
           />
           <StatCard
+            label="Filles"
+            value={stats.filles}
+            icon={UserGroupIcon}
+            color="text-pink-600"
+            bgColor="bg-pink-50"
+          />
+          <StatCard
+            label="Garçons"
+            value={stats.garcons}
+            icon={UserGroupIcon}
+            color="text-blue-600"
+            bgColor="bg-blue-50"
+          />
+          <StatCard
             label="Avec compte"
             value={stats.avecCompte}
             icon={EnvelopeIcon}
-            color="text-indigo-600"
-            bgColor="bg-indigo-50"
+            color="text-teal-600"
+            bgColor="bg-teal-50"
           />
           <StatCard
-            label="Sans compte"
-            value={stats.sansCompte}
-            icon={XCircleIcon}
-            color="text-gray-600"
-            bgColor="bg-gray-100"
+            label="Classes"
+            value={stats.nbClasses}
+            icon={AcademicCapIcon}
+            color="text-purple-600"
+            bgColor="bg-purple-50"
+            hint="représentées"
           />
         </div>
       )}
@@ -445,18 +549,17 @@ const ElevesPage: React.FC = () => {
           ============================================ */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <div className="flex flex-col sm:flex-row gap-3">
-          {/* Recherche */}
           <div className="relative flex-1">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Rechercher par nom, prénom, matricule, email…"
+              placeholder="Rechercher (nom, prénom, matricule, email…)"
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
                 setPage(1);
               }}
-              className="w-full pl-10 pr-10 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+              className="w-full pl-10 pr-10 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
             />
             {search && (
               <button
@@ -466,14 +569,12 @@ const ElevesPage: React.FC = () => {
                 }}
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded"
                 title="Effacer"
-                aria-label="Effacer la recherche"
               >
                 <XMarkIcon className="h-4 w-4" />
               </button>
             )}
           </div>
 
-          {/* Tri */}
           <div className="relative">
             <ArrowsUpDownIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <select
@@ -487,7 +588,7 @@ const ElevesPage: React.FC = () => {
                 setSortOrder(order);
                 setPage(1);
               }}
-              className="pl-9 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none appearance-none cursor-pointer"
+              className="pl-9 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer"
               title="Trier par"
             >
               <option value="createdAt-desc">Plus récents</option>
@@ -495,15 +596,15 @@ const ElevesPage: React.FC = () => {
               <option value="nom-asc">Nom (A → Z)</option>
               <option value="nom-desc">Nom (Z → A)</option>
               <option value="matricule-asc">Matricule (A → Z)</option>
+              <option value="dateNaissance-desc">Plus âgés d'abord</option>
             </select>
           </div>
 
-          {/* Bouton filtres */}
           <button
             onClick={() => setShowFilters((v) => !v)}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
               activeFiltersCount > 0
-                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
                 : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
             }`}
             aria-expanded={showFilters}
@@ -511,7 +612,7 @@ const ElevesPage: React.FC = () => {
             <FunnelIcon className="h-4 w-4" />
             Filtres
             {activeFiltersCount > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 text-xs font-bold bg-blue-600 text-white rounded-full">
+              <span className="ml-1 px-1.5 py-0.5 text-xs font-bold bg-indigo-600 text-white rounded-full">
                 {activeFiltersCount}
               </span>
             )}
@@ -522,16 +623,9 @@ const ElevesPage: React.FC = () => {
         {activeFiltersCount > 0 && (
           <div className="flex flex-wrap gap-2 mt-3">
             {search && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 text-indigo-700 text-xs font-medium rounded-full">
                 🔍 "{search}"
-                <button
-                  onClick={() => {
-                    setSearch('');
-                    setPage(1);
-                  }}
-                  className="hover:text-blue-900"
-                  title="Retirer"
-                >
+                <button onClick={() => { setSearch(''); setPage(1); }} className="hover:text-indigo-900">
                   <XMarkIcon className="h-3 w-3" />
                 </button>
               </span>
@@ -539,14 +633,7 @@ const ElevesPage: React.FC = () => {
             {statutFilter && (
               <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full">
                 {STATUT_LABELS[statutFilter]}
-                <button
-                  onClick={() => {
-                    setStatutFilter('');
-                    setPage(1);
-                  }}
-                  className="hover:text-emerald-900"
-                  title="Retirer"
-                >
+                <button onClick={() => { setStatutFilter(''); setPage(1); }} className="hover:text-emerald-900">
                   <XMarkIcon className="h-3 w-3" />
                 </button>
               </span>
@@ -554,39 +641,38 @@ const ElevesPage: React.FC = () => {
             {sexeFilter && (
               <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-pink-50 text-pink-700 text-xs font-medium rounded-full">
                 {sexeFilter === 'M' ? '👦 Garçons' : '👧 Filles'}
-                <button
-                  onClick={() => {
-                    setSexeFilter('');
-                    setPage(1);
-                  }}
-                  className="hover:text-pink-900"
-                  title="Retirer"
-                >
+                <button onClick={() => { setSexeFilter(''); setPage(1); }} className="hover:text-pink-900">
                   <XMarkIcon className="h-3 w-3" />
                 </button>
               </span>
             )}
             {hasCompteFilter !== 'all' && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 text-indigo-700 text-xs font-medium rounded-full">
-                {hasCompteFilter === 'true'
-                  ? '✉️ Avec compte'
-                  : '⛔ Sans compte'}
-                <button
-                  onClick={() => {
-                    setHasCompteFilter('all');
-                    setPage(1);
-                  }}
-                  className="hover:text-indigo-900"
-                  title="Retirer"
-                >
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-teal-50 text-teal-700 text-xs font-medium rounded-full">
+                {hasCompteFilter === 'true' ? '✉️ Avec compte' : '⛔ Sans compte'}
+                <button onClick={() => { setHasCompteFilter('all'); setPage(1); }} className="hover:text-teal-900">
                   <XMarkIcon className="h-3 w-3" />
                 </button>
               </span>
             )}
-            <button
-              onClick={resetFilters}
-              className="text-xs text-gray-500 hover:text-gray-700 underline"
-            >
+            {/* 🆕 Badge classe */}
+            {classeId && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 text-xs font-medium rounded-full">
+                🏫 Classe : {classeLabel ?? '—'}
+                <button onClick={() => { setClasseId(''); setPage(1); }} className="hover:text-purple-900">
+                  <XMarkIcon className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+            {/* 🆕 Badge année */}
+            {anneeScolaireId && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 text-xs font-medium rounded-full">
+                📅 Année : {anneeLabel ?? '—'}
+                <button onClick={() => { setAnneeScolaireId(''); setPage(1); }} className="hover:text-amber-900">
+                  <XMarkIcon className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+            <button onClick={resetFilters} className="text-xs text-gray-500 hover:text-gray-700 underline">
               Tout effacer
             </button>
           </div>
@@ -601,18 +687,14 @@ const ElevesPage: React.FC = () => {
               exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden"
             >
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3 pt-3 border-t border-gray-100">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-3 pt-3 border-t border-gray-100">
+                {/* Statut */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Statut
-                  </label>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Statut</label>
                   <select
                     value={statutFilter}
-                    onChange={(e) => {
-                      setStatutFilter(e.target.value as StatutEleve | '');
-                      setPage(1);
-                    }}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    onChange={(e) => { setStatutFilter(e.target.value as StatutEleve | ''); setPage(1); }}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                   >
                     <option value="">Tous les statuts</option>
                     <option value="ACTIF">Actif</option>
@@ -623,17 +705,13 @@ const ElevesPage: React.FC = () => {
                   </select>
                 </div>
 
+                {/* Sexe */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Sexe
-                  </label>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Sexe</label>
                   <select
                     value={sexeFilter}
-                    onChange={(e) => {
-                      setSexeFilter(e.target.value as 'M' | 'F' | '');
-                      setPage(1);
-                    }}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    onChange={(e) => { setSexeFilter(e.target.value as 'M' | 'F' | ''); setPage(1); }}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                   >
                     <option value="">Tous</option>
                     <option value="M">Garçons</option>
@@ -641,21 +719,51 @@ const ElevesPage: React.FC = () => {
                   </select>
                 </div>
 
+                {/* Compte */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Compte
-                  </label>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Compte</label>
                   <select
                     value={hasCompteFilter}
-                    onChange={(e) => {
-                      setHasCompteFilter(e.target.value as any);
-                      setPage(1);
-                    }}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    onChange={(e) => { setHasCompteFilter(e.target.value as any); setPage(1); }}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                   >
                     <option value="all">Tous</option>
                     <option value="true">Avec compte</option>
                     <option value="false">Sans compte</option>
+                  </select>
+                </div>
+
+                {/* 🆕 Classe */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Classe</label>
+                  <select
+                    value={classeId}
+                    onChange={(e) => { setClasseId(e.target.value); setPage(1); }}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                  >
+                    <option value="">Toutes les classes</option>
+                    {classes.map((c: any) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nom}{c.code ? ` (${c.code})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 🆕 Année scolaire */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Année scolaire</label>
+                  <select
+                    value={anneeScolaireId}
+                    onChange={(e) => { setAnneeScolaireId(e.target.value); setPage(1); }}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                  >
+                    <option value="">Toutes les années</option>
+                    {annees.map((a: any) => (
+                      <option key={a.id} value={a.id}>
+                        {a.nom}{a.estActive ? ' (active)' : ''}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -665,11 +773,8 @@ const ElevesPage: React.FC = () => {
                   <input
                     type="checkbox"
                     checked={showArchived}
-                    onChange={(e) => {
-                      setShowArchived(e.target.checked);
-                      setPage(1);
-                    }}
-                    className="w-4 h-4 rounded text-blue-600"
+                    onChange={(e) => { setShowArchived(e.target.checked); setPage(1); }}
+                    className="w-4 h-4 rounded text-indigo-600"
                   />
                   Inclure les élèves archivés
                 </label>
@@ -682,7 +787,7 @@ const ElevesPage: React.FC = () => {
       {/* Indicateur rafraîchissement */}
       {isFetching && !isLoading && (
         <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
-          <ArrowPathIcon className="h-4 w-4 animate-spin text-blue-600" />
+          <ArrowPathIcon className="h-4 w-4 animate-spin text-indigo-600" />
           Actualisation…
         </div>
       )}
@@ -693,10 +798,7 @@ const ElevesPage: React.FC = () => {
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {[...Array(6)].map((_, i) => (
-            <div
-              key={i}
-              className="bg-white rounded-2xl border border-gray-100 p-5 animate-pulse"
-            >
+            <div key={i} className="bg-white rounded-2xl border border-gray-100 p-5 animate-pulse">
               <div className="flex items-center gap-3 mb-3">
                 <div className="h-14 w-14 bg-gray-100 rounded-xl" />
                 <div className="flex-1">
@@ -715,40 +817,31 @@ const ElevesPage: React.FC = () => {
           <ExclamationTriangleIcon className="w-12 h-12 text-red-500 mx-auto mb-3" />
           <p className="text-red-700 font-semibold">Erreur de chargement</p>
           <p className="text-red-600 text-sm mt-1">
-            {(error as any)?.response?.data?.message ??
-              'Impossible de charger les élèves.'}
+            {(error as any)?.response?.data?.message ?? 'Impossible de charger les élèves.'}
           </p>
-          <button
-            onClick={() => refetch()}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-          >
+          <button onClick={() => refetch()} className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
             Réessayer
           </button>
         </div>
       ) : eleves.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-50 rounded-full mb-4">
-            <UserGroupIcon className="w-10 h-10 text-blue-600" />
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-indigo-50 rounded-full mb-4">
+            <UserGroupIcon className="w-10 h-10 text-indigo-600" />
           </div>
-          <h3 className="text-lg font-bold text-gray-900 mb-1">
-            Aucun élève
-          </h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-1">Aucun élève</h3>
           <p className="text-gray-500 mb-6 max-w-md mx-auto">
             {activeFiltersCount > 0
               ? 'Aucun élève ne correspond à vos critères de recherche.'
               : 'Commencez par créer votre premier élève.'}
           </p>
           {activeFiltersCount > 0 ? (
-            <button
-              onClick={resetFilters}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
-            >
+            <button onClick={resetFilters} className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800">
               Réinitialiser les filtres
             </button>
           ) : (
             <Link
               to="/dashboard/eleves/nouveau"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium"
             >
               <PlusIcon className="w-4 h-4" />
               Créer mon premier élève
@@ -778,8 +871,7 @@ const ElevesPage: React.FC = () => {
         <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-sm text-gray-500">
             Page <strong>{pagination.page}</strong> sur{' '}
-            <strong>{pagination.totalPages}</strong> — {pagination.total}{' '}
-            élève(s)
+            <strong>{pagination.totalPages}</strong> — {pagination.total} élève(s)
           </p>
 
           <div className="flex items-center gap-1">
@@ -787,7 +879,6 @@ const ElevesPage: React.FC = () => {
               onClick={() => setPage(1)}
               disabled={page <= 1}
               className="px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-              aria-label="Première page"
             >
               ««
             </button>
@@ -799,16 +890,10 @@ const ElevesPage: React.FC = () => {
               Précédent
             </button>
 
-            {Array.from(
-              { length: Math.min(5, pagination.totalPages) },
-              (_, i) => {
-                const start = Math.max(
-                  1,
-                  Math.min(page - 2, pagination.totalPages - 4)
-                );
-                return start + i;
-              }
-            )
+            {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+              const start = Math.max(1, Math.min(page - 2, pagination.totalPages - 4));
+              return start + i;
+            })
               .filter((p) => p >= 1 && p <= pagination.totalPages)
               .map((p) => (
                 <button
@@ -816,20 +901,16 @@ const ElevesPage: React.FC = () => {
                   onClick={() => setPage(p)}
                   className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
                     p === page
-                      ? 'bg-blue-600 text-white border-blue-600'
+                      ? 'bg-indigo-600 text-white border-indigo-600'
                       : 'border-gray-200 hover:bg-gray-50'
                   }`}
-                  aria-label={`Page ${p}`}
-                  aria-current={p === page ? 'page' : undefined}
                 >
                   {p}
                 </button>
               ))}
 
             <button
-              onClick={() =>
-                setPage((p) => Math.min(pagination.totalPages, p + 1))
-              }
+              onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
               disabled={page >= pagination.totalPages}
               className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
@@ -839,7 +920,6 @@ const ElevesPage: React.FC = () => {
               onClick={() => setPage(pagination.totalPages)}
               disabled={page >= pagination.totalPages}
               className="px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-              aria-label="Dernière page"
             >
               »»
             </button>

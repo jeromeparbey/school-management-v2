@@ -34,4 +34,4 @@ export default router;
 
 export const publicRoute = false;
 export const basePath = '/eleves';
-export const roles: string[] = ['DIRECTEUR', 'ADMIN', 'SECRETAIRE'];
+export const roles: string[] = ['DIRECTEUR', 'ADMIN', 'SECRETAIRE', 'ENSEIGNANT', 'ELEVE', 'PARENT'];

@@ -246,30 +246,52 @@ export class ClasseService {
   }
 
   // ────────── FIND BY ID ──────────
+async findById(ctx: ClasseContext, id: string) {
+  const client = await getClient(ctx.schemaName);
 
-  async findById(ctx: ClasseContext, id: string) {
-    const client = await getClient(ctx.schemaName);
-
-    const classe = await client.classe.findUnique({
-      where: { id },
-      include: {
-        niveau: true,
-        anneeScolaire: true,
-        _count: {
-          select: {
-            inscriptions: true,
-            emploisTemps: true,
-            affectations: true,
-            assignments: true,
-            bulletins: true,
+  const classe = await client.classe.findUnique({
+    where: { id },
+    include: {
+      niveau: true,
+      anneeScolaire: true,
+      // ✅ Inclure les créneaux d'emploi du temps
+      emploisTemps: {
+        where: { estActive: true },
+        include: {
+          matiere: {
+            select: { id: true, nom: true, code: true },
+          },
+          enseignant: {
+            select: {
+              id: true,
+              matricule: true,
+              prenom: true,
+              nom: true,
+              specialite: true,
+              photo: true,
+            },
           },
         },
+        orderBy: [
+          { jour: 'asc' },
+          { heureDebut: 'asc' },
+        ],
       },
-    });
+      _count: {
+        select: {
+          inscriptions: true,
+          emploisTemps: true,
+          affectations: true,
+          assignments: true,
+          bulletins: true,
+        },
+      },
+    },
+  });
 
-    if (!classe) throw new AppError('Classe introuvable', 404);
-    return classe;
-  }
+  if (!classe) throw new AppError('Classe introuvable', 404);
+  return classe;
+}
 
   // ────────── LIST BY ANNEE ──────────
 

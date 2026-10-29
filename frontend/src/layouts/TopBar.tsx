@@ -1,24 +1,37 @@
 // frontend2/src/components/layout/TopBar.tsx
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bars3Icon,
   MagnifyingGlassIcon,
   BellIcon,
   ChevronDownIcon,
+  SunIcon,
+  MoonIcon,
+  Bars3BottomLeftIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../hooks/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import UserMenu from './UserMenu';
 import NotificationsDropdown from './NotificationsDropdown';
 
 interface TopBarProps {
   onMenuClick: () => void;
+  onSidebarToggle?: () => void;
+  isSidebarCollapsed?: boolean;
   title?: string;
   subtitle?: string;
 }
 
-const TopBar: React.FC<TopBarProps> = ({ onMenuClick, title = 'Tableau de bord', subtitle }) => {
+const TopBar: React.FC<TopBarProps> = ({
+  onMenuClick,
+  onSidebarToggle,
+  isSidebarCollapsed = false,
+  title = 'Tableau de bord',
+  subtitle,
+}) => {
   const { user } = useAuth();
+  const { resolvedTheme, toggleTheme } = useTheme();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState('today');
@@ -30,6 +43,7 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick, title = 'Tableau de bord',
         <div className="flex items-center justify-between h-16">
           {/* ============ GAUCHE ============ */}
           <div className="flex items-center gap-4">
+            {/* Hamburger mobile (inchangé) */}
             <button
               onClick={onMenuClick}
               className="md:hidden p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
@@ -37,6 +51,26 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick, title = 'Tableau de bord',
             >
               <Bars3Icon className="w-6 h-6" />
             </button>
+
+            {/* 🆕 Bouton plier/déplier (desktop uniquement) */}
+            {onSidebarToggle && (
+              <button
+                onClick={onSidebarToggle}
+                className="hidden md:inline-flex p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label={
+                  isSidebarCollapsed
+                    ? 'Déplier le menu'
+                    : 'Replier le menu'
+                }
+                title={
+                  isSidebarCollapsed
+                    ? 'Déplier le menu'
+                    : 'Replier le menu'
+                }
+              >
+                <Bars3BottomLeftIcon className="w-6 h-6" />
+              </button>
+            )}
 
             <div>
               <h1 className="text-lg font-bold text-gray-900">{title}</h1>
@@ -70,6 +104,34 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick, title = 'Tableau de bord',
               <option value="year">Cette année</option>
             </select>
 
+            {/* 🆕 Toggle Dark Mode */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+              aria-label={
+                resolvedTheme === 'dark'
+                  ? 'Passer en mode clair'
+                  : 'Passer en mode sombre'
+              }
+              title={resolvedTheme === 'dark' ? 'Mode clair' : 'Mode sombre'}
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={resolvedTheme}
+                  initial={{ rotate: -90, opacity: 0, scale: 0.5 }}
+                  animate={{ rotate: 0, opacity: 1, scale: 1 }}
+                  exit={{ rotate: 90, opacity: 0, scale: 0.5 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {resolvedTheme === 'dark' ? (
+                    <SunIcon className="w-5 h-5" />
+                  ) : (
+                    <MoonIcon className="w-5 h-5" />
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </button>
+
             {/* Notifications */}
             <div className="relative">
               <button
@@ -88,7 +150,9 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick, title = 'Tableau de bord',
                 )}
               </button>
               {showNotifications && (
-                <NotificationsDropdown onClose={() => setShowNotifications(false)} />
+                <NotificationsDropdown
+                  onClose={() => setShowNotifications(false)}
+                />
               )}
             </div>
 
@@ -112,7 +176,9 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick, title = 'Tableau de bord',
                 </span>
                 <ChevronDownIcon className="hidden md:block w-4 h-4 text-gray-400" />
               </button>
-              {showUserMenu && <UserMenu onClose={() => setShowUserMenu(false)} />}
+              {showUserMenu && (
+                <UserMenu onClose={() => setShowUserMenu(false)} />
+              )}
             </div>
           </div>
         </div>

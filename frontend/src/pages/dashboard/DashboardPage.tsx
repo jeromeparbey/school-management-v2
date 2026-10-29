@@ -1,6 +1,6 @@
 // frontend2/src/pages/dashboard/DashboardPage.tsx
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../hooks/AuthContext';
@@ -9,14 +9,10 @@ import {
   AcademicCapIcon,
   CurrencyDollarIcon,
   CalendarIcon,
-  DocumentTextIcon,
   ClockIcon,
   CreditCardIcon,
-  ExclamationCircleIcon,
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
-  EllipsisVerticalIcon,
-  SparklesIcon,
   BanknotesIcon,
   ReceiptPercentIcon,
   BuildingOfficeIcon,
@@ -27,16 +23,13 @@ import {
   Cog6ToothIcon,
   MapPinIcon,
   PencilSquareIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 
 import {
   ResponsiveContainer,
   AreaChart,
   Area,
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
   PieChart,
   Pie,
   Cell,
@@ -46,188 +39,370 @@ import {
   Tooltip,
 } from 'recharts';
 
-// ============================================
-// TYPES
-// ============================================
-interface StatCard {
-  title: string;
-  value: string | number;
-  change: string;
-  trend: 'up' | 'down';
-  icon: any;
-  color: string;
-  bgColor: string;
-  hint?: string;
-}
+// ─── HOOKS RÉELS ───
+import { useEleves } from '../../hooks/useEleves';
+import { useEnseignants } from '../../hooks/useEnseignants';
+import { usePaiements } from '../../hooks/usePaiements';
+import { useEcheances } from '../../hooks/useEcheance';
+import { useClasses } from '../../hooks/useClasses';
+import { useMatieres } from '../../hooks/useMatieres';
+import { useInscriptions } from '../../hooks/useInscriptions';
 
-interface Activity {
-  id: number;
-  type: 'student' | 'teacher' | 'payment' | 'class' | 'absence';
-  title: string;
-  description: string;
-  time: string;
-  icon: any;
-  color: string;
-}
+// ═══════════════════════════════════════════════════════════
+// HELPERS — F CFA partout
+// ═══════════════════════════════════════════════════════════
 
-interface QuickAction {
-  title: string;
-  icon: any;
-  color: string;
-  bgColor: string;
-  href: string;
-}
+/**
+ * 💰 Formate un montant en F CFA.
+ * - Si devise = 'XOF', 'FCFA', 'F CFA' → affiche 'F CFA'
+ * - Sinon → affiche la devise fournie
+ */
+const formatMoney = (n: number | null | undefined, devise = 'F CFA') => {
+  const amount = n == null ? 0 : Math.round(n);
+  const formatted = new Intl.NumberFormat('fr-FR').format(amount);
 
-// ============================================
+  // ⚠️ Normalisation : XOF → F CFA
+  const normalizedDevise =
+    !devise || devise === 'XOF' || devise === 'FCFA'
+      ? 'F CFA'
+      : devise;
+
+  return `${formatted} ${normalizedDevise}`;
+};
+
+/**
+ * 🔢 Formate un nombre (séparateurs de milliers).
+ */
+const formatNumber = (n: number | null | undefined) => {
+  if (n == null) return '0';
+  return new Intl.NumberFormat('fr-FR').format(n);
+};
+
+/**
+ * 📅 Formate une date courte (ex: "12 jan").
+ */
+const formatDateShort = (d: string | Date | null | undefined) => {
+  if (!d) return '—';
+  const date = typeof d === 'string' ? new Date(d) : d;
+  return date.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: 'short',
+  });
+};
+
+// ═══════════════════════════════════════════════════════════
 // COMPOSANT PRINCIPAL
-// ============================================
+// ═══════════════════════════════════════════════════════════
+
 const DashboardPage: React.FC = () => {
   const { user, etablissement } = useAuth();
 
-  // ============================================
-  // DONNÉES STATIQUES (à brancher sur API)
-  // ============================================
+  // ✅ Devise normalisée : si 'XOF' → 'F CFA'
+  const devise =
+    !etablissement?.devise ||
+    etablissement.devise === 'XOF' ||
+    etablissement.devise === 'FCFA'
+      ? 'F CFA'
+      : etablissement.devise;
 
-  const stats: StatCard[] = [
+  // ═══════════════════════════════════════════════════════════
+  // CHARGEMENT DES DONNÉES RÉELLES
+  // ═══════════════════════════════════════════════════════════
+
+  // Élèves
+  const { data: elevesData, isLoading: loadingEleves } = useEleves({
+    limit: 1,
+    statut: 'ACTIF',
+  });
+  const totalEleves = elevesData?.pagination?.total ?? 0;
+
+  // Enseignants
+  const { data: enseignantsData, isLoading: loadingEnseignants } =
+    useEnseignants({ limit: 1, estActif: true, estArchive: false });
+  const totalEnseignants = enseignantsData?.pagination?.total ?? 0;
+
+  // Classes
+  const { data: classesData, isLoading: loadingClasses } = useClasses({
+    limit: 1,
+    estActive: true,
+    estArchive: false,
+  });
+  const totalClasses = classesData?.pagination?.total ?? 0;
+
+  // Matières
+  const { data: matieresData } = useMatieres({
+    limit: 1,
+    estActive: true,
+    estArchive: false,
+  });
+  const totalMatieres = matieresData?.pagination?.total ?? 0;
+
+  // Paiements (50 derniers)
+  const { data: paiementsData, isLoading: loadingPaiements } = usePaiements({
+    limit: 50,
+    sortBy: 'datePaiement',
+    sortOrder: 'desc',
+  });
+  const paiements = paiementsData?.paiements ?? [];
+  const totalEncaisse = paiementsData?.summary?.totalMontant ?? 0;
+
+  // Échéances
+  const { data: echeancesData, isLoading: loadingEcheances } = useEcheances({
+    limit: 50,
+    sortBy: 'dateLimite',
+    sortOrder: 'asc',
+  });
+  const echeances = echeancesData?.echeances ?? [];
+
+  // Inscriptions récentes
+  const { data: inscriptionsData } = useInscriptions({
+    limit: 5,
+    estActive: true,
+    sortBy: 'dateInscription',
+    sortOrder: 'desc',
+  });
+  const inscriptionsRecentes = inscriptionsData?.inscriptions ?? [];
+
+  // ═══════════════════════════════════════════════════════════
+  // CALCULS DÉRIVÉS
+  // ═══════════════════════════════════════════════════════════
+
+  // Échéances en retard
+  const echeancesEnRetard = useMemo(() => {
+    const now = new Date();
+    return echeances.filter(
+      (e) => !e.estPayee && new Date(e.dateLimite) < now
+    );
+  }, [echeances]);
+
+  // Échéances à venir (7 jours)
+  const echeancesProches = useMemo(() => {
+    const now = new Date();
+    const in7d = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    return echeances.filter((e) => {
+      const dl = new Date(e.dateLimite);
+      return !e.estPayee && dl >= now && dl <= in7d;
+    });
+  }, [echeances]);
+
+  // Évolution sur 12 mois
+  const revenueData = useMemo(() => {
+    const months = [
+      'Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin',
+      'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc',
+    ];
+    const buckets: Record<number, number> = {};
+    for (let i = 0; i < 12; i++) buckets[i] = 0;
+
+    paiements
+      .filter((p) => p.statut === 'COMPLET')
+      .forEach((p) => {
+        const d = new Date(p.datePaiement);
+        if (d.getFullYear() === new Date().getFullYear()) {
+          buckets[d.getMonth()] += p.montant;
+        }
+      });
+
+    return months.map((mois, i) => ({
+      mois,
+      revenus: buckets[i],
+    }));
+  }, [paiements]);
+
+  // Répartition paiements par moyen
+  const paymentSplit = useMemo(() => {
+    const counts: Record<string, number> = {};
+    paiements
+      .filter((p) => p.statut === 'COMPLET')
+      .forEach((p) => {
+        counts[p.moyen] = (counts[p.moyen] ?? 0) + p.montant;
+      });
+
+    const colors: Record<string, string> = {
+      ESPECES: '#3B82F6',
+      MOBILE_MONEY: '#8B5CF6',
+      VIREMENT: '#10B981',
+      CARTE: '#F59E0B',
+      CHEQUE: '#EF4444',
+      AUTRE: '#6B7280',
+    };
+
+    return Object.entries(counts).map(([moyen, value]) => ({
+      name: moyen.replace('_', ' '),
+      value,
+      color: colors[moyen] ?? '#6B7280',
+    }));
+  }, [paiements]);
+
+  const derniersPaiements = useMemo(() => paiements.slice(0, 5), [paiements]);
+
+  // Alertes dynamiques
+  const alertes = useMemo(() => {
+    const items: Array<{
+      id: number;
+      type: 'warning' | 'danger' | 'info' | 'success';
+      title: string;
+      desc: string;
+      href: string;
+    }> = [];
+
+    if (echeancesEnRetard.length > 0) {
+      items.push({
+        id: 1,
+        type: 'danger',
+        title: `${echeancesEnRetard.length} échéance(s) en retard`,
+        desc: `Montant total : ${formatMoney(
+          echeancesEnRetard.reduce((s, e) => s + e.montant, 0),
+          devise
+        )}`,
+        href: '/dashboard/echeances',
+      });
+    }
+
+    if (echeancesProches.length > 0) {
+      items.push({
+        id: 2,
+        type: 'warning',
+        title: `${echeancesProches.length} échéance(s) cette semaine`,
+        desc: 'À encaisser dans les 7 prochains jours',
+        href: '/dashboard/echeances',
+      });
+    }
+
+    if (inscriptionsRecentes.length > 0) {
+      items.push({
+        id: 3,
+        type: 'info',
+        title: `${inscriptionsRecentes.length} nouvelle(s) inscription(s)`,
+        desc: 'Récemment ajoutées au système',
+        href: '/dashboard/inscriptions',
+      });
+    }
+
+    if (items.length === 0) {
+      items.push({
+        id: 0,
+        type: 'success',
+        title: 'Tout est à jour',
+        desc: 'Aucune alerte pour le moment',
+        href: '/dashboard/statistiques',
+      });
+    }
+
+    return items;
+  }, [echeancesEnRetard, echeancesProches, inscriptionsRecentes, devise]);
+
+  // Activités récentes
+  const recentActivities = useMemo(() => {
+    const activities: Array<{
+      id: string;
+      title: string;
+      description: string;
+      time: string;
+      icon: any;
+      color: string;
+    }> = [];
+
+    inscriptionsRecentes.slice(0, 3).forEach((ins) => {
+      activities.push({
+        id: `ins-${ins.id}`,
+        title: 'Nouvelle inscription',
+        description: `${ins.eleve?.prenom ?? ''} ${
+          ins.eleve?.nom ?? ''
+        } — ${ins.classe?.nom ?? ''}`,
+        time: formatDateShort(ins.dateInscription),
+        icon: UserGroupIcon,
+        color: 'text-blue-600',
+      });
+    });
+
+    paiements.slice(0, 3).forEach((p) => {
+      activities.push({
+        id: `pay-${p.id}`,
+        title: 'Paiement reçu',
+        description: `${p.reference} — ${formatMoney(p.montant, devise)}`,
+        time: formatDateShort(p.datePaiement),
+        icon: CreditCardIcon,
+        color: 'text-emerald-600',
+      });
+    });
+
+    return activities.slice(0, 5);
+  }, [inscriptionsRecentes, paiements, devise]);
+
+  const isLoading =
+    loadingEleves ||
+    loadingEnseignants ||
+    loadingClasses ||
+    loadingPaiements ||
+    loadingEcheances;
+
+  // ═══════════════════════════════════════════════════════════
+  // STATS
+  // ═══════════════════════════════════════════════════════════
+
+  const stats = [
     {
       title: 'Total Élèves',
-      value: '1,284',
-      change: '+12.5%',
-      trend: 'up',
+      value: formatNumber(totalEleves),
+      trend: 'up' as const,
+      change: 'Actifs',
       icon: UserGroupIcon,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
-      hint: 'Inscrits cette année',
+      hint: `${totalClasses} classes`,
     },
     {
       title: 'Enseignants',
-      value: '48',
-      change: '+3.2%',
-      trend: 'up',
+      value: formatNumber(totalEnseignants),
+      trend: 'up' as const,
+      change: 'Actifs',
       icon: AcademicCapIcon,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50',
-      hint: 'Actifs',
+      hint: `${totalMatieres} matières`,
     },
     {
-      title: 'Revenus du mois',
-      value: '€12,450',
-      change: '+8.7%',
-      trend: 'up',
+      title: 'Encaissé (50 derniers)',
+      value: formatMoney(totalEncaisse, devise),
+      trend: 'up' as const,
+      change: `${paiements.length} paiements`,
       icon: CurrencyDollarIcon,
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-50',
-      hint: 'Paiements encaissés',
+      hint: 'Total encaissé',
     },
     {
-      title: 'Taux de présence',
-      value: '94.2%',
-      change: '-2.1%',
-      trend: 'down',
+      title: 'Échéances en retard',
+      value: formatNumber(echeancesEnRetard.length),
+      trend:
+        echeancesEnRetard.length > 0 ? ('down' as const) : ('up' as const),
+      change: `${echeancesProches.length} à venir`,
       icon: ClockIcon,
-      color: 'text-orange-600',
-      bgColor: 'bg-orange-50',
-      hint: 'Moyenne élèves + profs',
+      color:
+        echeancesEnRetard.length > 0 ? 'text-red-600' : 'text-emerald-600',
+      bgColor:
+        echeancesEnRetard.length > 0 ? 'bg-red-50' : 'bg-emerald-50',
+      hint: 'À traiter',
     },
   ];
 
-  const revenueData = [
-    { mois: 'Jan', revenus: 8200, depenses: 5400 },
-    { mois: 'Fév', revenus: 9100, depenses: 5600 },
-    { mois: 'Mar', revenus: 10400, depenses: 6100 },
-    { mois: 'Avr', revenus: 9800, depenses: 5900 },
-    { mois: 'Mai', revenus: 11200, depenses: 6300 },
-    { mois: 'Juin', revenus: 12800, depenses: 6800 },
-    { mois: 'Juil', revenus: 7500, depenses: 5200 },
-    { mois: 'Août', revenus: 6900, depenses: 4800 },
-    { mois: 'Sep', revenus: 13500, depenses: 7100 },
-    { mois: 'Oct', revenus: 11800, depenses: 6600 },
-    { mois: 'Nov', revenus: 12100, depenses: 6400 },
-    { mois: 'Déc', revenus: 12450, depenses: 6200 },
-  ];
-
-  const recoveryData = [
-    { mois: 'Sep', taux: 78 },
-    { mois: 'Oct', taux: 82 },
-    { mois: 'Nov', taux: 86 },
-    { mois: 'Déc', taux: 91 },
-  ];
-
-  const paymentSplit = [
-    { name: 'Frais de scolarité', value: 8450, color: '#3B82F6' },
-    { name: 'Frais inscription', value: 2100, color: '#8B5CF6' },
-    { name: 'Autres frais', value: 1900, color: '#10B981' },
-  ];
-
-  const effectifsNiveaux = [
-    { niveau: 'Primaire', eleves: 420 },
-    { niveau: 'Collège', eleves: 510 },
-    { niveau: 'Lycée', eleves: 354 },
-  ];
-
-  const classePerformance = [
-    { name: '6ème A', value: 92, color: 'bg-blue-500' },
-    { name: '5ème B', value: 85, color: 'bg-emerald-500' },
-    { name: '4ème C', value: 78, color: 'bg-purple-500' },
-    { name: '3ème D', value: 88, color: 'bg-orange-500' },
-    { name: '2nde A', value: 81, color: 'bg-indigo-500' },
-  ];
-
-  const derniersPaiements = [
-    { id: 'PAY-2841', eleve: 'Marie Dubois', classe: '6ème A', montant: 250000, moyen: 'Mobile Money', date: 'Il y a 15 min' },
-    { id: 'PAY-2840', eleve: 'Jean Martin', classe: '3ème D', montant: 180000, moyen: 'Espèces', date: 'Il y a 1h' },
-    { id: 'PAY-2839', eleve: 'Awa Diallo', classe: '5ème B', montant: 220000, moyen: 'Virement', date: 'Il y a 3h' },
-    { id: 'PAY-2838', eleve: 'Paul Kouassi', classe: '2nde A', montant: 300000, moyen: 'Chèque', date: 'Il y a 5h' },
-  ];
-
-  const alertes = [
-    { id: 1, type: 'warning', title: '3 échéances en retard', desc: 'Élèves sans paiement depuis 15 jours', href: '/dashboard/echeances' },
-    { id: 2, type: 'danger', title: '2 absences non justifiées', desc: 'Enseignants - à valider', href: '/dashboard/absences' },
-    { id: 3, type: 'info', title: 'Bulletins T1 à valider', desc: '4 classes en attente', href: '/dashboard/notes/bulletins' },
-    { id: 4, type: 'success', title: 'Objectif recouvrement 91%', desc: 'Dépassé de +6% ce mois', href: '/dashboard/statistiques' },
-  ];
-
-  const recentActivities: Activity[] = [
-    { id: 1, type: 'student', title: 'Nouvel élève inscrit', description: 'Marie Dubois - Classe de 6ème A', time: 'Il y a 15 minutes', icon: UserGroupIcon, color: 'text-blue-600' },
-    { id: 2, type: 'payment', title: 'Paiement reçu', description: 'Frais de scolarité - Famille Martin', time: 'Il y a 2 heures', icon: CreditCardIcon, color: 'text-emerald-600' },
-    { id: 3, type: 'absence', title: 'Absence signalée', description: 'Jean Dupont - 5ème B (maladie)', time: 'Il y a 3 heures', icon: ExclamationCircleIcon, color: 'text-red-600' },
-    { id: 4, type: 'teacher', title: 'Nouvel enseignant', description: 'M. Pierre Laurent - Mathématiques', time: 'Il y a 5 heures', icon: AcademicCapIcon, color: 'text-purple-600' },
-    { id: 5, type: 'class', title: 'Emploi du temps mis à jour', description: 'Classe de Terminale S - Nouveau planning', time: 'Il y a 1 jour', icon: CalendarIcon, color: 'text-indigo-600' },
-  ];
-
-  const quickActions: QuickAction[] = [
-    { title: 'Ajouter un élève', icon: UserGroupIcon, color: 'text-white', bgColor: 'bg-gradient-to-br from-blue-500 to-blue-600', href: '/dashboard/eleves/nouveau' },
-    { title: 'Enregistrer paiement', icon: CreditCardIcon, color: 'text-white', bgColor: 'bg-gradient-to-br from-emerald-500 to-emerald-600', href: '/dashboard/paiements/nouveau' },
-    { title: 'Créer un bulletin', icon: DocumentTextIcon, color: 'text-white', bgColor: 'bg-gradient-to-br from-purple-500 to-purple-600', href: '/dashboard/notes/bulletins' },
-    { title: 'Gérer les présences', icon: ClockIcon, color: 'text-white', bgColor: 'bg-gradient-to-br from-orange-500 to-orange-600', href: '/dashboard/presences' },
-  ];
-
-  const upcomingEvents = [
-    { title: 'Réunion des enseignants', date: "Aujourd'hui, 15:00", type: 'Meeting', color: 'bg-blue-500' },
-    { title: 'Conseil de classe', date: 'Demain, 10:00', type: 'Academic', color: 'bg-purple-500' },
-    { title: 'Remise des bulletins', date: 'Vendredi, 14:00', type: 'Event', color: 'bg-emerald-500' },
-  ];
-
-  // ============================================
+  // ═══════════════════════════════════════════════════════════
   // RENDU
-  // ============================================
+  // ═══════════════════════════════════════════════════════════
+
   return (
     <div className="space-y-8">
-      {/* ============================================
-          BANNIÈRE DE BIENVENUE (Directeur)
-          ============================================ */}
+      {/* BANNIÈRE DE BIENVENUE */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl p-6 text-white shadow-lg shadow-blue-500/20 relative overflow-hidden"
+        className="bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 rounded-2xl p-6 text-white shadow-lg shadow-emerald-500/20 relative overflow-hidden"
       >
-        {/* Décorations */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
 
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          {/* Bloc gauche : Logo école + info user */}
           <div className="flex items-center gap-4">
-            {/* Logo de l'école */}
             {etablissement?.logo ? (
               <img
                 src={etablissement.logo}
@@ -241,19 +416,17 @@ const DashboardPage: React.FC = () => {
             )}
 
             <div className="min-w-0">
-              {/* Titre : rôle + nom utilisateur */}
               <h2 className="text-xl md:text-2xl font-bold">
                 Bonjour {user?.prenom} 👋
               </h2>
 
-              {/* 🔥 Sous-titre : Directeur de [Nom école] */}
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-white/15 backdrop-blur rounded-full text-xs font-medium">
                   <CheckCircleIcon className="w-3.5 h-3.5" />
                   Directeur
                 </span>
                 {etablissement && (
-                  <span className="text-sm text-blue-100">
+                  <span className="text-sm text-emerald-100">
                     de{' '}
                     <strong className="font-semibold text-white">
                       {etablissement.nom}
@@ -262,9 +435,8 @@ const DashboardPage: React.FC = () => {
                 )}
               </div>
 
-              {/* 🔥 Localisation école */}
               {etablissement && (
-                <div className="flex items-center gap-3 mt-2 text-xs text-blue-100 flex-wrap">
+                <div className="flex items-center gap-3 mt-2 text-xs text-emerald-100 flex-wrap">
                   {etablissement.ville && (
                     <span className="flex items-center gap-1">
                       <MapPinIcon className="w-3.5 h-3.5" />
@@ -273,9 +445,7 @@ const DashboardPage: React.FC = () => {
                   )}
                   <span className="flex items-center gap-1">
                     <BuildingOfficeIcon className="w-3.5 h-3.5" />
-                    <span className="font-mono">
-                      {etablissement.code}
-                    </span>
+                    <span className="font-mono">{etablissement.code}</span>
                   </span>
                   <span className="hidden md:flex items-center gap-1">
                     <CalendarIcon className="w-3.5 h-3.5" />
@@ -290,11 +460,10 @@ const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* 🔥 Bloc droit : Actions */}
           <div className="flex flex-wrap items-center gap-2 lg:flex-shrink-0">
             <Link
               to="/dashboard/mon-etablissement"
-              className="px-4 py-2.5 bg-white text-blue-600 hover:bg-blue-50 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-lg shadow-blue-900/20 hover:shadow-xl hover:-translate-y-0.5"
+              className="px-4 py-2.5 bg-white text-emerald-600 hover:bg-emerald-50 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-lg"
             >
               <PencilSquareIcon className="w-4 h-4" />
               Voir mon établissement
@@ -315,49 +484,9 @@ const DashboardPage: React.FC = () => {
             </Link>
           </div>
         </div>
-
-        {/* 🔥 Carte info école (bandeau bas) */}
-        {etablissement && (
-          <div className="relative z-10 mt-4 pt-4 border-t border-white/20 grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-blue-200 font-semibold">
-                Type
-              </p>
-              <p className="text-sm font-semibold mt-0.5">
-                {etablissement.type}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-blue-200 font-semibold">
-                Plan
-              </p>
-              <p className="text-sm font-semibold mt-0.5">
-                {etablissement.planAbonnement}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-blue-200 font-semibold">
-                Devise
-              </p>
-              <p className="text-sm font-semibold mt-0.5">
-                {etablissement.devise}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-blue-200 font-semibold">
-                Contact
-              </p>
-              <p className="text-sm font-semibold mt-0.5 truncate">
-                {etablissement.telephone ?? etablissement.email ?? '—'}
-              </p>
-            </div>
-          </div>
-        )}
       </motion.div>
 
-      {/* ============================================
-          KPIs (4 cartes)
-          ============================================ */}
+      {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {stats.map((stat, index) => (
           <motion.div
@@ -365,13 +494,13 @@ const DashboardPage: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
-            whileHover={{ y: -4, transition: { duration: 0.2 } }}
+            whileHover={{ y: -4 }}
             className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100/50 hover:shadow-md transition-all duration-300"
           >
             <div className="flex items-center justify-between">
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-sm text-gray-500">{stat.title}</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">
+                <p className="text-2xl font-bold text-gray-900 mt-1 truncate">
                   {stat.value}
                 </p>
                 <div className="flex items-center gap-1 mt-2">
@@ -389,9 +518,6 @@ const DashboardPage: React.FC = () => {
                   >
                     {stat.change}
                   </span>
-                  <span className="text-xs text-gray-400">
-                    vs mois dernier
-                  </span>
                 </div>
                 {stat.hint && (
                   <p className="text-[10px] text-gray-400 mt-1 italic">
@@ -399,7 +525,7 @@ const DashboardPage: React.FC = () => {
                   </p>
                 )}
               </div>
-              <div className={`p-3 rounded-xl ${stat.bgColor}`}>
+              <div className={`p-3 rounded-xl ${stat.bgColor} shrink-0`}>
                 <stat.icon className={`w-6 h-6 ${stat.color}`} />
               </div>
             </div>
@@ -407,9 +533,7 @@ const DashboardPage: React.FC = () => {
         ))}
       </div>
 
-      {/* ============================================
-          GRAPHIQUE 1 : Évolution Revenus vs Dépenses
-          ============================================ */}
+      {/* GRAPHIQUE : Évolution financière */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -420,34 +544,34 @@ const DashboardPage: React.FC = () => {
           <div>
             <h3 className="font-bold text-gray-900">Évolution financière</h3>
             <p className="text-xs text-gray-500 mt-0.5">
-              Revenus vs Dépenses sur 12 mois
+              Revenus sur 12 mois (basé sur les paiements réels)
             </p>
           </div>
-          <div className="flex items-center gap-3 text-xs">
-            <span className="flex items-center gap-1">
-              <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
-              Revenus
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-3 h-3 bg-red-400 rounded-full"></span>
-              Dépenses
-            </span>
-          </div>
+          {loadingPaiements && (
+            <ArrowPathIcon className="w-4 h-4 text-emerald-600 animate-spin" />
+          )}
         </div>
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart
-              data={revenueData}
-              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-            >
+            <AreaChart data={revenueData}>
               <defs>
-                <linearGradient id="colorRevenus" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="colorDepenses" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#F87171" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#F87171" stopOpacity={0} />
+                <linearGradient
+                  id="colorRevenus"
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop
+                    offset="5%"
+                    stopColor="#10B981"
+                    stopOpacity={0.3}
+                  />
+                  <stop
+                    offset="95%"
+                    stopColor="#10B981"
+                    stopOpacity={0}
+                  />
                 </linearGradient>
               </defs>
               <CartesianGrid
@@ -472,30 +596,21 @@ const DashboardPage: React.FC = () => {
                   border: '1px solid #E2E8F0',
                   fontSize: 12,
                 }}
-                formatter={(v) => `€${Number(v).toLocaleString('fr-FR')}`}
+                formatter={(v) => formatMoney(Number(v), devise)}
               />
               <Area
                 type="monotone"
                 dataKey="revenus"
-                stroke="#3B82F6"
+                stroke="#10B981"
                 strokeWidth={2.5}
                 fill="url(#colorRevenus)"
-              />
-              <Area
-                type="monotone"
-                dataKey="depenses"
-                stroke="#F87171"
-                strokeWidth={2.5}
-                fill="url(#colorDepenses)"
               />
             </AreaChart>
           </ResponsiveContainer>
         </div>
       </motion.div>
 
-      {/* ============================================
-          GRAPHIQUES LIGNE 2 : Recouvrement + Camembert
-          ============================================ */}
+      {/* GRAPHIQUES : Recouvrement + Répartition paiements */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -505,53 +620,90 @@ const DashboardPage: React.FC = () => {
         >
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="font-bold text-gray-900">Taux de recouvrement</h3>
+              <h3 className="font-bold text-gray-900">
+                Résumé des échéances
+              </h3>
               <p className="text-xs text-gray-500 mt-0.5">
-                Objectif : 90% • Actuel : 91%
+                {echeances.length} échéance(s) sur 50 dernières
               </p>
             </div>
             <span className="text-xs px-2 py-1 bg-emerald-50 text-emerald-600 rounded-full font-bold">
-              +6% vs objectif
+              {echeances.filter((e) => e.estPayee).length} /{' '}
+              {echeances.length} payées
             </span>
           </div>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={recoveryData}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#F1F5F9"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="mois"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 12, fill: '#94A3B8' }}
-                />
-                <YAxis
-                  domain={[60, 100]}
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 12, fill: '#94A3B8' }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 12,
-                    border: '1px solid #E2E8F0',
-                    fontSize: 12,
+
+          <div className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Payées
+                </span>
+                <span className="text-sm font-bold text-emerald-600">
+                  {echeances.filter((e) => e.estPayee).length}
+                </span>
+              </div>
+              <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-500 rounded-full"
+                  style={{
+                    width: `${
+                      echeances.length > 0
+                        ? (echeances.filter((e) => e.estPayee).length /
+                            echeances.length) *
+                          100
+                        : 0
+                    }%`,
                   }}
-                  formatter={(v) => `${Number(v).toFixed(1)}%`}
                 />
-                <Line
-                  type="monotone"
-                  dataKey="taux"
-                  stroke="#8B5CF6"
-                  strokeWidth={3}
-                  dot={{ r: 5, fill: '#8B5CF6' }}
-                  activeDot={{ r: 7 }}
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-medium text-gray-700">
+                  En retard
+                </span>
+                <span className="text-sm font-bold text-red-600">
+                  {echeancesEnRetard.length}
+                </span>
+              </div>
+              <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-red-500 rounded-full"
+                  style={{
+                    width: `${
+                      echeances.length > 0
+                        ? (echeancesEnRetard.length / echeances.length) * 100
+                        : 0
+                    }%`,
+                  }}
                 />
-              </LineChart>
-            </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-medium text-gray-700">
+                  À venir (7 jours)
+                </span>
+                <span className="text-sm font-bold text-orange-600">
+                  {echeancesProches.length}
+                </span>
+              </div>
+              <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-orange-500 rounded-full"
+                  style={{
+                    width: `${
+                      echeances.length > 0
+                        ? (echeancesProches.length / echeances.length) * 100
+                        : 0
+                    }%`,
+                  }}
+                />
+              </div>
+            </div>
           </div>
         </motion.div>
 
@@ -563,159 +715,75 @@ const DashboardPage: React.FC = () => {
         >
           <div className="flex items-center justify-between mb-6">
             <h3 className="font-bold text-gray-900">Répartition paiements</h3>
-            <span className="text-xs text-gray-400">Ce mois</span>
+            <span className="text-xs text-gray-400">
+              {paiements.length} total
+            </span>
           </div>
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={paymentSplit}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {paymentSplit.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 12,
-                    border: '1px solid #E2E8F0',
-                    fontSize: 12,
-                  }}
-                  formatter={(v) => `€${Number(v).toLocaleString('fr-FR')}`}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="space-y-2 mt-4">
-            {paymentSplit.map((item) => (
-              <div
-                key={item.name}
-                className="flex items-center justify-between text-xs"
-              >
-                <div className="flex items-center gap-2">
-                  <span
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: item.color }}
-                  />
-                  <span className="text-gray-700">{item.name}</span>
-                </div>
-                <span className="font-medium text-gray-900">
-                  €{item.value.toLocaleString('fr-FR')}
+
+          {paymentSplit.length === 0 ? (
+            <div className="h-48 flex items-center justify-center text-center text-sm text-gray-400">
+              Aucun paiement enregistré
+            </div>
+          ) : (
+            <>
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={paymentSplit}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {paymentSplit.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: 12,
+                        border: '1px solid #E2E8F0',
+                        fontSize: 12,
+                      }}
+                      formatter={(v) => formatMoney(Number(v), devise)}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="space-y-2 mt-4">
+                {paymentSplit.map((item) => (
+                  <div
+                    key={item.name}
+                    className="flex items-center justify-between text-xs"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: item.color }}
+                      />
+                      <span className="text-gray-700">{item.name}</span>
+                    </div>
+                    <span className="font-medium text-gray-900">
+                      {formatMoney(item.value, devise)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-sm text-gray-500">Total</span>
+                <span className="text-lg font-bold text-emerald-600">
+                  {formatMoney(totalEncaisse, devise)}
                 </span>
               </div>
-            ))}
-          </div>
-          <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
-            <span className="text-sm text-gray-500">Total</span>
-            <span className="text-lg font-bold text-gray-900">€12,450</span>
-          </div>
+            </>
+          )}
         </motion.div>
       </div>
 
-      {/* ============================================
-          GRAPHIQUES LIGNE 3 : Effectifs + Top classes
-          ============================================ */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100/50"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="font-bold text-gray-900">Effectifs par niveau</h3>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Total : 1,284 élèves
-              </p>
-            </div>
-            <BuildingOfficeIcon className="w-5 h-5 text-gray-400" />
-          </div>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={effectifsNiveaux}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#F1F5F9"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="niveau"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 12, fill: '#94A3B8' }}
-                />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 12, fill: '#94A3B8' }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 12,
-                    border: '1px solid #E2E8F0',
-                    fontSize: 12,
-                  }}
-                />
-                <Bar dataKey="eleves" fill="#3B82F6" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100/50"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="font-bold text-gray-900">Performance par classe</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Moyennes générales</p>
-            </div>
-            <Link
-              to="/dashboard/classes"
-              className="text-sm text-blue-600 font-medium hover:underline"
-            >
-              Détails
-            </Link>
-          </div>
-          <div className="space-y-3">
-            {classePerformance.map((item, index) => (
-              <motion.div
-                key={item.name}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.6 + index * 0.1 }}
-              >
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-gray-700">{item.name}</span>
-                  <span className="text-gray-600">{item.value}%</span>
-                </div>
-                <div className="w-full h-2 bg-gray-100 rounded-full mt-1 overflow-hidden">
-                  <motion.div
-                    className={`h-full ${item.color} rounded-full`}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${item.value}%` }}
-                    transition={{ duration: 1, delay: 0.6 + index * 0.1 }}
-                  />
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-      </div>
-
-      {/* ============================================
-          ALERTES DIRECTEUR
-          ============================================ */}
+      {/* ALERTES */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -728,44 +796,41 @@ const DashboardPage: React.FC = () => {
             Alertes & actions requises
           </h3>
           <span className="text-xs px-2 py-1 bg-orange-50 text-orange-600 rounded-full font-bold">
-            {alertes.length} éléments
+            {alertes.length} élément(s)
           </span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {alertes.map((alerte, index) => {
-            const colors =
-              {
-                warning: {
-                  bg: 'bg-orange-50',
-                  text: 'text-orange-700',
-                  icon: 'text-orange-500',
-                  border: 'border-orange-100',
-                },
-                danger: {
-                  bg: 'bg-red-50',
-                  text: 'text-red-700',
-                  icon: 'text-red-500',
-                  border: 'border-red-100',
-                },
-                info: {
-                  bg: 'bg-blue-50',
-                  text: 'text-blue-700',
-                  icon: 'text-blue-500',
-                  border: 'border-blue-100',
-                },
-                success: {
-                  bg: 'bg-emerald-50',
-                  text: 'text-emerald-700',
-                  icon: 'text-emerald-500',
-                  border: 'border-emerald-100',
-                },
-              }[alerte.type] ||
-              {
-                bg: 'bg-gray-50',
-                text: 'text-gray-700',
-                icon: 'text-gray-500',
-                border: 'border-gray-100',
-              };
+            const colors = {
+              warning: {
+                bg: 'bg-orange-50',
+                text: 'text-orange-700',
+                icon: 'text-orange-500',
+                border: 'border-orange-100',
+                bar: 'bg-orange-400',
+              },
+              danger: {
+                bg: 'bg-red-50',
+                text: 'text-red-700',
+                icon: 'text-red-500',
+                border: 'border-red-100',
+                bar: 'bg-red-400',
+              },
+              info: {
+                bg: 'bg-blue-50',
+                text: 'text-blue-700',
+                icon: 'text-blue-500',
+                border: 'border-blue-100',
+                bar: 'bg-blue-400',
+              },
+              success: {
+                bg: 'bg-emerald-50',
+                text: 'text-emerald-700',
+                icon: 'text-emerald-500',
+                border: 'border-emerald-100',
+                bar: 'bg-emerald-400',
+              },
+            }[alerte.type];
 
             return (
               <motion.div
@@ -778,17 +843,7 @@ const DashboardPage: React.FC = () => {
                   to={alerte.href}
                   className={`flex items-center gap-3 p-3 rounded-xl border ${colors.border} ${colors.bg} hover:shadow-sm transition-all group`}
                 >
-                  <div
-                    className={`w-2 h-10 rounded-full ${
-                      alerte.type === 'warning'
-                        ? 'bg-orange-400'
-                        : alerte.type === 'danger'
-                        ? 'bg-red-400'
-                        : alerte.type === 'info'
-                        ? 'bg-blue-400'
-                        : 'bg-emerald-400'
-                    }`}
-                  />
+                  <div className={`w-2 h-10 rounded-full ${colors.bar}`} />
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm font-semibold ${colors.text}`}>
                       {alerte.title}
@@ -807,42 +862,7 @@ const DashboardPage: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* ============================================
-          ACTIONS RAPIDES
-          ============================================ */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-gray-900">Actions rapides</h2>
-          <span className="text-xs text-gray-400">Raccourcis</span>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {quickActions.map((action, index) => (
-            <motion.div              key={action.title}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: index * 0.1 }}
-              whileHover={{ scale: 1.03, y: -2 }}
-              whileTap={{ scale: 0.97 }}
-            >
-              <Link
-                to={action.href}
-                className={`${action.bgColor} rounded-2xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 block`}
-              >
-                <action.icon className={`w-7 h-7 ${action.color} mb-2`} />
-                <p
-                  className={`text-sm font-semibold ${action.color} truncate`}
-                >
-                  {action.title}
-                </p>
-              </Link>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-
-      {/* ============================================
-          ACTIVITÉS + DERNIERS PAIEMENTS + ÉVÉNEMENTS
-          ============================================ */}
+      {/* ACTIVITÉS + À VENIR */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -852,39 +872,47 @@ const DashboardPage: React.FC = () => {
         >
           <div className="flex items-center justify-between mb-6">
             <h3 className="font-bold text-gray-900">Activités récentes</h3>
-            <button className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors">
+            <Link
+              to="/dashboard/inscriptions"
+              className="text-sm text-emerald-600 hover:text-emerald-700 font-medium transition-colors"
+            >
               Voir tout
-            </button>
+            </Link>
           </div>
-          <div className="space-y-4">
-            {recentActivities.map((activity, index) => (
-              <motion.div
-                key={activity.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.7 + index * 0.05 }}
-                className="flex items-start gap-4 p-3 hover:bg-gray-50 rounded-xl transition-colors group"
-              >
-                <div
-                  className={`p-2 rounded-xl bg-gray-100 ${activity.color}`}
+          {recentActivities.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-8">
+              Aucune activité récente
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {recentActivities.map((activity, index) => (
+                <motion.div
+                  key={activity.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.7 + index * 0.05 }}
+                  className="flex items-start gap-4 p-3 hover:bg-emerald-50/30 rounded-xl transition-colors group"
                 >
-                  <activity.icon className="w-5 h-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900">
-                    {activity.title}
-                  </p>
-                  <p className="text-sm text-gray-600 truncate">
-                    {activity.description}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">{activity.time}</p>
-                </div>
-                <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-400 hover:text-gray-600">
-                  <EllipsisVerticalIcon className="w-5 h-5" />
-                </button>
-              </motion.div>
-            ))}
-          </div>
+                  <div
+                    className={`p-2 rounded-xl bg-gray-100 ${activity.color}`}
+                  >
+                    <activity.icon className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900">
+                      {activity.title}
+                    </p>
+                    <p className="text-sm text-gray-600 truncate">
+                      {activity.description}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {activity.time}
+                    </p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
         </motion.div>
 
         <motion.div
@@ -894,58 +922,43 @@ const DashboardPage: React.FC = () => {
           className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100/50"
         >
           <div className="flex items-center justify-between mb-6">
-            <h3 className="font-bold text-gray-900">À venir</h3>
-            <span className="text-xs px-2 py-1 bg-blue-50 text-blue-600 rounded-full font-medium">
-              3 événements
+            <h3 className="font-bold text-gray-900">Prochaines échéances</h3>
+            <span className="text-xs px-2 py-1 bg-orange-50 text-orange-600 rounded-full font-medium">
+              {echeancesProches.length} cette semaine
             </span>
           </div>
-          <div className="space-y-4">
-            {upcomingEvents.map((event, index) => (
-              <motion.div
-                key={event.title}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.8 + index * 0.1 }}
-                className="flex items-start gap-3 p-3 border border-gray-100 rounded-xl hover:bg-gray-50 transition-colors"
-              >
-                <div
-                  className={`w-2 h-12 ${event.color} rounded-full flex-shrink-0`}
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900">
-                    {event.title}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-0.5">{event.date}</p>
-                  <span className="inline-block mt-1.5 px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">
-                    {event.type}
-                  </span>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.9 }}
-            className="mt-6 p-4 bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl border border-blue-100/50"
-          >
-            <div className="flex items-start gap-3">
-              <SparklesIcon className="w-5 h-5 text-blue-500 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-gray-900">
-                  "L'éducation est l'arme la plus puissante pour changer le
-                  monde."
-                </p>
-                <p className="text-xs text-gray-500 mt-1">— Nelson Mandela</p>
-              </div>
+          {echeancesProches.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-8">
+              Aucune échéance cette semaine
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {echeancesProches.slice(0, 5).map((ech, index) => (
+                <motion.div
+                  key={ech.id}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.8 + index * 0.05 }}
+                  className="flex items-start gap-3 p-3 border border-orange-100 bg-orange-50/30 rounded-xl hover:bg-orange-50 transition-colors"
+                >
+                  <div className="w-2 h-12 bg-orange-400 rounded-full flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {ech.nom}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {formatMoney(ech.montant, devise)} —{' '}
+                      {formatDateShort(ech.dateLimite)}
+                    </p>
+                  </div>
+                </motion.div>
+              ))}
             </div>
-          </motion.div>
+          )}
         </motion.div>
       </div>
 
-      {/* ============================================
-          DERNIERS PAIEMENTS (tableau)
-          ============================================ */}
+      {/* DERNIERS PAIEMENTS */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -961,101 +974,104 @@ const DashboardPage: React.FC = () => {
           </div>
           <Link
             to="/dashboard/paiements"
-            className="text-sm text-blue-600 font-medium hover:underline"
+            className="text-sm text-emerald-600 font-medium hover:underline"
           >
             Voir tous les paiements
           </Link>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Référence
-                </th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Élève
-                </th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Classe
-                </th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Moyen
-                </th>
-                <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Montant
-                </th>
-                <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {derniersPaiements.map((p) => (
-                <tr key={p.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 text-sm font-mono text-gray-600">
-                    {p.id}
-                  </td>
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    {p.eleve}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    {p.classe}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="inline-block px-2 py-1 text-xs font-medium bg-blue-50 text-blue-600 rounded-full">
-                      {p.moyen}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm font-bold text-emerald-600 text-right">
-                    {p.montant.toLocaleString('fr-FR')} FCFA
-                  </td>
-                  <td className="px-6 py-4 text-xs text-gray-400 text-right">
-                    {p.date}
-                  </td>
+        {derniersPaiements.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-8">
+            Aucun paiement enregistré
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Référence
+                  </th>
+                  <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Élève
+                  </th>
+                  <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Moyen
+                  </th>
+                  <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Montant
+                  </th>
+                  <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Date
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {derniersPaiements.map((p) => (
+                  <tr
+                    key={p.id}
+                    className="hover:bg-gray-50 transition-colors"
+                  >
+                    <td className="px-6 py-4 text-sm font-mono text-gray-600">
+                      {p.reference}
+                    </td>
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                      {(p as any).eleve
+                        ? `${(p as any).eleve.prenom} ${(p as any).eleve.nom}`
+                        : '—'}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="inline-block px-2 py-1 text-xs font-medium bg-blue-50 text-blue-600 rounded-full">
+                        {p.moyen.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm font-bold text-emerald-600 text-right">
+                      {formatMoney(p.montant, devise)}
+                    </td>
+                    <td className="px-6 py-4 text-xs text-gray-400 text-right">
+                      {formatDateShort(p.datePaiement)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </motion.div>
 
-      {/* ============================================
-          RACCOURCIS DIRECTEUR
-          ============================================ */}
+      {/* RACCOURCIS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           {
             title: 'Mon établissement',
             desc: 'Infos & configuration',
             icon: BuildingOfficeIcon,
-            color: 'text-blue-600',
-            bg: 'bg-blue-50',
+            color: 'text-emerald-600',
+            bg: 'bg-emerald-50',
             href: '/dashboard/mon-etablissement',
           },
           {
             title: 'Paie du personnel',
-            desc: '8 bulletins à valider',
+            desc: 'Bulletins & salaires',
             icon: BanknotesIcon,
             color: 'text-purple-600',
             bg: 'bg-purple-50',
             href: '/dashboard/paie',
           },
           {
-            title: 'Réductions',
-            desc: '3 demandes en attente',
+            title: 'Échéances',
+            desc: `${echeancesProches.length} à venir`,
             icon: ReceiptPercentIcon,
-            color: 'text-emerald-600',
-            bg: 'bg-emerald-50',
-            href: '/dashboard/reductions',
-          },
-          {
-            title: 'Paramètres',
-            desc: 'Système & préférences',
-            icon: ChartBarIcon,
             color: 'text-orange-600',
             bg: 'bg-orange-50',
-            href: '/dashboard/parametres',
+            href: '/dashboard/echeances',
+          },
+          {
+            title: 'Statistiques',
+            desc: 'Analyses détaillées',
+            icon: ChartBarIcon,
+            color: 'text-blue-600',
+            bg: 'bg-blue-50',
+            href: '/dashboard/statistiques',
           },
         ].map((item, index) => (
           <motion.div
@@ -1072,7 +1088,7 @@ const DashboardPage: React.FC = () => {
               <div className={`inline-flex p-2 rounded-xl ${item.bg} mb-3`}>
                 <item.icon className={`w-5 h-5 ${item.color}`} />
               </div>
-              <p className="text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+              <p className="text-sm font-semibold text-gray-900 group-hover:text-emerald-600 transition-colors">
                 {item.title}
               </p>
               <p className="text-xs text-gray-500 mt-1">{item.desc}</p>
@@ -1081,15 +1097,13 @@ const DashboardPage: React.FC = () => {
         ))}
       </div>
 
-      {/* ============================================
-          PIED DE PAGE
-          ============================================ */}
-      <footer className="text-center text-xs text-gray-400 py-6 border-t border-gray-200">
-        <p>© 2024 EduManage. Tous droits réservés.</p>
-        <p className="mt-1">
-          Version 1.0.0 • {new Date().getFullYear()} • Made with ❤️
-        </p>
-      </footer>
+      {/* Loading global overlay */}
+      {isLoading && (
+        <div className="fixed bottom-6 right-6 bg-emerald-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 text-sm font-medium z-50">
+          <ArrowPathIcon className="w-4 h-4 animate-spin" />
+          Chargement des données…
+        </div>
+      )}
     </div>
   );
 };
