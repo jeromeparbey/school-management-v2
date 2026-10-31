@@ -1,16 +1,16 @@
 // backend/src/modules/import/export.service.ts
 
 import ExcelJS from 'exceljs';
-import { getTenantClient } from '../../config/tenant-db';
-import { AppError } from '../../utils/AppError';
+import { getTenantClient } from '../../config/tenant-db.js';
+import { AppError } from '../../utils/AppError.js';
 import {
   IMPORT_HEADERS,
   HEADER_DESCRIPTIONS,
-} from '../import/import.excel.template';
+} from '../import/import.excel.template.js';
 import type {
   ExportElevesOptions,
   ExportFormat,
-} from './export.types';
+} from './export.types.js';
 
 // ═══════════════════════════════════════════════════════════
 // TYPES INTERNES

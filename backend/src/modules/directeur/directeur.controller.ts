@@ -1,10 +1,10 @@
 // backend/src/modules/directeur/directeur.controller.ts
 
 import { Request, Response, NextFunction } from 'express';
-import { directeurService } from './directeur.service';
-import { AppError } from '../../utils/AppError';
-import { globalPrisma } from '../../config/global-db';
-import { getTenantClient } from '../../config/tenant-db';
+import { directeurService } from './directeur.service.js';
+import { AppError } from '../../utils/AppError.js';
+import { globalPrisma } from '../../config/global-db.js';
+import { getTenantClient } from '../../config/tenant-db.js';
 
 // ============================================================
 // HELPERS

@@ -1,6 +1,6 @@
 // backend/src/server.ts
 
-import "dotenv/config";
+import "dotenv/config.js";
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -17,24 +17,22 @@ import { Server as SocketIOServer } from "socket.io";
 import jwt from "jsonwebtoken";
 
 // Configurations
-import { connectDB, prisma } from "./config/db";
-
-import "./config/passport";
-
+import { connectDB, prisma } from "./config/db.js";
+import "./config/passport.js";
 
 // Middlewares
-import { errorHandler } from "./middleware/errorHandler";
-import { authMiddleware } from "./middleware/auth";
-import { rbacMiddleware } from "./middleware/rbac";
-import { auditMiddleware } from "./middleware/audit";
+import { errorHandler } from "./middleware/errorHandler.js";
+import { authMiddleware } from "./middleware/auth.js";
+import { rbacMiddleware } from "./middleware/rbac.js";
+import { auditMiddleware } from "./middleware/audit.js";
 
 // ============================================
-// ESM __dirname polyfill
+// ESM `${process.platform === 'win32' ? '' : '/'}${/file:\/{2,3}(.+)\/[^/]/.exec(import.meta.url)![1]}` polyfill
 // ============================================
 const currentFilename =
-  typeof __filename !== "undefined" ? __filename : fileURLToPath(import.meta.url);
+  typeof `${process.platform === 'win32' ? '' : '/'}${/file:\/{2,3}(.+)/.exec(import.meta.url)![1]}` !== "undefined" ? `${process.platform === 'win32' ? '' : '/'}${/file:\/{2,3}(.+)/.exec(import.meta.url)![1]}` : fileURLToPath(import.meta.url);
 const currentDirname =
-  typeof __dirname !== "undefined" ? __dirname : path.dirname(currentFilename);
+  typeof `${process.platform === 'win32' ? '' : '/'}${/file:\/{2,3}(.+)\/[^/]/.exec(import.meta.url)![1]}` !== "undefined" ? `${process.platform === 'win32' ? '' : '/'}${/file:\/{2,3}(.+)\/[^/]/.exec(import.meta.url)![1]}` : path.dirname(currentFilename);
 
 // ============================================
 // CONFIGURATION
@@ -105,7 +103,7 @@ async function fetchUserRole(
 ): Promise<string | null> {
   // ── Scope GLOBAL : catalogue (SUPER_ADMIN, ADMIN_SYSTEME)
   if (payload.scope === "GLOBAL") {
-    const { globalPrisma } = await import("./config/global-db");
+    const { globalPrisma } = await import("./config/global-db.js");
     const user = await globalPrisma.utilisateurGlobal.findUnique({
       where: { id: payload.userId },
       select: { role: true },
@@ -115,7 +113,7 @@ async function fetchUserRole(
 
   // ── Scope TENANT : établissement
   if (payload.scope === "TENANT" && payload.schemaName) {
-    const { getTenantClient } = await import("./config/tenant-db");
+    const { getTenantClient } = await import("./config/tenant-db.js");
     const tenantClient = await getTenantClient(payload.schemaName);
     if (!tenantClient) return null;
 

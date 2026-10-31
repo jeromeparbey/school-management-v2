@@ -1,13 +1,13 @@
 // backend/src/modules/inscription/inscription.service.ts
 
-import { getTenantClient } from '../../config/tenant-db';
-import { AppError } from '../../utils/AppError';
+import { getTenantClient } from '../../config/tenant-db.js';
+import { AppError } from '../../utils/AppError.js';
 import type {
   CreateInscriptionInput,
   UpdateInscriptionInput,
   ListInscriptionsQuery,
   InscrireEtPayerInput,
-} from './inscription.validation';
+} from './inscription.validation.js';
 
 export interface InscriptionContext {
   schemaName: string;

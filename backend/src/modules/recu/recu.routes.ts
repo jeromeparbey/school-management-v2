@@ -2,13 +2,13 @@
 
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { recuController } from './recu.controller';
-import { validateRequest } from '../../middleware/validateRequest';
+import { recuController } from './recu.controller.js';
+import { validateRequest } from '../../middleware/validateRequest.js';
 import {
   genererRecuSchema,
   recuIdSchema,
   listRecusSchema,
-} from './recu.validation';
+} from './recu.validation.js';
 
 const router = Router();
 

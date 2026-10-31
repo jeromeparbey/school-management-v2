@@ -1,5 +1,5 @@
 // src/services/provisioning.service.ts
-import { globalPrisma } from '../config/global-db';
+import { globalPrisma } from '../config/global-db.js';
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
@@ -240,7 +240,7 @@ export class ProvisioningService {
   private async seedTenant(schemaName: string): Promise<void> {
     console.log(`   🌱 Seed initial du tenant...`);
 
-    const { getTenantClient } = await import('../config/tenant-db');
+    const { getTenantClient } = await import('../config/tenant-db.js');
     const client = await getTenantClient(schemaName);
 
     // Niveaux par défaut

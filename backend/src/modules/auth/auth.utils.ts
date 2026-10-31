@@ -4,8 +4,8 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import type { Utilisateur, RoleUtilisateur } from '@prisma/client';
-import type { UserResponse, TokensResponse } from './auth.types';
-import type { UserScope } from '../../types/express';
+import type { UserResponse, TokensResponse } from './auth.types.js';
+import type { UserScope } from '../../types/express.js';
 
 // ============================================
 // TYPES INTERNES

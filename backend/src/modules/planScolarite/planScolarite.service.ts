@@ -1,12 +1,12 @@
 // backend/src/modules/planScolarite/planScolarite.service.ts
 
-import { getTenantClient } from '../../config/tenant-db';
-import { AppError } from '../../utils/AppError';
+import { getTenantClient } from '../../config/tenant-db.js';
+import { AppError } from '../../utils/AppError.js';
 import type {
   CreatePlanScolariteInput,
   UpdatePlanScolariteInput,
   ListPlansScolariteQuery,
-} from './planScolarite.validation';
+} from './planScolarite.validation.js';
 
 export interface PlanScolariteContext {
   schemaName: string;

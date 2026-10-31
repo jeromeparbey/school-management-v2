@@ -1,12 +1,12 @@
 // backend/src/modules/niveau/niveau.service.ts
 
-import { getTenantClient } from '../../config/tenant-db';
-import { AppError } from '../../utils/AppError';
+import { getTenantClient } from '../../config/tenant-db.js';
+import { AppError } from '../../utils/AppError.js';
 import type {
   CreateNiveauInput,
   UpdateNiveauInput,
   ListNiveauxQuery,
-} from './niveau.validation';
+} from './niveau.validation.js';
 
 // ──────────────────────────────────────────
 // Types

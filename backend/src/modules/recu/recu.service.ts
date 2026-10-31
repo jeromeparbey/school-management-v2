@@ -1,12 +1,12 @@
 // backend/src/modules/recu/recu.service.ts
 
-import { getTenantClient } from '../../config/tenant-db';
-import { AppError } from '../../utils/AppError';
+import { getTenantClient } from '../../config/tenant-db.js';
+import { AppError } from '../../utils/AppError.js';
 import crypto from 'crypto';
 import type {
   GenererRecuInput,
   ListRecusQuery,
-} from './recu.validation';
+} from './recu.validation.js';
 
 export interface RecuContext {
   schemaName: string;
@@ -425,7 +425,7 @@ export class RecuService {
     }
 
     // 2. Établissement
-    const { globalPrisma } = await import('../../config/global-db');
+    const { globalPrisma } = await import('../../config/global-db.js');
     const etablissement = await globalPrisma.etablissement.findUnique({
       where: { id: ctx.etablissementId },
       select: {

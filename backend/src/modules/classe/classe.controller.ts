@@ -1,8 +1,8 @@
 // backend/src/modules/classe/classe.controller.ts
 
 import { Request, Response, NextFunction } from 'express';
-import { classeService } from './classe.service';
-import { AppError } from '../../utils/AppError';
+import { classeService } from './classe.service.js';
+import { AppError } from '../../utils/AppError.js';
 
 // ──────────────────────────────────────────
 // Helpers (identiques au pattern utilisateur)

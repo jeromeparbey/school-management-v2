@@ -1,12 +1,12 @@
 // backend/src/modules/import/import.service.ts
 
-import { getTenantClient } from '../../config/tenant-db';
-import { AppError } from '../../utils/AppError';
+import { getTenantClient } from '../../config/tenant-db.js';
+import { AppError } from '../../utils/AppError.js';
 import type {
   EleveImportRow,
   ImportResult,
-} from './import.types';
-import type { ImportElevesInput } from './import.validation';
+} from './import.types.js';
+import type { ImportElevesInput } from './import.validation.js';
 
 // ═══════════════════════════════════════════════════════════
 // TYPES INTERNES

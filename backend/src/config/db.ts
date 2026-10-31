@@ -4,16 +4,16 @@
 //   - `globalPrisma` (depuis `./global-db`) pour le catalogue
 //   - `getTenantClient(schemaName)` (depuis `./tenant-db`) pour les données d'une école
 
-import 'dotenv/config';
+import 'dotenv/config.js';
 import {
   globalPrisma,
   connectGlobalDB,
   disconnectGlobalDB,
-} from './global-db';
+} from './global-db.js';
 import {
   getTenantClient,
   disconnectAllTenants,
-} from './tenant-db';
+} from './tenant-db.js';
 
 // ============================================
 // EXPORTS DE COMPATIBILITÉ

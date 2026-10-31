@@ -3,10 +3,10 @@
 import { Request, Response, NextFunction } from 'express';
 import fs from 'fs';
 import path from 'path';
-import { utilisateurService, UtilisateurContext } from './utilisateur.service';
-import { AppError } from '../../utils/AppError';
-import { AuthUtils } from '../auth/auth.utils';
-import { getTenantClient } from '../../config/tenant-db';
+import { utilisateurService, UtilisateurContext } from './utilisateur.service.js';
+import { AppError } from '../../utils/AppError.js';
+import { AuthUtils } from '../auth/auth.utils.js';
+import { getTenantClient } from '../../config/tenant-db.js';
 import type { RoleUtilisateur } from '@prisma/client';
 
 // ──────────────────────────────────────────

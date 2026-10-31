@@ -1,12 +1,12 @@
 // backend/src/modules/periode/periode.service.ts
 
-import { getTenantClient } from '../../config/tenant-db';
-import { AppError } from '../../utils/AppError';
+import { getTenantClient } from '../../config/tenant-db.js';
+import { AppError } from '../../utils/AppError.js';
 import type {
   CreatePeriodeInput,
   UpdatePeriodeInput,
   ListPeriodesQuery,
-} from './periode.validation';
+} from './periode.validation.js';
 
 export interface PeriodeContext {
   schemaName: string;

@@ -1,8 +1,8 @@
 // backend/src/modules/mon-etablissement/mon-etablissement.controller.ts
 
 import { Request, Response, NextFunction } from 'express';
-import { monEtablissementService } from './mon-etablissement.service';
-import { AppError } from '../../utils/AppError';
+import { monEtablissementService } from './mon-etablissement.service.js';
+import { AppError } from '../../utils/AppError.js';
 
 interface ApiSuccess<T = unknown> {
   status: number;

@@ -1,12 +1,12 @@
 // backend/src/modules/affectation/affectation.service.ts
 
-import { getTenantClient } from '../../config/tenant-db';
-import { AppError } from '../../utils/AppError';
+import { getTenantClient } from '../../config/tenant-db.js';
+import { AppError } from '../../utils/AppError.js';
 import type {
   CreateAffectationInput,
   UpdateAffectationInput,
   ListAffectationsQuery,
-} from './affectation.validation';
+} from './affectation.validation.js';
 
 export interface AffectationContext {
   schemaName: string;

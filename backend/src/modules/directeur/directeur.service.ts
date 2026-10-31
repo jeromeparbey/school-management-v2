@@ -1,9 +1,9 @@
 // backend/src/modules/directeur/directeur.service.ts
 
-import { AppError } from '../../utils/AppError';
-import { AuthUtils } from '../auth/auth.utils';
-import { getTenantClient } from '../../config/tenant-db';
-import { globalPrisma } from '../../config/global-db';
+import { AppError } from '../../utils/AppError.js';
+import { AuthUtils } from '../auth/auth.utils.js';
+import { getTenantClient } from '../../config/tenant-db.js';
+import { globalPrisma } from '../../config/global-db.js';
 
 /**
  * ⚠️ Service multi-tenant.

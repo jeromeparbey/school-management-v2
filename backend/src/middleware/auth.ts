@@ -2,10 +2,10 @@
 
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { globalPrisma } from '../config/global-db';
-import { getTenantClient } from '../config/tenant-db';
-import { AuthUtils } from '../modules/auth/auth.utils';
-import type { UserScope } from '../types/express';
+import { globalPrisma } from '../config/global-db.js';
+import { getTenantClient } from '../config/tenant-db.js';
+import { AuthUtils } from '../modules/auth/auth.utils.js';
+import type { UserScope } from '../types/express.js';
 
 // ============================================
 // HELPERS

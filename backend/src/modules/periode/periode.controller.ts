@@ -1,8 +1,8 @@
 // backend/src/modules/periode/periode.controller.ts
 
 import { Request, Response, NextFunction } from 'express';
-import { periodeService } from './periode.service';
-import { AppError } from '../../utils/AppError';
+import { periodeService } from './periode.service.js';
+import { AppError } from '../../utils/AppError.js';
 
 interface Ctx {
   schemaName: string;

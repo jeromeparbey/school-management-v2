@@ -2,14 +2,14 @@
 
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { periodeController } from './periode.controller';
-import { validateRequest } from '../../middleware/validateRequest';
+import { periodeController } from './periode.controller.js';
+import { validateRequest } from '../../middleware/validateRequest.js';
 import {
   createPeriodeSchema,
   updatePeriodeSchema,
   periodeIdSchema,
   listPeriodesSchema,
-} from './periode.validation';
+} from './periode.validation.js';
 
 const router = Router();
 

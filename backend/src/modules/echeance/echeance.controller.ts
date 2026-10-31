@@ -1,8 +1,8 @@
 // backend/src/modules/echeance/echeance.controller.ts
 
 import { Request, Response, NextFunction } from 'express';
-import { echeanceService } from './echeance.service';
-import { AppError } from '../../utils/AppError';
+import { echeanceService } from './echeance.service.js';
+import { AppError } from '../../utils/AppError.js';
 
 interface Ctx {
   schemaName: string;

@@ -1,8 +1,8 @@
 // backend/src/modules/enseignant/enseignant.controller.ts
 
 import { Request, Response, NextFunction } from 'express';
-import { enseignantService } from './enseignant.service';
-import { AppError } from '../../utils/AppError';
+import { enseignantService } from './enseignant.service.js';
+import { AppError } from '../../utils/AppError.js';
 
 interface Ctx {
   schemaName: string;

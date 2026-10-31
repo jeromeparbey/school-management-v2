@@ -1,8 +1,8 @@
 // backend/src/modules/emploiTemps/emploiTemps.controller.ts
 
 import { Request, Response, NextFunction } from 'express';
-import { emploiTempsService } from './emploiTemps.service';
-import { AppError } from '../../utils/AppError';
+import { emploiTempsService } from './emploiTemps.service.js';
+import { AppError } from '../../utils/AppError.js';
 
 interface Ctx {
   schemaName: string;

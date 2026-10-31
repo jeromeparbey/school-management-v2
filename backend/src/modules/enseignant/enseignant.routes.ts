@@ -2,15 +2,15 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import rateLimit from 'express-rate-limit';
-import { enseignantController } from './enseignant.controller';
-import { validateRequest } from '../../middleware/validateRequest';
-import { AppError } from '../../utils/AppError';
+import { enseignantController } from './enseignant.controller.js';
+import { validateRequest } from '../../middleware/validateRequest.js';
+import { AppError } from '../../utils/AppError.js';
 import {
   createEnseignantSchema,
   updateEnseignantSchema,
   enseignantIdSchema,
   listEnseignantsSchema,
-} from './enseignant.validation';
+} from './enseignant.validation.js';
 
 const router = Router();
 

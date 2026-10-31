@@ -1,12 +1,12 @@
 // backend/src/modules/matiere/matiere.service.ts
 
-import { getTenantClient } from '../../config/tenant-db';
-import { AppError } from '../../utils/AppError';
+import { getTenantClient } from '../../config/tenant-db.js';
+import { AppError } from '../../utils/AppError.js';
 import type {
   CreateMatiereInput,
   UpdateMatiereInput,
   ListMatieresQuery,
-} from './matiere.validation';
+} from './matiere.validation.js';
 
 export interface MatiereContext {
   schemaName: string;

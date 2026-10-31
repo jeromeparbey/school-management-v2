@@ -2,15 +2,15 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import rateLimit from 'express-rate-limit';
-import { affectationController } from './affectation.controller';
-import { validateRequest } from '../../middleware/validateRequest';
-import { AppError } from '../../utils/AppError';
+import { affectationController } from './affectation.controller.js';
+import { validateRequest } from '../../middleware/validateRequest.js';
+import { AppError } from '../../utils/AppError.js';
 import {
   createAffectationSchema,
   updateAffectationSchema,
   affectationIdSchema,
   listAffectationsSchema,
-} from './affectation.validation';
+} from './affectation.validation.js';
 
 const router = Router();
 

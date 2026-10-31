@@ -1,9 +1,9 @@
 // backend/src/modules/import/import.controller.ts
 
 import { Request, Response, NextFunction } from 'express';
-import { importService } from './import.service';
-import { getImportTemplateCsv } from './import.excel.template';
-import { AppError } from '../../utils/AppError';
+import { importService } from './import.service.js';
+import { getImportTemplateCsv } from './import.excel.template.js';
+import { AppError } from '../../utils/AppError.js';
 
 function requireAuthContext(req: Request) {
   const schemaName = req.user?.schemaName;

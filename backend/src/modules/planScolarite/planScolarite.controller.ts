@@ -1,8 +1,8 @@
 // backend/src/modules/planScolarite/planScolarite.controller.ts
 
 import { Request, Response, NextFunction } from 'express';
-import { planScolariteService } from './planScolarite.service';
-import { AppError } from '../../utils/AppError';
+import { planScolariteService } from './planScolarite.service.js';
+import { AppError } from '../../utils/AppError.js';
 
 interface Ctx {
   schemaName: string;

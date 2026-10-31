@@ -1,13 +1,13 @@
 // backend/src/modules/paiement/paiement.service.ts
 
-import { getTenantClient } from '../../config/tenant-db';
-import { AppError } from '../../utils/AppError';
+import { getTenantClient } from '../../config/tenant-db.js';
+import { AppError } from '../../utils/AppError.js';
 import type {
   CreatePaiementInput,
   UpdatePaiementInput,
   AnnulerPaiementInput,
   ListPaiementsQuery,
-} from './paiement.validation';
+} from './paiement.validation.js';
 
 export interface PaiementContext {
   schemaName: string;

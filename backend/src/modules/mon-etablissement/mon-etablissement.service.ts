@@ -1,8 +1,8 @@
 // backend/src/modules/mon-etablissement/mon-etablissement.service.ts
 
-import { globalPrisma } from '../../config/global-db';
-import { Prisma } from '../../../prisma/generated/global-client';
-import { AppError } from '../../utils/AppError';
+import { globalPrisma } from '../../config/global-db.js';
+import { Prisma } from '../../../prisma/generated/global-client/index.js';
+import { AppError } from '../../utils/AppError.js';
 
 export const monEtablissementService = {
   // ─────────────────────────────────────────────────────

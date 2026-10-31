@@ -1,8 +1,8 @@
 // backend/src/modules/catalogue/etablissement/etablissement.controller.ts
 
 import { Request, Response, NextFunction } from 'express';
-import { etablissementService } from './etablissement.service';
-import { AppError } from '../../utils/AppError';
+import { etablissementService } from './etablissement.service.js';
+import { AppError } from '../../utils/AppError.js';
 
 /**
  * Helper : garantit qu'un paramètre de route est bien une string unique.

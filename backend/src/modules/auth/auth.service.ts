@@ -1,11 +1,11 @@
 // backend/src/modules/auth/auth.service.ts
 
-import { authRepository, AuthRepository } from './auth.repository';
+import { authRepository, AuthRepository } from './auth.repository.js';
 import type {
   CreateEleveInput,
   CreateSurveillantInput,
-} from './auth.repository';
-import { AuthUtils } from './auth.utils';
+} from './auth.repository.js';
+import { AuthUtils } from './auth.utils.js';
 import type {
   IOtpStore,
   IResetTokenStore,
@@ -13,10 +13,10 @@ import type {
   RegisterRequest,
   UserResponse,
   TokensResponse,
-} from './auth.types';
-import { AppError } from '../../utils/AppError';
-import { EmailService } from '../../services/email.service';
-import { globalPrisma } from '../../config/global-db';
+} from './auth.types.js';
+import { AppError } from '../../utils/AppError.js';
+import { EmailService } from '../../services/email.service.js';
+import { globalPrisma } from '../../config/global-db.js';
 
 // ============================================
 // INITIALISATION DES STORES GLOBAUX

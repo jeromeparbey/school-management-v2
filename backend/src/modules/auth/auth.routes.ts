@@ -2,9 +2,9 @@
 
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { authController } from './auth.controller';
-import { authMiddleware } from '../../middleware/auth';
-import { validateRequest } from '../../middleware/validateRequest';
+import { authController } from './auth.controller.js';
+import { authMiddleware } from '../../middleware/auth.js';
+import { validateRequest } from '../../middleware/validateRequest.js';
 import {
   loginSchema,
   registerSchema,
@@ -21,7 +21,7 @@ import {
   loginEleveSchema,
   loginSurveillantSchema,
   verifyResetOtpSchema,   // ⭐ AJOUT
-} from './auth.validation';
+} from './auth.validation.js';
 
 const router = Router();
 

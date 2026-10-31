@@ -2,7 +2,7 @@
 
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { exportController } from './export.controller';
+import { exportController } from './export.controller.js';
 
 const router = Router();
 

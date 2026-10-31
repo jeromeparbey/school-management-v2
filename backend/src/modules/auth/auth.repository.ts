@@ -1,6 +1,6 @@
 // backend/src/modules/auth/auth.repository.ts
 
-import { getTenantClient } from '../../config/tenant-db';
+import { getTenantClient } from '../../config/tenant-db.js';
 import type {
   RoleUtilisateur,
   // ⚠️ Les types viennent du client GLOBAL du tenant

@@ -1,17 +1,23 @@
 // src/middleware/errorHandler.ts
 import { Request, Response, NextFunction } from 'express';
 
-export const errorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
+export const errorHandler = (
+  err: any,
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void => {
   console.error('🔥 Erreur:', err);
 
   // Erreurs de validation
   if (err.name === 'ValidationError') {
-    return res.status(400).json({
+    res.status(400).json({
       status: 400,
       message: 'Erreur de validation',
       errors: err.errors,
       timestamp: new Date().toISOString(),
     });
+    return;
   }
 
   // Erreurs Prisma
@@ -25,22 +31,24 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
 
     const prismaError = prismaErrors[err.code];
     if (prismaError) {
-      return res.status(prismaError.status).json({
+      res.status(prismaError.status).json({
         status: prismaError.status,
         message: prismaError.message,
         code: err.code,
         timestamp: new Date().toISOString(),
       });
+      return;
     }
   }
 
   // Erreur JWT
   if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
-    return res.status(401).json({
+    res.status(401).json({
       status: 401,
       message: 'Token invalide ou expiré',
       timestamp: new Date().toISOString(),
     });
+    return;
   }
 
   // Erreur par défaut

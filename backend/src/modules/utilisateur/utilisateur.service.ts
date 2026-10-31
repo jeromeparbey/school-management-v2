@@ -1,13 +1,13 @@
 // backend/src/modules/utilisateur/utilisateur.service.ts
 
-import { getTenantClient } from '../../config/tenant-db';
-import { AppError } from '../../utils/AppError';
-import { AuthUtils } from '../auth/auth.utils';
+import { getTenantClient } from '../../config/tenant-db.js';
+import { AppError } from '../../utils/AppError.js';
+import { AuthUtils } from '../auth/auth.utils.js';
 import type {
   CreateUtilisateurInput,
   UpdateUtilisateurInput,
   ListUtilisateursQuery,
-} from './utilisateur.types';
+} from './utilisateur.types.js';
 
 // Contexte tenant (identique à AuthContext)
 export interface UtilisateurContext {

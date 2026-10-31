@@ -2,9 +2,9 @@
 
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { importController } from './import.controller';
-import { validateRequest } from '../../middleware/validateRequest';
-import { importElevesSchema } from './import.validation';
+import { importController } from './import.controller.js';
+import { validateRequest } from '../../middleware/validateRequest.js';
+import { importElevesSchema } from './import.validation.js';
 
 const router = Router();
 

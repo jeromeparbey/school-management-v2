@@ -1,12 +1,12 @@
 // backend/src/modules/echeance/echeance.service.ts
 
-import { getTenantClient } from '../../config/tenant-db';
-import { AppError } from '../../utils/AppError';
+import { getTenantClient } from '../../config/tenant-db.js';
+import { AppError } from '../../utils/AppError.js';
 import type {
   CreateEcheanceInput,
   UpdateEcheanceInput,
   ListEcheancesQuery,
-} from './echeance.validation';
+} from './echeance.validation.js';
 
 export interface EcheanceContext {
   schemaName: string;

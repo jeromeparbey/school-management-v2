@@ -1,11 +1,11 @@
 // backend/src/modules/catalogue/etablissement/etablissement.service.ts
 
-import { globalPrisma } from '../../config/global-db';
-import { Prisma } from '../../../prisma/generated/global-client';
-import { AppError } from '../../utils/AppError';
-import { provisioningService } from '../../services/provisioning.service';
-import { AuthUtils } from '../auth/auth.utils';
-import { getTenantClient } from '../../config/tenant-db';
+import { globalPrisma } from '../../config/global-db.js';
+import { Prisma } from '../../../prisma/generated/global-client/index.js';
+import { AppError } from '../../utils/AppError.js';
+import { provisioningService } from '../../services/provisioning.service.js';
+import { AuthUtils } from '../auth/auth.utils.js';
+import { getTenantClient } from '../../config/tenant-db.js';
 
 export const etablissementService = {
   // ─────────────────────────────────────────────────────
@@ -443,7 +443,7 @@ export const etablissementService = {
     }
   },
 
-  // ─────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────
   // STATS
   // ─────────────────────────────────────────────────────
   async stats() {
@@ -454,14 +454,17 @@ export const etablissementService = {
         globalPrisma.etablissement.groupBy({
           by: ['planAbonnement'],
           _count: { _all: true },
+          orderBy: { planAbonnement: 'asc' },
         }),
         globalPrisma.etablissement.groupBy({
           by: ['type'],
           _count: { _all: true },
+          orderBy: { type: 'asc' },
         }),
         globalPrisma.etablissement.groupBy({
           by: ['statutProvisionnement'],
           _count: { _all: true },
+          orderBy: { statutProvisionnement: 'asc' },
         }),
       ]);
 

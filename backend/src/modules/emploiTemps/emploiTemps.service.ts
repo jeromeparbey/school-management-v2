@@ -1,13 +1,13 @@
 // backend/src/modules/emploiTemps/emploiTemps.service.ts
 
-import { getTenantClient } from '../../config/tenant-db';
-import { AppError } from '../../utils/AppError';
+import { getTenantClient } from '../../config/tenant-db.js';
+import { AppError } from '../../utils/AppError.js';
 import type {
   CreateEmploiTempsInput,
   UpdateEmploiTempsInput,
   CheckConflitsInput,
   ListEmploisTempsQuery,
-} from './emploiTemps.validation';
+} from './emploiTemps.validation.js';
 
 // ═══════════════════════════════════════════════════════════
 // TYPES

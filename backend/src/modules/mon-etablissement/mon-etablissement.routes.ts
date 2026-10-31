@@ -1,11 +1,11 @@
 // backend/src/modules/mon-etablissement/mon-etablissement.routes.ts
 
 import { Router } from 'express';
-import { monEtablissementController } from './mon-etablissement.controller';
-import { validateRequest } from '../../middleware/validateRequest';
+import { monEtablissementController } from './mon-etablissement.controller.js';
+import { validateRequest } from '../../middleware/validateRequest.js';
 import {
   updateMonEtablissementSchema,
-} from './mon-etablissement.validation';
+} from './mon-etablissement.validation.js';
 
 // ⚠️ Le loader dynamique (server.ts) applique :
 //   - authMiddleware (authentification)

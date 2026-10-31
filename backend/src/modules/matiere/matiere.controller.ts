@@ -1,8 +1,8 @@
 // backend/src/modules/matiere/matiere.controller.ts
 
 import { Request, Response, NextFunction } from 'express';
-import { matiereService } from './matiere.service';
-import { AppError } from '../../utils/AppError';
+import { matiereService } from './matiere.service.js';
+import { AppError } from '../../utils/AppError.js';
 
 // ══════════════════════════════════════════
 // TYPES & HELPERS

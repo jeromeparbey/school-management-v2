@@ -2,14 +2,14 @@
 
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { classeController } from './classe.controller';
-import { validateRequest } from '../../middleware/validateRequest';
+import { classeController } from './classe.controller.js';
+import { validateRequest } from '../../middleware/validateRequest.js';
 import {
   createClasseSchema,
   updateClasseSchema,
   classeIdSchema,
   listClassesSchema,
-} from './classe.validation';
+} from './classe.validation.js';
 
 const router = Router();
 

@@ -2,15 +2,15 @@
 
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { echeanceController } from './echeance.controller';
-import { validateRequest } from '../../middleware/validateRequest';
+import { echeanceController } from './echeance.controller.js';
+import { validateRequest } from '../../middleware/validateRequest.js';
 import {
   createEcheanceSchema,
   updateEcheanceSchema,
   echeanceIdSchema,
   listEcheancesSchema,
   listElevesEcheanceSchema, // 🆕
-} from './echeance.validation';
+} from './echeance.validation.js';
 
 const router = Router();
 

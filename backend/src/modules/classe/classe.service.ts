@@ -1,12 +1,12 @@
 // backend/src/modules/classe/classe.service.ts
 
-import { getTenantClient } from '../../config/tenant-db';
-import { AppError } from '../../utils/AppError';
+import { getTenantClient } from '../../config/tenant-db.js';
+import { AppError } from '../../utils/AppError.js';
 import type {
   CreateClasseInput,
   UpdateClasseInput,
   ListClassesQuery,
-} from './classe.validation';
+} from './classe.validation.js';
 
 // ──────────────────────────────────────────
 // Types

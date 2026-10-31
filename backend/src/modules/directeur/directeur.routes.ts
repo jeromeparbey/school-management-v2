@@ -2,8 +2,8 @@
 
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { directeurController } from './directeur.controller';
-import { validateRequest } from '../../middleware/validateRequest';
+import { directeurController } from './directeur.controller.js';
+import { validateRequest } from '../../middleware/validateRequest.js';
 import {
   createDirecteurSchema,
   updateDirecteurSchema,
@@ -11,7 +11,7 @@ import {
   listDirecteursSchema,
   toggleDirecteurSchema,
   changeDirecteurPasswordSchema,
-} from './directeur.validation';
+} from './directeur.validation.js';
 
 const router = Router();
 

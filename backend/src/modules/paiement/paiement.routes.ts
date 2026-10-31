@@ -2,15 +2,15 @@
 
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { paiementController } from './paiement.controller';
-import { validateRequest } from '../../middleware/validateRequest';
+import { paiementController } from './paiement.controller.js';
+import { validateRequest } from '../../middleware/validateRequest.js';
 import {
   createPaiementSchema,
   updatePaiementSchema,
   annulerPaiementSchema,
   paiementIdSchema,
   listPaiementsSchema,
-} from './paiement.validation';
+} from './paiement.validation.js';
 
 const router = Router();
 

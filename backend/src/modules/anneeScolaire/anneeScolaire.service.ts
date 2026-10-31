@@ -1,12 +1,12 @@
 // backend/src/modules/anneeScolaire/anneeScolaire.service.ts
 
-import { getTenantClient } from '../../config/tenant-db';
-import { AppError } from '../../utils/AppError';
+import { getTenantClient } from '../../config/tenant-db.js';
+import { AppError } from '../../utils/AppError.js';
 import type {
   CreateAnneeScolaireInput,
   UpdateAnneeScolaireInput,
   ListAnneesScolairesQuery,
-} from './anneeScolaire.validation';
+} from './anneeScolaire.validation.js';
 
 export interface AnneeScolaireContext {
   schemaName: string;

@@ -1,13 +1,13 @@
 // backend/src/modules/eleve/eleve.service.ts
 
-import { getTenantClient } from '../../config/tenant-db';
-import { AppError } from '../../utils/AppError';
-import { compteService } from '../compte/compte.service';
+import { getTenantClient } from '../../config/tenant-db.js';
+import { AppError } from '../../utils/AppError.js';
+import { compteService } from '../compte/compte.service.js';
 import type {
   CreateEleveInput,
   UpdateEleveInput,
   ListElevesQuery,
-} from './eleve.validation';
+} from './eleve.validation.js';
 
 export interface EleveContext {
   schemaName: string;

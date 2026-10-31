@@ -1,5 +1,5 @@
 // src/config/tenant-db.ts
-import 'dotenv/config';
+import 'dotenv/config.js';
 import { PrismaPg } from '@prisma/adapter-pg';
 import path from 'path';
 import fs from 'fs';

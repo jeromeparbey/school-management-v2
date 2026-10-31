@@ -1,10 +1,10 @@
 // backend/src/modules/auth/auth.controller.ts
 
 import { Request, Response, NextFunction } from 'express';
-import { authService, AuthService, AuthContext } from './auth.service';
-import { AuthUtils } from './auth.utils';
-import { AppError } from '../../utils/AppError';
-import { globalPrisma } from '../../config/global-db';
+import { authService, AuthService, AuthContext } from './auth.service.js';
+import { AuthUtils } from './auth.utils.js';
+import { AppError } from '../../utils/AppError.js';
+import { globalPrisma } from '../../config/global-db.js';
 import type {
   LoginRequest,
   RegisterRequest,
@@ -13,7 +13,7 @@ import type {
   ForgotPasswordRequest,
   ResetPasswordRequest,
   ChangePasswordRequest,
-} from './auth.types';
+} from './auth.types.js';
 import type { RoleUtilisateur } from '@prisma/client';
 
 // ============================================

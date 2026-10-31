@@ -2,8 +2,8 @@
 
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { inscriptionController } from './inscription.controller';
-import { validateRequest } from '../../middleware/validateRequest';
+import { inscriptionController } from './inscription.controller.js';
+import { validateRequest } from '../../middleware/validateRequest.js';
 import {
   createInscriptionSchema,
   updateInscriptionSchema,
@@ -11,7 +11,7 @@ import {
   listInscriptionsSchema,
   inscrireEtPayerSchema,
   previewInscriptionSchema,
-} from './inscription.validation';
+} from './inscription.validation.js';
 
 const router = Router();
 

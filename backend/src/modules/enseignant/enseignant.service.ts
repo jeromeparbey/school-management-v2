@@ -1,13 +1,13 @@
 // backend/src/modules/enseignant/enseignant.service.ts
 
-import { getTenantClient } from '../../config/tenant-db';
-import { AppError } from '../../utils/AppError';
-import { compteService } from '../compte/compte.service';
+import { getTenantClient } from '../../config/tenant-db.js';
+import { AppError } from '../../utils/AppError.js';
+import { compteService } from '../compte/compte.service.js';
 import type {
   CreateEnseignantInput,
   UpdateEnseignantInput,
   ListEnseignantsQuery,
-} from './enseignant.validation';
+} from './enseignant.validation.js';
 
 export interface EnseignantContext {
   schemaName: string;

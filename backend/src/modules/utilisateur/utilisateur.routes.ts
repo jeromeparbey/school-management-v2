@@ -8,9 +8,9 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
-import { utilisateurController } from './utilisateur.controller';
-import { validateRequest } from '../../middleware/validateRequest';
-import { AppError } from '../../utils/AppError';
+import { utilisateurController } from './utilisateur.controller.js';
+import { validateRequest } from '../../middleware/validateRequest.js';
+import { AppError } from '../../utils/AppError.js';
 import {
   createUtilisateurSchema,
   updateUtilisateurSchema,
@@ -19,7 +19,7 @@ import {
   toggleUtilisateurSchema,
   changePasswordSchema,
   resetPasswordSchema,
-} from './utilisateur.validation';
+} from './utilisateur.validation.js';
 
 const router = Router();
 
@@ -29,17 +29,13 @@ const router = Router();
 // (backend/uploads/avatars) au lieu de process.cwd()
 // ───────────────────────────────────────────
 
-// ESM : reconstruire __dirname (si tsconfig en ESM)
-const __filename_esm =
-  typeof __filename !== 'undefined'
-    ? __filename
-    : fileURLToPath(import.meta.url);
-const __dirname_esm = path.dirname(__filename_esm);
+// ESM : reconstruire __filename et __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Remonte de modules/utilisateur/ → modules/ → src/ → backend/
-const BACKEND_ROOT = path.resolve(__dirname_esm, '../../..');
+const BACKEND_ROOT = path.resolve(__dirname, '../../..');
 const avatarsDir = path.join(BACKEND_ROOT, 'uploads', 'avatars');
-
 if (!fs.existsSync(avatarsDir)) {
   fs.mkdirSync(avatarsDir, { recursive: true });
   console.log(`📁 Dossier avatars créé : ${avatarsDir}`);

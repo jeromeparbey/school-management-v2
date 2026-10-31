@@ -1,8 +1,8 @@
 // backend/src/modules/anneeScolaire/anneeScolaire.controller.ts
 
 import { Request, Response, NextFunction } from 'express';
-import { anneeScolaireService } from './anneeScolaire.service';
-import { AppError } from '../../utils/AppError';
+import { anneeScolaireService } from './anneeScolaire.service.js';
+import { AppError } from '../../utils/AppError.js';
 
 interface AnneeScolaireContext {
   schemaName: string;

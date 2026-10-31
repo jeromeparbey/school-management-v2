@@ -2,15 +2,15 @@
 
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { emploiTempsController } from './emploiTemps.controller';
-import { validateRequest } from '../../middleware/validateRequest';
+import { emploiTempsController } from './emploiTemps.controller.js';
+import { validateRequest } from '../../middleware/validateRequest.js';
 import {
   createEmploiTempsSchema,
   updateEmploiTempsSchema,
   emploiTempsIdSchema,
   listEmploisTempsSchema,
   checkConflitsSchema,
-} from './emploiTemps.validation';
+} from './emploiTemps.validation.js';
 
 const router = Router();
 

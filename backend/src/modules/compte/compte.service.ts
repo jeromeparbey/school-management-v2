@@ -1,8 +1,8 @@
 // backend/src/modules/compte/compte.service.ts
 
-import { getTenantClient } from '../../config/tenant-db';
-import { AppError } from '../../utils/AppError';
-import { AuthUtils } from '../auth/auth.utils';
+import { getTenantClient } from '../../config/tenant-db.js';
+import { AppError } from '../../utils/AppError.js';
+import { AuthUtils } from '../auth/auth.utils.js';
 import crypto from 'crypto';
 
 export interface CompteContext {

@@ -1,8 +1,8 @@
 // backend/src/modules/import/export.controller.ts
 
 import { Request, Response, NextFunction } from 'express';
-import { exportService } from './export.service';
-import { AppError } from '../../utils/AppError';
+import { exportService } from './export.service.js';
+import { AppError } from '../../utils/AppError.js';
 
 function requireAuthContext(req: Request) {
   const schemaName = req.user?.schemaName;

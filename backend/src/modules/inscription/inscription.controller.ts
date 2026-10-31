@@ -1,8 +1,8 @@
 // backend/src/modules/inscription/inscription.controller.ts
 
 import { Request, Response, NextFunction } from 'express';
-import { inscriptionService } from './inscription.service';
-import { AppError } from '../../utils/AppError';
+import { inscriptionService } from './inscription.service.js';
+import { AppError } from '../../utils/AppError.js';
 
 // ══════════════════════════════════════════
 // TYPES & HELPERS

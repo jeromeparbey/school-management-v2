@@ -1,8 +1,8 @@
 // backend/src/modules/paiement/paiement.controller.ts
 
 import { Request, Response, NextFunction } from 'express';
-import { paiementService } from './paiement.service';
-import { AppError } from '../../utils/AppError';
+import { paiementService } from './paiement.service.js';
+import { AppError } from '../../utils/AppError.js';
 
 interface Ctx {
   schemaName: string;

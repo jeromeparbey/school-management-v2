@@ -1,6 +1,6 @@
 
 import * as nodemailer from 'nodemailer';
-import { AppError } from '../utils/AppError';
+import { AppError } from '../utils/AppError.js';
 
 export class EmailService {
   private transporter: nodemailer.Transporter;

@@ -1,7 +1,7 @@
 // src/config/global-db.ts
-import 'dotenv/config';
+import 'dotenv/config.js';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '../../prisma/generated/global-client';
+import { PrismaClient } from '../../prisma/generated/global-client/index.js';
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL,

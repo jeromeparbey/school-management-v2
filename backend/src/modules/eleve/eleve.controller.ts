@@ -1,8 +1,8 @@
 // backend/src/modules/eleve/eleve.controller.ts
 
 import { Request, Response, NextFunction } from 'express';
-import { eleveService } from './eleve.service';
-import { AppError } from '../../utils/AppError';
+import { eleveService } from './eleve.service.js';
+import { AppError } from '../../utils/AppError.js';
 
 interface Ctx {
   schemaName: string;

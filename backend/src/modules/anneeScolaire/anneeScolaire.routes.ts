@@ -2,14 +2,14 @@
 
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { anneeScolaireController } from './anneeScolaire.controller';
-import { validateRequest } from '../../middleware/validateRequest';
+import { anneeScolaireController } from './anneeScolaire.controller.js';
+import { validateRequest } from '../../middleware/validateRequest.js';
 import {
   createAnneeScolaireSchema,
   updateAnneeScolaireSchema,
   anneeScolaireIdSchema,
   listAnneesScolairesSchema,
-} from './anneeScolaire.validation';
+} from './anneeScolaire.validation.js';
 
 const router = Router();
 

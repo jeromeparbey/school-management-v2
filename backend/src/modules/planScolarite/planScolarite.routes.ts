@@ -2,14 +2,14 @@
 
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { planScolariteController } from './planScolarite.controller';
-import { validateRequest } from '../../middleware/validateRequest';
+import { planScolariteController } from './planScolarite.controller.js';
+import { validateRequest } from '../../middleware/validateRequest.js';
 import {
   createPlanScolariteSchema,
   updatePlanScolariteSchema,
   planScolariteIdSchema,
   listPlansScolariteSchema,
-} from './planScolarite.validation';
+} from './planScolarite.validation.js';
 
 const router = Router();
 

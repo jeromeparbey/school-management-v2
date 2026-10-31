@@ -2,8 +2,8 @@
 
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { etablissementController } from './etablissement.controller';
-import { validateRequest } from '../../middleware/validateRequest';
+import { etablissementController } from './etablissement.controller.js';
+import { validateRequest } from '../../middleware/validateRequest.js';
 import {
   createEtablissementSchema,
   updateEtablissementSchema,
@@ -11,7 +11,7 @@ import {
   listEtablissementsSchema,
   toggleEtablissementSchema,
   reprovisionnerEtablissementSchema,
-} from './etablissement.validation';
+} from './etablissement.validation.js';
 
 // ⚠️ IMPORTANT :
 // - Ce routeur est monté par le loader dynamique (server.ts).

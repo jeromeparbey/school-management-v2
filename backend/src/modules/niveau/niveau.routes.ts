@@ -2,14 +2,14 @@
 
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { niveauController } from './niveau.controller';
-import { validateRequest } from '../../middleware/validateRequest';
+import { niveauController } from './niveau.controller.js';
+import { validateRequest } from '../../middleware/validateRequest.js';
 import {
   createNiveauSchema,
   updateNiveauSchema,
   niveauIdSchema,
   listNiveauxSchema,
-} from './niveau.validation';
+} from './niveau.validation.js';
 
 const router = Router();
 

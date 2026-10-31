@@ -1,7 +1,7 @@
 // backend/src/middleware/audit.ts
 
 import { Request, Response, NextFunction } from 'express';
-import { getTenantClient } from '../config/tenant-db';
+import { getTenantClient } from '../config/tenant-db.js';
 
 /**
  * Middleware d'audit multi-scope.

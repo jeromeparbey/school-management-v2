@@ -3,9 +3,9 @@
 import { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import fs from 'fs';
-import { recuService } from './recu.service';
-import { recuPDFService } from './recu-pdf.service';
-import { AppError } from '../../utils/AppError';
+import { recuService } from './recu.service.js';
+import { recuPDFService } from './recu-pdf.service.js';
+import { AppError } from '../../utils/AppError.js';
 
 // ──────────────────────────────────────────
 // TYPES

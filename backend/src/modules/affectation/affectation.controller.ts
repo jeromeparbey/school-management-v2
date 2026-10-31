@@ -1,8 +1,8 @@
 // backend/src/modules/affectation/affectation.controller.ts
 
 import { Request, Response, NextFunction } from 'express';
-import { affectationService } from './affectation.service';
-import { AppError } from '../../utils/AppError';
+import { affectationService } from './affectation.service.js';
+import { AppError } from '../../utils/AppError.js';
 
 interface Ctx {
   schemaName: string;

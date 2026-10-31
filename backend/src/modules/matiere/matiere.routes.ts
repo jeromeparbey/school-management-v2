@@ -2,15 +2,15 @@
 
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { matiereController } from './matiere.controller';
-import { validateRequest } from '../../middleware/validateRequest';
+import { matiereController } from './matiere.controller.js';
+import { validateRequest } from '../../middleware/validateRequest.js';
 import {
   createMatiereSchema,
   updateMatiereSchema,
   matiereIdSchema,
   listMatieresSchema,
   affecterEnseignantSchema,
-} from './matiere.validation';
+} from './matiere.validation.js';
 
 const router = Router();
 

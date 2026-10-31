@@ -1,8 +1,8 @@
 // backend/src/modules/niveau/niveau.controller.ts
 
 import { Request, Response, NextFunction } from 'express';
-import { niveauService } from './niveau.service';
-import { AppError } from '../../utils/AppError';
+import { niveauService } from './niveau.service.js';
+import { AppError } from '../../utils/AppError.js';
 
 // ──────────────────────────────────────────
 // Helpers
