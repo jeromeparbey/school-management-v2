@@ -18,7 +18,9 @@ import jwt from "jsonwebtoken";
 
 // Configurations
 import { connectDB, prisma } from "./config/db";
+
 import "./config/passport";
+
 
 // Middlewares
 import { errorHandler } from "./middleware/errorHandler";

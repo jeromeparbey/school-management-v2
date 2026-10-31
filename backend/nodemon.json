@@ -10,6 +10,7 @@
     "recus/**",
     "*.log"
   ],
+  
   "exec": "tsx src/server.ts",
   "verbose": true,
   "delay": 2000
