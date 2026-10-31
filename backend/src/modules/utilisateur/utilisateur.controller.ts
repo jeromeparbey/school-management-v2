@@ -7,7 +7,7 @@ import { utilisateurService, UtilisateurContext } from './utilisateur.service.js
 import { AppError } from '../../utils/AppError.js';
 import { AuthUtils } from '../auth/auth.utils.js';
 import { getTenantClient } from '../../config/tenant-db.js';
-import type { RoleUtilisateur } from '@prisma/client';
+import type { RoleUtilisateur } from '../auth/auth.utils.js';
 
 // ──────────────────────────────────────────
 // Helpers

@@ -1,12 +1,8 @@
 // backend/src/modules/auth/auth.repository.ts
 
 import { getTenantClient } from '../../config/tenant-db.js';
-import type {
-  RoleUtilisateur,
-  // ⚠️ Les types viennent du client GLOBAL du tenant
-  // Comme le client tenant est généré dynamiquement, on utilise `any` pour les types
-  // En production, tu peux typer avec les types du tenant-reference
-} from '@prisma/client/index.js';
+import type { RoleUtilisateur } from './auth.utils.js';
+
 
 // ============================================
 // TYPES DE RETOUR

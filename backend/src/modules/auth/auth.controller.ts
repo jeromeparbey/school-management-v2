@@ -14,7 +14,7 @@ import type {
   ResetPasswordRequest,
   ChangePasswordRequest,
 } from './auth.types.js';
-import type { RoleUtilisateur } from '@prisma/client/index.js';
+import type { RoleUtilisateur } from './auth.utils.js';
 
 // ============================================
 // TYPES DE RÉPONSES API (uniformisation)

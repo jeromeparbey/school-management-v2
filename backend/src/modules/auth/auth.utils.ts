@@ -3,7 +3,34 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import type { Utilisateur, RoleUtilisateur } from '@prisma/client/index.js';
+// src/modules/auth/auth.utils.ts
+/** Forme minimale d'un utilisateur TENANT (Utilisateur côté Prisma). */
+export interface TenantUserLike {
+  id: string;
+  email: string;
+  prenom: string;
+  nom: string;
+  role: string;
+  estActif: boolean;
+  emailVerifie: boolean;
+  telephone: string | null;
+  photoProfil: string | null;
+  derniereConnexion: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** Rôles du tenant (doit rester synchronisé avec l'enum RoleUtilisateur du schéma tenant). */
+export type RoleUtilisateur =
+  | 'SUPER_ADMIN'  
+  | 'DIRECTEUR'
+  | 'SECRETAIRE'
+  | 'ENSEIGNANT'
+  | 'SURVEILLANT'
+  | 'PARENT'
+  | 'ELEVE'
+  | 'ADMIN'
+  | 'BIBLIOTHECAIRE';
 import type { UserResponse, TokensResponse } from './auth.types.js';
 import type { UserScope } from '../../types/express.js';
 
@@ -460,13 +487,13 @@ export class AuthUtils {
   /**
    * Retirer les champs sensibles d'un utilisateur TENANT.
    */
-  static sanitizeUser(user: Utilisateur): UserResponse {
+static sanitizeUser(user: TenantUserLike): UserResponse {
     return {
       id: user.id,
       email: user.email,
       prenom: user.prenom,
       nom: user.nom,
-      role: user.role,
+      role: user.role as RoleUtilisateur,
       estActif: user.estActif,
       emailVerifie: user.emailVerifie,
       telephone: user.telephone,

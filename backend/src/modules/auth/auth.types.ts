@@ -1,6 +1,6 @@
 // backend/src/modules/auth/auth.types.ts
 
-import type { RoleUtilisateur } from '@prisma/client/index.js';
+import type { RoleUtilisateur } from './auth.utils.js';
 
 // ============================================
 // REQUÊTES
