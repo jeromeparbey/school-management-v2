@@ -468,6 +468,7 @@ export const etablissementService = {
         }),
       ]);
 
+      
     return {
       total,
       actifs,
