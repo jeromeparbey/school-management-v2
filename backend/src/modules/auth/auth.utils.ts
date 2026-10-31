@@ -3,7 +3,7 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import type { Utilisateur, RoleUtilisateur } from '@prisma/client';
+import type { Utilisateur, RoleUtilisateur } from '@prisma/client/index.js';
 import type { UserResponse, TokensResponse } from './auth.types.js';
 import type { UserScope } from '../../types/express.js';
 

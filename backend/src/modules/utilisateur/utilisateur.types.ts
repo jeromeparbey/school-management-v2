@@ -1,6 +1,6 @@
 // backend/src/modules/utilisateur/utilisateur.types.ts
 
-import type { RoleUtilisateur } from '@prisma/client';
+import type { RoleUtilisateur } from '@prisma/client/index.js';
 
 export interface CreateUtilisateurInput {
   email: string;

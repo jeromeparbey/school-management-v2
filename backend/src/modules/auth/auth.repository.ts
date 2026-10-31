@@ -6,7 +6,7 @@ import type {
   // ⚠️ Les types viennent du client GLOBAL du tenant
   // Comme le client tenant est généré dynamiquement, on utilise `any` pour les types
   // En production, tu peux typer avec les types du tenant-reference
-} from '@prisma/client';
+} from '@prisma/client/index.js';
 
 // ============================================
 // TYPES DE RETOUR
