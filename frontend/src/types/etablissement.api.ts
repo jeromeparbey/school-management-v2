@@ -50,7 +50,6 @@ export interface DirecteurPublic {
   emailVerifie: boolean;
   derniereConnexion?: string | null;
   createdAt: string;
-  // Profil métier (table `directeurs`)
   directeur?: {
     id: string;
     dateNomination: string | null;
@@ -102,17 +101,14 @@ export interface Etablissement {
   createdAt: string;
   updatedAt: string;
 
-  // 🆕 Directeur (retourné par GET /:id et POST /)
   directeur?: DirecteurPublic | null;
 
-  // 🆕 Compteurs (retournés par LIST)
   _count?: {
     utilisateursGlobaux?: number;
     abonnements?: number;
     factures?: number;
   };
 
-  // 🆕 Relations (retournées par GET /:id)
   utilisateursGlobaux?: Array<{
     id: string;
     email: string;
@@ -151,14 +147,29 @@ export interface EtablissementStats {
   total: number;
   actifs: number;
   inactifs: number;
+
+  /** 🆕 Nombre d'établissements actuellement en provisioning (EN_ATTENTE + EN_COURS) */
+  enProvisionnement: number;
+
+  /** 🆕 Nombre d'établissements dont le provisioning a échoué */
+  enEchec: number;
+
+  /** 🆕 Somme des utilisateurs globaux de tous les établissements (via _count) */
+  utilisateursTotaux: number;
+
+  /** 🆕 Revenus mensuels agrégés (abonnements actifs) */
+  revenusMensuels: number;
+
   parPlan: Array<{
     planAbonnement: PlanAbonnement;
     _count: { _all: number };
   }>;
+
   parType: Array<{
     type: TypeEtablissement;
     _count: { _all: number };
   }>;
+
   parProvisionnement: Array<{
     statutProvisionnement: StatutProvisionnement;
     _count: { _all: number };
@@ -166,19 +177,33 @@ export interface EtablissementStats {
 }
 
 // ============================================
+// HELPERS STATS
+// ============================================
+
+/** Extrait le compteur d'un tableau `par*` renvoyé par Prisma */
+export function countFromStatut(
+  rows: EtablissementStats['parProvisionnement'],
+  statut: StatutProvisionnement,
+): number {
+  return rows.find((r) => r.statutProvisionnement === statut)?._count._all ?? 0;
+}
+
+/** Nombre total en provisioning (EN_ATTENTE + EN_COURS) */
+export function totalEnProvisionnement(stats: EtablissementStats): number {
+  return (
+    countFromStatut(stats.parProvisionnement, 'EN_ATTENTE') +
+    countFromStatut(stats.parProvisionnement, 'EN_COURS')
+  );
+}
+
+// ============================================
 // PAYLOADS
 // ============================================
 
-/**
- * ⚠️ Création d'un établissement = TOUJOURS avec un directeur initial.
- * Le backend exige `directeur` (email, motDePasse, prenom, nom).
- */
 export interface CreateEtablissementPayload {
-  // ─── Établissement (obligatoire) ───
   nom: string;
   code: string;
 
-  // ─── Établissement (optionnel) ───
   ville?: string;
   email?: string;
   telephone?: string;
@@ -200,7 +225,6 @@ export interface CreateEtablissementPayload {
   dateExpiration?: string;
   maxUtilisateurs?: number;
 
-  // ─── 🔥 DIRECTEUR INITIAL (obligatoire) ───
   directeur: DirecteurInitial;
 }
 
@@ -259,7 +283,6 @@ export interface ReprovisionnerEtablissementPayload {
 // RÉPONSES API
 // ============================================
 
-/** Réponse de GET /etablissements (liste paginée) */
 export interface EtablissementListResponse {
   items: Etablissement[];
   pagination: {
@@ -270,7 +293,6 @@ export interface EtablissementListResponse {
   };
 }
 
-/** Réponse de POST /etablissements (création + directeur) */
 export interface EtablissementWithDirecteur extends Etablissement {
   directeur: DirecteurPublic;
 }

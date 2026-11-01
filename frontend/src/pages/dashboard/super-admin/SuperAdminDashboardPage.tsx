@@ -1,9 +1,10 @@
 // frontend2/src/pages/dashboard/super-admin/SuperAdminDashboardPage.tsx
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../../hooks/AuthContext';
+import { useEtablissements, useEtablissementStats } from '../../../hooks/useEtablissements';
 import {
   // Icônes principales
   BuildingOfficeIcon,
@@ -96,136 +97,226 @@ interface AlerteSysteme {
 }
 
 // ============================================
+// HELPERS
+// ============================================
+const formatMoney = (n: number | null | undefined, devise = 'F CFA') => {
+  const amount = n == null ? 0 : Math.round(n);
+  const formatted = new Intl.NumberFormat('fr-FR').format(amount);
+  const normalizedDevise =
+    !devise || devise === 'XOF' || devise === 'FCFA' ? 'F CFA' : devise;
+  return `${formatted} ${normalizedDevise}`;
+};
+
+const formatNumber = (n: number | null | undefined) => {
+  if (n == null) return '0';
+  return new Intl.NumberFormat('fr-FR').format(n);
+};
+
+// ============================================
 // COMPOSANT PRINCIPAL
 // ============================================
 const SuperAdminDashboardPage: React.FC = () => {
   const { user } = useAuth();
 
   // ============================================
-  // DONNÉES STATIQUES (à brancher sur API)
+  // DONNÉES RÉELLES (via hooks) — utilisées si disponibles
+  // ============================================
+  const { data: etablissementsData, isLoading: loadingEtablissements } =
+    useEtablissements({ limit: 10, sortBy: 'createdAt', sortOrder: 'desc' });
+  const { data: statsData, isLoading: loadingStats } = useEtablissementStats();
+
+  const etablissementsReels = etablissementsData?.items ?? [];
+
+  // ============================================
+  // DONNÉES DE DÉMONSTRATION (fallback)
   // ============================================
 
   // --- KPIs Super Admin ---
-  const stats: StatCard[] = [
-    {
-      title: 'Établissements',
-      value: '24',
-      change: '+3',
-      trend: 'up',
-      icon: BuildingOfficeIcon,
-      color: 'text-red-600',
-      bgColor: 'bg-red-50',
-      hint: 'Actifs sur la plateforme',
-    },
-    {
-      title: 'Utilisateurs totaux',
-      value: '18 542',
-      change: '+12.5%',
-      trend: 'up',
-      icon: UserGroupIcon,
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-50',
-      hint: 'Tous établissements',
-    },
-    {
-      title: 'Revenus mensuels',
-      value: '48 200 €',
-      change: '+8.7%',
-      trend: 'up',
-      icon: CurrencyDollarIcon,
-      color: 'text-emerald-600',
-      bgColor: 'bg-emerald-50',
-      hint: 'Abonnements + factures',
-    },
-    {
-      title: 'Uptime serveur',
-      value: '99.97%',
-      change: '+0.02%',
-      trend: 'up',
-      icon: ServerIcon,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50',
-      hint: '30 derniers jours',
-    },
-  ];
+  const stats: StatCard[] = useMemo(() => {
+    // Si les stats réelles existent, on les utilise ; sinon démo
+    const hasReal = !!statsData;
+    const total = statsData?.total ?? 24;
+    const actifs = statsData?.actifs ?? 24;
+    const enProv = statsData?.enProvisionnement ?? 1;
+    const utilisateurs = statsData?.utilisateursTotaux ?? 18542;
+    const revenus = statsData?.revenusMensuels ?? 48200;
+
+    return [
+      {
+        title: 'Établissements',
+        value: hasReal ? formatNumber(total) : '24',
+        change: hasReal ? `+${actifs} actifs` : '+3',
+        trend: 'up',
+        icon: BuildingOfficeIcon,
+        color: 'text-emerald-600',
+        bgColor: 'bg-emerald-50',
+        hint: hasReal
+          ? `${enProv} en provisioning`
+          : 'Actifs sur la plateforme',
+      },
+      {
+        title: 'Utilisateurs totaux',
+        value: hasReal ? formatNumber(utilisateurs) : '18 542',
+        change: '+12.5%',
+        trend: 'up',
+        icon: UserGroupIcon,
+        color: 'text-teal-600',
+        bgColor: 'bg-teal-50',
+        hint: 'Tous établissements',
+      },
+      {
+        title: 'Revenus mensuels',
+        value: hasReal ? formatMoney(revenus, 'F CFA') : '48 200 F CFA',
+        change: '+8.7%',
+        trend: 'up',
+        icon: CurrencyDollarIcon,
+        color: 'text-green-600',
+        bgColor: 'bg-green-50',
+        hint: 'Abonnements + factures',
+      },
+      {
+        title: 'Uptime serveur',
+        value: '99.97%',
+        change: '+0.02%',
+        trend: 'up',
+        icon: ServerIcon,
+        color: 'text-blue-600',
+        bgColor: 'bg-blue-50',
+        hint: '30 derniers jours',
+      },
+    ];
+  }, [statsData]);
 
   // --- Croissance de la plateforme (12 mois) ---
-  const croissancePlateforme = [
-    { mois: 'Jan', etablissements: 14, utilisateurs: 8200, revenus: 28000 },
-    { mois: 'Fév', etablissements: 15, utilisateurs: 9100, revenus: 30500 },
-    { mois: 'Mar', etablissements: 17, utilisateurs: 10400, revenus: 34200 },
-    { mois: 'Avr', etablissements: 18, utilisateurs: 11800, revenus: 36800 },
-    { mois: 'Mai', etablissements: 19, utilisateurs: 13200, revenus: 39400 },
-    { mois: 'Juin', etablissements: 20, utilisateurs: 14800, revenus: 42100 },
-    { mois: 'Juil', etablissements: 21, utilisateurs: 15600, revenus: 44200 },
-    { mois: 'Août', etablissements: 21, utilisateurs: 16100, revenus: 43600 },
-    { mois: 'Sep', etablissements: 22, utilisateurs: 17200, revenus: 45800 },
-    { mois: 'Oct', etablissements: 23, utilisateurs: 17900, revenus: 46900 },
-    { mois: 'Nov', etablissements: 24, utilisateurs: 18300, revenus: 47600 },
-    { mois: 'Déc', etablissements: 24, utilisateurs: 18542, revenus: 48200 },
-  ];
+  const croissancePlateforme = useMemo(() => {
+    const months = [
+      'Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin',
+      'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc',
+    ];
+    const year = new Date().getFullYear();
 
-  // --- Répartition par plan d'abonnement (camembert) ---
+    // Comptage réel à partir des établissements chargés
+    const counts: Record<number, number> = {};
+    for (let i = 0; i < 12; i++) counts[i] = 0;
+
+    etablissementsReels.forEach((etab: any) => {
+      const d = new Date(etab.createdAt ?? '');
+      if (!isNaN(d.getTime()) && d.getFullYear() === year) {
+        counts[d.getMonth()] += 1;
+      }
+    });
+
+    let cumul = 0;
+    const fromReal = months.map((mois, i) => {
+      cumul += counts[i];
+      return {
+        mois,
+        etablissements: cumul,
+        utilisateurs: cumul * 750,
+        revenus: cumul * 2000,
+      };
+    });
+
+    // Si aucun établissement réel, on garde la courbe de démo
+    const hasRealData = etablissementsReels.length > 0;
+    if (hasRealData) return fromReal;
+
+    return [
+      { mois: 'Jan', etablissements: 14, utilisateurs: 8200, revenus: 28000 },
+      { mois: 'Fév', etablissements: 15, utilisateurs: 9100, revenus: 30500 },
+      { mois: 'Mar', etablissements: 17, utilisateurs: 10400, revenus: 34200 },
+      { mois: 'Avr', etablissements: 18, utilisateurs: 11800, revenus: 36800 },
+      { mois: 'Mai', etablissements: 19, utilisateurs: 13200, revenus: 39400 },
+      { mois: 'Juin', etablissements: 20, utilisateurs: 14800, revenus: 42100 },
+      { mois: 'Juil', etablissements: 21, utilisateurs: 15600, revenus: 44200 },
+      { mois: 'Août', etablissements: 21, utilisateurs: 16100, revenus: 43600 },
+      { mois: 'Sep', etablissements: 22, utilisateurs: 17200, revenus: 45800 },
+      { mois: 'Oct', etablissements: 23, utilisateurs: 17900, revenus: 46900 },
+      { mois: 'Nov', etablissements: 24, utilisateurs: 18300, revenus: 47600 },
+      { mois: 'Déc', etablissements: 24, utilisateurs: 18542, revenus: 48200 },
+    ];
+  }, [etablissementsReels]);
+
+  // --- Répartition par plan d'abonnement (camembert) — thème vert ---
   const repartitionPlans = [
-    { name: 'PREMIUM', value: 8, color: '#DC2626' },
-    { name: 'STANDARD', value: 9, color: '#F59E0B' },
-    { name: 'BASIQUE', value: 5, color: '#3B82F6' },
-    { name: 'ENTERPRISE', value: 2, color: '#8B5CF6' },
+    { name: 'PREMIUM', value: 8, color: '#10B981' },   // emerald-500
+    { name: 'STANDARD', value: 9, color: '#14B8A6' },  // teal-500
+    { name: 'BASIQUE', value: 5, color: '#84CC16' },    // lime-500
+    { name: 'ENTERPRISE', value: 2, color: '#059669' }, // emerald-600
   ];
 
   // --- Établissements récents ---
-  const etablissementsRecents: EtablissementRecent[] = [
-    {
-      id: 'ETB-024',
-      nom: 'École Victor Hugo',
-      code: 'victor-hugo',
-      ville: 'Abidjan',
-      plan: 'PREMIUM',
-      statut: 'ACTIF',
-      utilisateurs: 1240,
-      dateCreation: 'Il y a 2h',
-    },
-    {
-      id: 'ETB-023',
-      nom: 'Lycée Sainte-Marie',
-      code: 'sainte-marie',
-      ville: 'Dakar',
-      plan: 'STANDARD',
-      statut: 'ACTIF',
-      utilisateurs: 890,
-      dateCreation: 'Il y a 1j',
-    },
-    {
-      id: 'ETB-022',
-      nom: 'Collège Moderne',
-      code: 'college-moderne',
-      ville: 'Bamako',
-      plan: 'ENTERPRISE',
-      statut: 'ACTIF',
-      utilisateurs: 2100,
-      dateCreation: 'Il y a 3j',
-    },
-    {
-      id: 'ETB-021',
-      nom: 'Institut International',
-      code: 'institut-intl',
-      ville: 'Lomé',
-      plan: 'BASIQUE',
-      statut: 'PROVISIONING',
-      utilisateurs: 0,
-      dateCreation: 'Il y a 5j',
-    },
-    {
-      id: 'ETB-020',
-      nom: 'Groupe Scolaire Espoir',
-      code: 'gs-espoir',
-      ville: 'Ouagadougou',
-      plan: 'PREMIUM',
-      statut: 'ACTIF',
-      utilisateurs: 1560,
-      dateCreation: 'Il y a 1 sem',
-    },
-  ];
+  const etablissementsRecents: EtablissementRecent[] = useMemo(() => {
+    if (etablissementsReels.length > 0) {
+      return etablissementsReels.slice(0, 5).map((etab: any) => ({
+        id: etab.id,
+        nom: etab.nom,
+        code: etab.code,
+        ville: etab.ville ?? '—',
+        plan: etab.planAbonnement ?? 'STANDARD',
+        statut:
+          etab.statutProvisionnement === 'TERMINE'
+            ? 'ACTIF'
+            : etab.statutProvisionnement === 'ECHEC'
+            ? 'SUSPENDU'
+            : 'PROVISIONING',
+        utilisateurs: etab._count?.utilisateursGlobaux ?? 0,
+        dateCreation: new Date(etab.createdAt ?? '').toLocaleDateString('fr-FR'),
+      }));
+    }
+    return [
+      {
+        id: 'ETB-024',
+        nom: 'École Victor Hugo',
+        code: 'victor-hugo',
+        ville: 'Abidjan',
+        plan: 'PREMIUM',
+        statut: 'ACTIF',
+        utilisateurs: 1240,
+        dateCreation: 'Il y a 2h',
+      },
+      {
+        id: 'ETB-023',
+        nom: 'Lycée Sainte-Marie',
+        code: 'sainte-marie',
+        ville: 'Dakar',
+        plan: 'STANDARD',
+        statut: 'ACTIF',
+        utilisateurs: 890,
+        dateCreation: 'Il y a 1j',
+      },
+      {
+        id: 'ETB-022',
+        nom: 'Collège Moderne',
+        code: 'college-moderne',
+        ville: 'Bamako',
+        plan: 'ENTERPRISE',
+        statut: 'ACTIF',
+        utilisateurs: 2100,
+        dateCreation: 'Il y a 3j',
+      },
+      {
+        id: 'ETB-021',
+        nom: 'Institut International',
+        code: 'institut-intl',
+        ville: 'Lomé',
+        plan: 'BASIQUE',
+        statut: 'PROVISIONING',
+        utilisateurs: 0,
+        dateCreation: 'Il y a 5j',
+      },
+      {
+        id: 'ETB-020',
+        nom: 'Groupe Scolaire Espoir',
+        code: 'gs-espoir',
+        ville: 'Ouagadougou',
+        plan: 'PREMIUM',
+        statut: 'ACTIF',
+        utilisateurs: 1560,
+        dateCreation: 'Il y a 1 sem',
+      },
+    ];
+  }, [etablissementsReels]);
 
   // --- Jobs de provisioning en cours ---
   const provisioningJobs: ProvisioningJob[] = [
@@ -241,14 +332,14 @@ const SuperAdminDashboardPage: React.FC = () => {
       etablissement: 'Nouvelle École Dakar',
       statut: 'EN_ATTENTE',
       progression: 0,
-      message: 'File d\'attente...',
+      message: "File d'attente...",
     },
     {
       id: 'PROV-003',
       etablissement: 'Collège Saint-Joseph',
       statut: 'TERMINE',
       progression: 100,
-      message: 'Prêt à l\'emploi',
+      message: "Prêt à l'emploi",
     },
   ];
 
@@ -258,7 +349,7 @@ const SuperAdminDashboardPage: React.FC = () => {
       id: 1,
       type: 'danger',
       titre: '3 établissements en retard de paiement',
-      description: 'Montant total : 12 400 €',
+      description: 'Montant total : 12 400 F CFA',
       href: '/dashboard/factures',
     },
     {
@@ -279,35 +370,35 @@ const SuperAdminDashboardPage: React.FC = () => {
       id: 4,
       type: 'success',
       titre: '2 nouveaux abonnements PREMIUM',
-      description: 'Revenus additionnels : +2 400 €',
+      description: 'Revenus additionnels : +2 400 F CFA',
       href: '/dashboard/abonnements',
     },
   ];
 
-  // --- Actions rapides ---
+  // --- Actions rapides (thème vert) ---
   const quickActions = [
     {
       title: 'Nouvel établissement',
       icon: PlusIcon,
-      bgColor: 'bg-gradient-to-br from-red-500 to-red-600',
+      bgColor: 'bg-gradient-to-br from-emerald-500 to-emerald-600',
       href: '/dashboard/etablissements/nouveau',
     },
     {
       title: 'Lancer provisioning',
       icon: ServerIcon,
-      bgColor: 'bg-gradient-to-br from-purple-500 to-purple-600',
+      bgColor: 'bg-gradient-to-br from-teal-500 to-teal-600',
       href: '/dashboard/provisioning',
     },
     {
       title: 'Gérer abonnements',
       icon: CreditCardIcon,
-      bgColor: 'bg-gradient-to-br from-emerald-500 to-emerald-600',
+      bgColor: 'bg-gradient-to-br from-green-500 to-green-600',
       href: '/dashboard/abonnements',
     },
     {
       title: 'Sauvegardes',
       icon: ArrowPathIcon,
-      bgColor: 'bg-gradient-to-br from-blue-500 to-blue-600',
+      bgColor: 'bg-gradient-to-br from-lime-500 to-lime-600',
       href: '/dashboard/sauvegardes',
     },
   ];
@@ -320,8 +411,8 @@ const SuperAdminDashboardPage: React.FC = () => {
       desc: 'École Victor Hugo — Abidjan',
       time: 'Il y a 2h',
       icon: BuildingOfficeIcon,
-      color: 'text-red-600',
-      bg: 'bg-red-50',
+      color: 'text-emerald-600',
+      bg: 'bg-emerald-50',
     },
     {
       id: 2,
@@ -338,8 +429,8 @@ const SuperAdminDashboardPage: React.FC = () => {
       desc: 'Lycée Sainte-Marie — 12 mois',
       time: 'Il y a 6h',
       icon: CreditCardIcon,
-      color: 'text-purple-600',
-      bg: 'bg-purple-50',
+      color: 'text-teal-600',
+      bg: 'bg-teal-50',
     },
     {
       id: 4,
@@ -347,13 +438,13 @@ const SuperAdminDashboardPage: React.FC = () => {
       desc: 'Toutes les bases — 02:00 AM',
       time: 'Il y a 8h',
       icon: CircleStackIcon,
-      color: 'text-blue-600',
-      bg: 'bg-blue-50',
+      color: 'text-green-600',
+      bg: 'bg-green-50',
     },
     {
       id: 5,
       titre: 'Facture payée',
-      desc: 'Collège Moderne — 1 200 €',
+      desc: 'Collège Moderne — 1 200 F CFA',
       time: 'Il y a 1j',
       icon: BanknotesIcon,
       color: 'text-emerald-600',
@@ -367,13 +458,13 @@ const SuperAdminDashboardPage: React.FC = () => {
   const getPlanColor = (plan: string) => {
     switch (plan) {
       case 'ENTERPRISE':
-        return { bg: 'bg-purple-50', text: 'text-purple-600' };
+        return { bg: 'bg-emerald-50', text: 'text-emerald-700' };
       case 'PREMIUM':
-        return { bg: 'bg-red-50', text: 'text-red-600' };
+        return { bg: 'bg-teal-50', text: 'text-teal-700' };
       case 'STANDARD':
-        return { bg: 'bg-amber-50', text: 'text-amber-600' };
+        return { bg: 'bg-lime-50', text: 'text-lime-700' };
       case 'BASIQUE':
-        return { bg: 'bg-blue-50', text: 'text-blue-600' };
+        return { bg: 'bg-green-50', text: 'text-green-700' };
       default:
         return { bg: 'bg-gray-50', text: 'text-gray-600' };
     }
@@ -384,7 +475,7 @@ const SuperAdminDashboardPage: React.FC = () => {
       case 'ACTIF':
         return { bg: 'bg-emerald-50', text: 'text-emerald-600' };
       case 'PROVISIONING':
-        return { bg: 'bg-blue-50', text: 'text-blue-600' };
+        return { bg: 'bg-teal-50', text: 'text-teal-600' };
       case 'SUSPENDU':
         return { bg: 'bg-orange-50', text: 'text-orange-600' };
       case 'ARCHIVE':
@@ -399,7 +490,7 @@ const SuperAdminDashboardPage: React.FC = () => {
       case 'TERMINE':
         return { bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-200' };
       case 'EN_COURS':
-        return { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-200' };
+        return { bg: 'bg-teal-50', text: 'text-teal-600', border: 'border-teal-200' };
       case 'EN_ATTENTE':
         return { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-200' };
       case 'ECHEC':
@@ -420,7 +511,7 @@ const SuperAdminDashboardPage: React.FC = () => {
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-r from-red-600 via-orange-600 to-amber-600 rounded-2xl p-6 text-white shadow-lg shadow-red-500/20 relative overflow-hidden"
+        className="bg-gradient-to-r from-emerald-600 via-teal-600 to-green-700 rounded-2xl p-6 text-white shadow-lg shadow-emerald-500/20 relative overflow-hidden"
       >
         {/* Décorations */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
@@ -436,12 +527,12 @@ const SuperAdminDashboardPage: React.FC = () => {
                 <h2 className="text-xl font-bold">
                   Console Super Admin
                 </h2>
-                <p className="text-xs text-red-100">
+                <p className="text-xs text-emerald-100">
                   Accès total au système multi-tenant
                 </p>
               </div>
             </div>
-            <p className="text-sm text-red-100 mt-2">
+            <p className="text-sm text-emerald-100 mt-2">
               Bonjour {user?.prenom} 👋 •{' '}
               {new Date().toLocaleDateString('fr-FR', {
                 weekday: 'long',
@@ -461,7 +552,7 @@ const SuperAdminDashboardPage: React.FC = () => {
             </Link>
             <Link
               to="/dashboard/etablissements/nouveau"
-              className="px-4 py-2 bg-white text-red-600 hover:bg-red-50 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-white text-emerald-700 hover:bg-emerald-50 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
             >
               <SparklesIcon className="w-4 h-4" />
               Nouvel établissement
@@ -486,7 +577,9 @@ const SuperAdminDashboardPage: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">{stat.title}</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {loadingStats ? '…' : stat.value}
+                </p>
                 <div className="flex items-center gap-1 mt-2">
                   {stat.trend === 'up' ? (
                     <ArrowTrendingUpIcon className="w-4 h-4 text-emerald-500" />
@@ -530,13 +623,16 @@ const SuperAdminDashboardPage: React.FC = () => {
           </div>
           <div className="flex items-center gap-4 text-xs">
             <span className="flex items-center gap-1">
-              <span className="w-3 h-3 bg-red-500 rounded-full"></span>
+              <span className="w-3 h-3 bg-emerald-500 rounded-full"></span>
               Établissements
             </span>
             <span className="flex items-center gap-1">
-              <span className="w-3 h-3 bg-orange-400 rounded-full"></span>
+              <span className="w-3 h-3 bg-teal-400 rounded-full"></span>
               Utilisateurs
             </span>
+            {loadingEtablissements && (
+              <ArrowPathIcon className="w-4 h-4 text-emerald-600 animate-spin" />
+            )}
           </div>
         </div>
         <div className="h-72">
@@ -544,12 +640,12 @@ const SuperAdminDashboardPage: React.FC = () => {
             <AreaChart data={croissancePlateforme} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorEtab" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#DC2626" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#DC2626" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#FB923C" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#FB923C" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#2DD4BF" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#2DD4BF" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
@@ -570,14 +666,14 @@ const SuperAdminDashboardPage: React.FC = () => {
               <Area
                 type="monotone"
                 dataKey="etablissements"
-                stroke="#DC2626"
+                stroke="#10B981"
                 strokeWidth={2.5}
                 fill="url(#colorEtab)"
               />
               <Area
                 type="monotone"
                 dataKey="utilisateurs"
-                stroke="#FB923C"
+                stroke="#2DD4BF"
                 strokeWidth={2.5}
                 fill="url(#colorUsers)"
               />
@@ -586,11 +682,11 @@ const SuperAdminDashboardPage: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* ============================================
+           {/* ============================================
           GRAPHIQUES LIGNE 2 : Plans + Provisioning
           ============================================ */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Camembert plans */}
+        {/* Camembert plans — thème vert */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -599,7 +695,9 @@ const SuperAdminDashboardPage: React.FC = () => {
         >
           <div className="flex items-center justify-between mb-6">
             <h3 className="font-bold text-gray-900">Répartition par plan</h3>
-            <span className="text-xs text-gray-400">24 établissements</span>
+            <span className="text-xs text-gray-400">
+              {formatNumber(statsData?.total ?? 24)} établissements
+            </span>
           </div>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
@@ -639,7 +737,7 @@ const SuperAdminDashboardPage: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Jobs de provisioning */}
+        {/* Jobs de provisioning — thème vert */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -648,7 +746,7 @@ const SuperAdminDashboardPage: React.FC = () => {
         >
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
-              <ServerIcon className="w-5 h-5 text-purple-600" />
+              <ServerIcon className="w-5 h-5 text-emerald-600" />
               <div>
                 <h3 className="font-bold text-gray-900">Provisioning en cours</h3>
                 <p className="text-xs text-gray-500 mt-0.5">Suivi en temps réel</p>
@@ -656,7 +754,7 @@ const SuperAdminDashboardPage: React.FC = () => {
             </div>
             <Link
               to="/dashboard/provisioning"
-              className="text-sm text-blue-600 font-medium hover:underline"
+              className="text-sm text-emerald-600 font-medium hover:underline"
             >
               Voir tout
             </Link>
@@ -699,9 +797,9 @@ const SuperAdminDashboardPage: React.FC = () => {
                         job.statut === 'TERMINE'
                           ? 'bg-emerald-500'
                           : job.statut === 'EN_COURS'
-                          ? 'bg-blue-500'
+                          ? 'bg-teal-500'
                           : job.statut === 'ECHEC'
-                          ? 'bg-red-500'
+                          ? 'bg-lime-500'
                           : 'bg-gray-400'
                       }`}
                       initial={{ width: 0 }}
@@ -723,7 +821,7 @@ const SuperAdminDashboardPage: React.FC = () => {
       </div>
 
       {/* ============================================
-          ALERTES SYSTÈME
+          ALERTES SYSTÈME — thème vert
           ============================================ */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -733,10 +831,10 @@ const SuperAdminDashboardPage: React.FC = () => {
       >
         <div className="flex items-center justify-between mb-6">
           <h3 className="font-bold text-gray-900 flex items-center gap-2">
-            <BellAlertIcon className="w-5 h-5 text-orange-500" />
+            <BellAlertIcon className="w-5 h-5 text-emerald-600" />
             Alertes système
           </h3>
-          <span className="text-xs px-2 py-1 bg-orange-50 text-orange-600 rounded-full font-bold">
+          <span className="text-xs px-2 py-1 bg-emerald-50 text-emerald-700 rounded-full font-bold">
             {alertesSysteme.length} éléments
           </span>
         </div>
@@ -745,28 +843,32 @@ const SuperAdminDashboardPage: React.FC = () => {
             const colors =
               {
                 warning: {
-                  bg: 'bg-orange-50',
-                  text: 'text-orange-700',
-                  icon: 'text-orange-500',
-                  border: 'border-orange-100',
+                  bg: 'bg-teal-50',
+                  text: 'text-teal-700',
+                  icon: 'text-teal-600',
+                  border: 'border-teal-100',
+                  bar: 'bg-teal-400',
                 },
                 danger: {
-                  bg: 'bg-red-50',
-                  text: 'text-red-700',
-                  icon: 'text-red-500',
-                  border: 'border-red-100',
+                  bg: 'bg-lime-50',
+                  text: 'text-lime-700',
+                  icon: 'text-lime-600',
+                  border: 'border-lime-100',
+                  bar: 'bg-lime-400',
                 },
                 info: {
-                  bg: 'bg-blue-50',
-                  text: 'text-blue-700',
-                  icon: 'text-blue-500',
-                  border: 'border-blue-100',
-                },
-                success: {
                   bg: 'bg-emerald-50',
                   text: 'text-emerald-700',
-                  icon: 'text-emerald-500',
+                  icon: 'text-emerald-600',
                   border: 'border-emerald-100',
+                  bar: 'bg-emerald-400',
+                },
+                success: {
+                  bg: 'bg-green-50',
+                  text: 'text-green-700',
+                  icon: 'text-green-600',
+                  border: 'border-green-100',
+                  bar: 'bg-green-400',
                 },
               }[alerte.type] ||
               {
@@ -774,6 +876,7 @@ const SuperAdminDashboardPage: React.FC = () => {
                 text: 'text-gray-700',
                 icon: 'text-gray-500',
                 border: 'border-gray-100',
+                bar: 'bg-gray-400',
               };
 
             return (
@@ -787,17 +890,7 @@ const SuperAdminDashboardPage: React.FC = () => {
                   to={alerte.href}
                   className={`flex items-center gap-3 p-3 rounded-xl border ${colors.border} ${colors.bg} hover:shadow-sm transition-all group`}
                 >
-                  <div
-                    className={`w-2 h-10 rounded-full ${
-                      alerte.type === 'warning'
-                        ? 'bg-orange-400'
-                        : alerte.type === 'danger'
-                        ? 'bg-red-400'
-                        : alerte.type === 'info'
-                        ? 'bg-blue-400'
-                        : 'bg-emerald-400'
-                    }`}
-                  />
+                  <div className={`w-2 h-10 rounded-full ${colors.bar}`} />
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm font-semibold ${colors.text}`}>
                       {alerte.titre}
@@ -815,7 +908,7 @@ const SuperAdminDashboardPage: React.FC = () => {
       </motion.div>
 
       {/* ============================================
-          ACTIONS RAPIDES
+          ACTIONS RAPIDES — thème vert
           ============================================ */}
       <div>
         <div className="flex items-center justify-between mb-4">
@@ -859,12 +952,12 @@ const SuperAdminDashboardPage: React.FC = () => {
         >
           <div className="flex items-center justify-between p-6 border-b border-gray-100">
             <div className="flex items-center gap-2">
-              <BuildingOfficeIcon className="w-5 h-5 text-red-600" />
+              <BuildingOfficeIcon className="w-5 h-5 text-emerald-600" />
               <h3 className="font-bold text-gray-900">Établissements récents</h3>
             </div>
             <Link
               to="/dashboard/etablissements"
-              className="text-sm text-blue-600 font-medium hover:underline"
+              className="text-sm text-emerald-600 font-medium hover:underline"
             >
               Voir tous
             </Link>
@@ -895,7 +988,7 @@ const SuperAdminDashboardPage: React.FC = () => {
                   const planColors = getPlanColor(etab.plan);
                   const statutColors = getStatutColor(etab.statut);
                   return (
-                    <tr key={etab.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={etab.id} className="hover:bg-emerald-50/30 transition-colors">
                       <td className="px-6 py-4">
                         <p className="text-sm font-medium text-gray-900">{etab.nom}</p>
                         <p className="text-xs text-gray-500 font-mono">{etab.code}</p>
@@ -943,7 +1036,7 @@ const SuperAdminDashboardPage: React.FC = () => {
         >
           <div className="flex items-center justify-between mb-6">
             <h3 className="font-bold text-gray-900">Activités récentes</h3>
-            <button className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors">
+            <button className="text-sm text-emerald-600 hover:text-emerald-700 font-medium transition-colors">
               Voir tout
             </button>
           </div>
@@ -954,7 +1047,7 @@ const SuperAdminDashboardPage: React.FC = () => {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.7 + index * 0.05 }}
-                className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded-xl transition-colors group"
+                className="flex items-start gap-3 p-2 hover:bg-emerald-50/30 rounded-xl transition-colors group"
               >
                 <div className={`p-2 rounded-xl ${activite.bg} ${activite.color}`}>
                   <activite.icon className="w-4 h-4" />
@@ -964,7 +1057,7 @@ const SuperAdminDashboardPage: React.FC = () => {
                   <p className="text-xs text-gray-600 truncate">{activite.desc}</p>
                   <p className="text-xs text-gray-400 mt-0.5">{activite.time}</p>
                 </div>
-                <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-400 hover:text-gray-600">
+                <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-400 hover:text-emerald-600">
                   <EllipsisVerticalIcon className="w-4 h-4" />
                 </button>
               </motion.div>
@@ -974,7 +1067,7 @@ const SuperAdminDashboardPage: React.FC = () => {
       </div>
 
       {/* ============================================
-          RACCOURCIS SUPER ADMIN
+          RACCOURCIS SUPER ADMIN — thème vert
           ============================================ */}
       <div>
         <h2 className="text-lg font-bold text-gray-900 mb-4">Console système</h2>
@@ -984,64 +1077,64 @@ const SuperAdminDashboardPage: React.FC = () => {
               title: 'Utilisateurs globaux',
               desc: 'Super admins & admins système',
               icon: UserGroupIcon,
-              color: 'text-purple-600',
-              bg: 'bg-purple-50',
+              color: 'text-emerald-600',
+              bg: 'bg-emerald-50',
               href: '/dashboard/utilisateurs-globaux',
             },
             {
               title: 'Rôles globaux',
               desc: 'Permissions catalogue',
               icon: LockClosedIcon,
-              color: 'text-blue-600',
-              bg: 'bg-blue-50',
+              color: 'text-teal-600',
+              bg: 'bg-teal-50',
               href: '/dashboard/roles-globaux',
             },
             {
               title: 'Logs d\'audit',
               desc: 'Activité système',
               icon: ShieldCheckIcon,
-              color: 'text-emerald-600',
-              bg: 'bg-emerald-50',
+              color: 'text-green-600',
+              bg: 'bg-green-50',
               href: '/dashboard/audit',
             },
             {
               title: 'Statistiques serveur',
               desc: 'CPU, RAM, disque',
               icon: CpuChipIcon,
-              color: 'text-red-600',
-              bg: 'bg-red-50',
+              color: 'text-lime-600',
+              bg: 'bg-lime-50',
               href: '/dashboard/stats-serveur',
             },
             {
               title: 'Bases de données',
               desc: 'Schémas tenants',
               icon: CircleStackIcon,
-              color: 'text-amber-600',
-              bg: 'bg-amber-50',
+              color: 'text-emerald-700',
+              bg: 'bg-emerald-50',
               href: '/dashboard/schemas',
             },
             {
               title: 'Configuration',
               desc: 'Paramètres plateforme',
               icon: CogIcon,
-              color: 'text-gray-600',
-              bg: 'bg-gray-50',
+              color: 'text-teal-700',
+              bg: 'bg-teal-50',
               href: '/dashboard/config',
             },
             {
               title: 'Facturation',
               desc: 'Factures & paiements',
               icon: ReceiptPercentIcon,
-              color: 'text-indigo-600',
-              bg: 'bg-indigo-50',
+              color: 'text-green-700',
+              bg: 'bg-green-50',
               href: '/dashboard/factures',
             },
             {
               title: 'Monitoring',
               desc: 'Santé de la plateforme',
               icon: SignalIcon,
-              color: 'text-cyan-600',
-              bg: 'bg-cyan-50',
+              color: 'text-emerald-500',
+              bg: 'bg-emerald-50',
               href: '/dashboard/stats-serveur',
             },
           ].map((item, index) => (
@@ -1054,12 +1147,12 @@ const SuperAdminDashboardPage: React.FC = () => {
             >
               <Link
                 to={item.href}
-                className="block bg-white rounded-2xl p-5 border border-gray-100/50 shadow-sm hover:shadow-md transition-all group"
+                className="block bg-white rounded-2xl p-5 border border-gray-100/50 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all group"
               >
                 <div className={`inline-flex p-2 rounded-xl ${item.bg} mb-3`}>
                   <item.icon className={`w-5 h-5 ${item.color}`} />
                 </div>
-                <p className="text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                <p className="text-sm font-semibold text-gray-900 group-hover:text-emerald-600 transition-colors">
                   {item.title}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">{item.desc}</p>
@@ -1070,7 +1163,7 @@ const SuperAdminDashboardPage: React.FC = () => {
       </div>
 
       {/* ============================================
-          SANTÉ DE LA PLATEFORME
+          SANTÉ DE LA PLATEFORME — thème vert
           ============================================ */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -1088,29 +1181,31 @@ const SuperAdminDashboardPage: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: 'CPU', value: '32%', status: 'Bon', color: 'bg-emerald-500', pourcentage: 32 },
-            { label: 'Mémoire RAM', value: '58%', status: 'Bon', color: 'bg-blue-500', pourcentage: 58 },
-            { label: 'Disque', value: '71%', status: 'Attention', color: 'bg-amber-500', pourcentage: 71 },
-            { label: 'Latence API', value: '48ms', status: 'Excellent', color: 'bg-emerald-500', pourcentage: 15 },
+            { label: 'Mémoire RAM', value: '58%', status: 'Bon', color: 'bg-teal-500', pourcentage: 58 },
+            { label: 'Disque', value: '71%', status: 'Attention', color: 'bg-lime-500', pourcentage: 71 },
+            { label: 'Latence API', value: '48ms', status: 'Excellent', color: 'bg-green-500', pourcentage: 15 },
           ].map((item, index) => (
             <motion.div
               key={item.label}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.9 + index * 0.05 }}
-              className="p-4 bg-gray-50 rounded-xl"
+              className="p-4 bg-emerald-50/40 rounded-xl"
             >
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-medium text-gray-600">{item.label}</span>
-                <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${
-                  item.status === 'Excellent' || item.status === 'Bon'
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : 'bg-amber-100 text-amber-700'
-                }`}>
+                <span
+                  className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${
+                    item.status === 'Excellent' || item.status === 'Bon'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-lime-100 text-lime-700'
+                  }`}
+                >
                   {item.status}
                 </span>
               </div>
               <p className="text-2xl font-bold text-gray-900 mb-2">{item.value}</p>
-              <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+              <div className="w-full h-1.5 bg-white rounded-full overflow-hidden">
                 <motion.div
                   className={`h-full ${item.color} rounded-full`}
                   initial={{ width: 0 }}
@@ -1124,12 +1219,20 @@ const SuperAdminDashboardPage: React.FC = () => {
       </motion.div>
 
       {/* ============================================
-          PIED DE PAGE
+          PIED DE PAGE — thème vert
           ============================================ */}
-      <footer className="text-center text-xs text-gray-400 py-6 border-t border-gray-200">
-        <p>© 2024 EduManage. Tous droits réservés.</p>
+      <footer className="text-center text-xs text-gray-400 py-6 border-t border-emerald-100">
+        <p className="flex items-center justify-center gap-1">
+          © 2024 EduManage
+          <span className="text-emerald-500">•</span>
+          Tous droits réservés
+        </p>
         <p className="mt-1">
-          Console Super Admin • Version 1.0.0 • {new Date().getFullYear()}
+          Console Super Admin
+          <span className="mx-1 text-emerald-500">•</span>
+          Version 1.0.0
+          <span className="mx-1 text-emerald-500">•</span>
+          {new Date().getFullYear()}
         </p>
       </footer>
     </div>
