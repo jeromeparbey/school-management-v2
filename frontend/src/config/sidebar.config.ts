@@ -84,6 +84,8 @@ const directeurSidebar: NavGroup[] = [
           { label: 'Bulletins', href: '/dashboard/eleves/bulletins', icon: DocumentTextIcon },
         ],
       },
+      { label: 'Inscriptions', href: '/dashboard/eleves/inscriptions', icon: ClipboardDocumentCheckIcon },
+
       { label: 'Classes', href: '/dashboard/classes', icon: BuildingOfficeIcon },
       { label: 'Matières', href: '/dashboard/matieres', icon: BookOpenIcon },
       { label: 'Niveaux', href: '/dashboard/niveaux', icon: Squares2X2Icon },

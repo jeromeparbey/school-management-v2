@@ -1,6 +1,6 @@
 // frontend2/src/pages/dashboard/directeur/eleves/EleveNouvellePage.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -24,6 +24,9 @@ import {
   AcademicCapIcon,
   BanknotesIcon,
   InformationCircleIcon,
+  MagnifyingGlassIcon,
+  XMarkIcon,
+  UsersIcon,
 } from '@heroicons/react/24/outline';
 import { useCreateEleve } from '../../../../hooks/useEleves';
 import { useClasses } from '../../../../hooks/useClasses';
@@ -32,6 +35,10 @@ import type {
   CreateElevePayload,
   StatutEleve,
 } from '../../../../types/eleve.types';
+
+// ═══════════════════════════════════════════════════════════
+// CONSTANTES
+// ═══════════════════════════════════════════════════════════
 
 const initialForm: CreateElevePayload = {
   email: null,
@@ -62,6 +69,10 @@ const STATUTS: { value: StatutEleve; label: string }[] = [
 
 const GROUPES_SANGUINS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
+// ═══════════════════════════════════════════════════════════
+// PAGE
+// ═══════════════════════════════════════════════════════════
+
 const EleveNouvellePage: React.FC = () => {
   const navigate = useNavigate();
   const toast = useToast();
@@ -72,12 +83,43 @@ const EleveNouvellePage: React.FC = () => {
   const [withAccount, setWithAccount] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  // 🆕 États pour la recherche de classe
+  const [searchClasse, setSearchClasse] = useState('');
+  const [showClasseDropdown, setShowClasseDropdown] = useState(false);
+  const classeDropdownRef = useRef<HTMLDivElement>(null);
+
   const createMutation = useCreateEleve();
 
   const { data: classesData, isLoading: classesLoading } = useClasses({
     limit: 200,
   });
   const classes = classesData?.classes ?? [];
+
+  // 🆕 Filtrer les classes par recherche
+  const classesFiltrees = useMemo(() => {
+    const q = searchClasse.trim().toLowerCase();
+    const base = classes.filter((c) => !c.estArchive);
+    if (!q) return base;
+    return base.filter((c) => {
+      const hay = `${c.nom} ${c.code}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [classes, searchClasse]);
+
+  // 🆕 Fermer le dropdown au clic extérieur
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        classeDropdownRef.current &&
+        !classeDropdownRef.current.contains(e.target as Node)
+      ) {
+        setShowClasseDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () =>
+      document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const updateField = <K extends keyof CreateElevePayload>(
     field: K,
@@ -166,11 +208,12 @@ const EleveNouvellePage: React.FC = () => {
   };
 
   // ─────────────────────────────────────────
-  // SOUMISSION FINALE (uniquement depuis l'étape 2)
+  // SOUMISSION FINALE
   // ─────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (step !== 2) return;
     if (!validateStep2()) return;
 
     try {
@@ -224,19 +267,22 @@ const EleveNouvellePage: React.FC = () => {
   // ═══════════════════════════════════════════════════════════
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
-      {/* En-tête */}
+      {/* EN-TÊTE */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Link
             to="/dashboard/eleves"
-            className="p-2 rounded-lg text-gray-500 hover:bg-gray-100"
+            className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
             title="Retour"
+            aria-label="Retour à la liste des élèves"
           >
             <ArrowLeftIcon className="w-5 h-5" />
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <UserGroupIcon className="w-7 h-7 text-blue-600" />
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 shrink-0">
+                <UserGroupIcon className="w-5 h-5" />
+              </div>
               Nouvel élève
             </h1>
             <p className="text-sm text-gray-500 mt-0.5">
@@ -246,7 +292,7 @@ const EleveNouvellePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Indicateur d'étapes */}
+      {/* INDICATEUR D'ÉTAPES */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100/50 p-6">
         <div className="flex items-center justify-center gap-2 md:gap-4">
           {[
@@ -260,7 +306,7 @@ const EleveNouvellePage: React.FC = () => {
                     step > s.n
                       ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
                       : step === s.n
-                      ? 'bg-linear-to-br from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/30 scale-110'
+                      ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/30 scale-110'
                       : 'bg-gray-200 text-gray-500'
                   }`}
                 >
@@ -297,7 +343,7 @@ const EleveNouvellePage: React.FC = () => {
 
       <AnimatePresence mode="wait">
         {/* ═══════════════════════════════════════════════════
-            ÉTAPE 1 : FORMULAIRE DÉDIÉ (soumet → handleNext)
+            ÉTAPE 1 : IDENTITÉ
             ═══════════════════════════════════════════════════ */}
         {step === 1 && (
           <motion.div
@@ -309,12 +355,13 @@ const EleveNouvellePage: React.FC = () => {
           >
             <form
               onSubmit={handleNext}
+              noValidate
               className="bg-white rounded-2xl shadow-sm border border-gray-100/50 p-6 md:p-8"
             >
               <div className="space-y-6">
                 <div className="flex items-center gap-2 pb-4 border-b border-gray-100">
-                  <div className="p-2 bg-blue-50 rounded-lg">
-                    <IdentificationIcon className="w-5 h-5 text-blue-600" />
+                  <div className="p-2 bg-emerald-50 rounded-lg">
+                    <IdentificationIcon className="w-5 h-5 text-emerald-600" />
                   </div>
                   <div>
                     <h2 className="text-lg font-bold text-gray-900">
@@ -326,6 +373,7 @@ const EleveNouvellePage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Prénom + Nom */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -339,7 +387,7 @@ const EleveNouvellePage: React.FC = () => {
                         onChange={(e) => updateField('prenom', e.target.value)}
                         placeholder="Ex: Aminata"
                         maxLength={100}
-                        className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none ${
+                        className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all ${
                           errors.prenom
                             ? 'border-red-300 bg-red-50'
                             : 'border-gray-200'
@@ -365,7 +413,7 @@ const EleveNouvellePage: React.FC = () => {
                         onChange={(e) => updateField('nom', e.target.value)}
                         placeholder="Ex: Diallo"
                         maxLength={100}
-                        className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none ${
+                        className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all ${
                           errors.nom
                             ? 'border-red-300 bg-red-50'
                             : 'border-gray-200'
@@ -380,6 +428,7 @@ const EleveNouvellePage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Sexe + Date naissance */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -391,9 +440,9 @@ const EleveNouvellePage: React.FC = () => {
                           key={s}
                           type="button"
                           onClick={() => updateField('sexe', s)}
-                          className={`flex-1 px-4 py-2.5 rounded-lg font-medium text-sm transition-colors ${
+                          className={`flex-1 px-4 py-2.5 rounded-lg font-medium text-sm transition-all ${
                             form.sexe === s
-                              ? 'bg-blue-600 text-white shadow-md'
+                              ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-500/20'
                               : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100'
                           }`}
                         >
@@ -416,7 +465,7 @@ const EleveNouvellePage: React.FC = () => {
                           updateField('dateNaissance', e.target.value)
                         }
                         max={new Date().toISOString().slice(0, 10)}
-                        className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none ${
+                        className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all ${
                           errors.dateNaissance
                             ? 'border-red-300 bg-red-50'
                             : 'border-gray-200'
@@ -431,6 +480,7 @@ const EleveNouvellePage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Lieu + Nationalité */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -446,7 +496,7 @@ const EleveNouvellePage: React.FC = () => {
                         }
                         placeholder="Ex: Abidjan"
                         maxLength={100}
-                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
                       />
                     </div>
                   </div>
@@ -463,11 +513,12 @@ const EleveNouvellePage: React.FC = () => {
                       }
                       placeholder="Ex: Ivoirienne"
                       maxLength={100}
-                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
                     />
                   </div>
                 </div>
 
+                {/* Statut */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     Statut initial
@@ -477,7 +528,7 @@ const EleveNouvellePage: React.FC = () => {
                     onChange={(e) =>
                       updateField('statut', e.target.value as StatutEleve)
                     }
-                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
                   >
                     {STATUTS.map((s) => (
                       <option key={s.value} value={s.value}>
@@ -492,13 +543,13 @@ const EleveNouvellePage: React.FC = () => {
               <div className="flex items-center justify-end gap-3 pt-6 mt-6 border-t border-gray-100">
                 <Link
                   to="/dashboard/eleves"
-                  className="hidden sm:inline-flex px-4 py-2.5 text-gray-500 hover:text-gray-700 font-medium"
+                  className="hidden sm:inline-flex px-4 py-2.5 text-gray-500 hover:text-gray-700 font-medium transition-colors"
                 >
                   Annuler
                 </Link>
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-linear-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg shadow-md hover:shadow-lg"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-semibold rounded-lg shadow-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30 transition-all"
                 >
                   Suivant
                   <ArrowRightIcon className="w-4 h-4" />
@@ -509,7 +560,7 @@ const EleveNouvellePage: React.FC = () => {
         )}
 
         {/* ═══════════════════════════════════════════════════
-            ÉTAPE 2 : FORMULAIRE DÉDIÉ (soumet → handleSubmit)
+            ÉTAPE 2 : CONTACT & COMPTE
             ═══════════════════════════════════════════════════ */}
         {step === 2 && (
           <motion.div
@@ -521,13 +572,14 @@ const EleveNouvellePage: React.FC = () => {
           >
             <form
               onSubmit={handleSubmit}
+              noValidate
               className="bg-white rounded-2xl shadow-sm border border-gray-100/50 p-6 md:p-8"
             >
               <div className="space-y-6">
                 {/* Récap */}
-                <div className="p-4 bg-linear-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
+                <div className="p-4 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl border border-emerald-100">
                   <div className="flex items-start gap-3">
-                    <SparklesIcon className="w-5 h-5 text-blue-500 mt-0.5 shrink-0" />
+                    <SparklesIcon className="w-5 h-5 text-emerald-500 mt-0.5 shrink-0" />
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-gray-900">
                         Récapitulatif
@@ -550,8 +602,8 @@ const EleveNouvellePage: React.FC = () => {
                 {/* Section Scolarité */}
                 <div>
                   <div className="flex items-center gap-2 pb-3 border-b border-gray-100 mb-3">
-                    <div className="p-2 bg-indigo-50 rounded-lg">
-                      <AcademicCapIcon className="w-5 h-5 text-indigo-600" />
+                    <div className="p-2 bg-teal-50 rounded-lg">
+                      <AcademicCapIcon className="w-5 h-5 text-teal-600" />
                     </div>
                     <div>
                       <h2 className="text-base font-bold text-gray-900">
@@ -563,25 +615,159 @@ const EleveNouvellePage: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* 🆕 Classe — Combobox avec recherche */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Classe (optionnel)
-                    </label>
-                    <select
-                      value={form.classeId ?? ''}
-                      onChange={(e) =>
-                        updateField('classeId', e.target.value || null)
-                      }
-                      disabled={classesLoading}
-                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                    >
-                      <option value="">— Aucune classe pour l'instant —</option>
-                      {classes.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.nom} ({c.code})
-                        </option>
-                      ))}
-                    </select>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Classe{' '}
+                        <span className="text-gray-400 text-xs">
+                          (optionnel)
+                        </span>
+                      </label>
+                      {(selectedClasse || searchClasse) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            updateField('classeId', null);
+                            setSearchClasse('');
+                          }}
+                          className="text-[11px] text-emerald-600 hover:underline font-medium"
+                        >
+                          Effacer
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="relative" ref={classeDropdownRef}>
+                      <UsersIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none z-10" />
+
+                      <input
+                        type="text"
+                        value={searchClasse}
+                        onChange={(e) => {
+                          setSearchClasse(e.target.value);
+                          setShowClasseDropdown(true);
+                        }}
+                        onFocus={() => setShowClasseDropdown(true)}
+                        placeholder={
+                          selectedClasse
+                            ? `${selectedClasse.nom} (${selectedClasse.code})`
+                            : 'Rechercher une classe…'
+                        }
+                        disabled={classesLoading}
+                        className="w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all disabled:opacity-50"
+                      />
+
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                        {classesLoading ? (
+                          <ArrowPathIcon className="w-4 h-4 text-gray-400 animate-spin" />
+                        ) : searchClasse || form.classeId ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSearchClasse('');
+                              updateField('classeId', null);
+                            }}
+                            className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                            aria-label="Effacer la classe"
+                          >
+                            <XMarkIcon className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <MagnifyingGlassIcon className="w-4 h-4 text-gray-400 pointer-events-none" />
+                        )}
+                      </div>
+
+                      {showClasseDropdown && !classesLoading && (
+                        <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-72 overflow-y-auto">
+                          <div className="px-3 py-2 bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                              {classesFiltrees.length} classe(s)
+                              {searchClasse.trim() && ` · "${searchClasse}"`}
+                            </p>
+                          </div>
+
+                          {/* Option "Aucune classe" */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateField('classeId', null);
+                              setSearchClasse('');
+                              setShowClasseDropdown(false);
+                            }}
+                            className={`w-full text-left px-3 py-2.5 hover:bg-emerald-50 flex items-center gap-2 border-b border-gray-100 ${
+                              !form.classeId ? 'bg-emerald-50' : ''
+                            }`}
+                          >
+                            <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-500 shrink-0">
+                              <UsersIcon className="w-4 h-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900">
+                                Aucune classe pour l'instant
+                              </p>
+                              <p className="text-[10px] text-gray-500">
+                                L'élève sera créé sans inscription
+                              </p>
+                            </div>
+                            {!form.classeId && (
+                              <CheckCircleIcon className="w-4 h-4 text-emerald-600 shrink-0" />
+                            )}
+                          </button>
+
+                          {/* Liste filtrée */}
+                          {classesFiltrees.length === 0 ? (
+                            <div className="p-4 text-center text-sm text-gray-500">
+                              {searchClasse.trim() ? (
+                                <>
+                                  Aucune classe ne correspond à «&nbsp;
+                                  <strong>{searchClasse}</strong>&nbsp;»
+                                </>
+                              ) : (
+                                'Aucune classe disponible'
+                              )}
+                            </div>
+                          ) : (
+                            classesFiltrees.map((c) => {
+                              const isSelected = form.classeId === c.id;
+                              return (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  onClick={() => {
+                                    updateField('classeId', c.id);
+                                    setSearchClasse('');
+                                    setShowClasseDropdown(false);
+                                  }}
+                                  className={`w-full text-left px-3 py-2.5 hover:bg-emerald-50 flex items-center gap-2 border-b border-gray-100 last:border-b-0 ${
+                                    isSelected ? 'bg-emerald-50' : ''
+                                  }`}
+                                >
+                                  <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700 shrink-0">
+                                    <UsersIcon className="w-4 h-4" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-gray-900 truncate">
+                                      {c.nom}
+                                    </p>
+                                    <p className="text-[10px] text-gray-500">
+                                      {c.code}
+                                      {c.capacite
+                                        ? ` · ${c.capacite} places`
+                                        : ''}
+                                    </p>
+                                  </div>
+                                  {isSelected && (
+                                    <CheckCircleIcon className="w-4 h-4 text-emerald-600 shrink-0" />
+                                  )}
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
+                    </div>
+
                     <p className="text-xs text-gray-500 mt-1.5 flex items-start gap-1">
                       <InformationCircleIcon className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                       Si une classe est sélectionnée, l'élève sera
@@ -591,14 +777,14 @@ const EleveNouvellePage: React.FC = () => {
                   </div>
 
                   {selectedClasse && (
-                    <div className="mt-3 p-3 bg-indigo-50 border border-indigo-100 rounded-lg flex items-start gap-2">
-                      <BanknotesIcon className="w-4 h-4 text-indigo-600 mt-0.5 shrink-0" />
+                    <div className="mt-3 p-3 bg-emerald-50 border border-emerald-100 rounded-lg flex items-start gap-2">
+                      <BanknotesIcon className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-indigo-800">
+                        <p className="text-sm font-medium text-emerald-800">
                           Inscription dans : {selectedClasse.nom} (
                           {selectedClasse.code})
                         </p>
-                        <p className="text-xs text-indigo-700">
+                        <p className="text-xs text-emerald-700">
                           Un assignment de scolarité sera créé si un plan actif
                           existe pour cette classe ou son niveau.
                         </p>
@@ -607,9 +793,10 @@ const EleveNouvellePage: React.FC = () => {
                   )}
                 </div>
 
+                {/* Contact */}
                 <div className="flex items-center gap-2 pb-4 border-b border-gray-100">
-                  <div className="p-2 bg-indigo-50 rounded-lg">
-                    <PhoneIcon className="w-5 h-5 text-indigo-600" />
+                  <div className="p-2 bg-teal-50 rounded-lg">
+                    <PhoneIcon className="w-5 h-5 text-teal-600" />
                   </div>
                   <div>
                     <h2 className="text-lg font-bold text-gray-900">
@@ -636,7 +823,7 @@ const EleveNouvellePage: React.FC = () => {
                         }
                         placeholder="+225 07 00 00 00 00"
                         maxLength={30}
-                        className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none ${
+                        className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all ${
                           errors.telephone
                             ? 'border-red-300 bg-red-50'
                             : 'border-gray-200'
@@ -664,7 +851,7 @@ const EleveNouvellePage: React.FC = () => {
                         }
                         placeholder="Ex: 12 rue des Écoles, Cocody"
                         maxLength={300}
-                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
                       />
                     </div>
                   </div>
@@ -687,7 +874,7 @@ const EleveNouvellePage: React.FC = () => {
                         onChange={(e) =>
                           updateField('groupeSanguin', e.target.value || null)
                         }
-                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
                       >
                         <option value="">—</option>
                         {GROUPES_SANGUINS.map((g) => (
@@ -710,7 +897,7 @@ const EleveNouvellePage: React.FC = () => {
                         }
                         placeholder="Ex: Arachides, pénicilline…"
                         maxLength={500}
-                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
                       />
                     </div>
                   </div>
@@ -727,19 +914,19 @@ const EleveNouvellePage: React.FC = () => {
                       rows={2}
                       maxLength={1000}
                       placeholder="Informations médicales utiles (asthme, traitement en cours…)"
-                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none resize-none transition-all"
                     />
                   </div>
                 </div>
 
                 {/* Toggle Compte */}
                 <div className="border-t border-gray-100 pt-4">
-                  <label className="flex items-start gap-3 p-4 bg-indigo-50 border border-indigo-100 rounded-xl cursor-pointer hover:bg-indigo-100/50">
+                  <label className="flex items-start gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-xl cursor-pointer hover:bg-emerald-100/50 transition-colors">
                     <input
                       type="checkbox"
                       checked={withAccount}
                       onChange={(e) => setWithAccount(e.target.checked)}
-                      className="mt-0.5 w-5 h-5 rounded text-indigo-600"
+                      className="mt-0.5 w-5 h-5 rounded text-emerald-600 focus:ring-emerald-500"
                     />
                     <div>
                       <p className="text-sm font-medium text-gray-900">
@@ -756,7 +943,7 @@ const EleveNouvellePage: React.FC = () => {
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
-                      className="mt-4 space-y-4 pl-4 border-l-2 border-indigo-200"
+                      className="mt-4 space-y-4 pl-4 border-l-2 border-emerald-200"
                     >
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -771,7 +958,7 @@ const EleveNouvellePage: React.FC = () => {
                               updateField('email', e.target.value || null)
                             }
                             placeholder={`${form.prenom.toLowerCase() || 'prenom'}.${form.nom.toLowerCase() || 'nom'}@eleve.ci`}
-                            className={`w-full pl-10 pr-4 py-2.5 bg-white border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
+                            className={`w-full pl-10 pr-4 py-2.5 bg-white border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all ${
                               errors.email
                                 ? 'border-red-300 bg-red-50'
                                 : 'border-gray-200'
@@ -798,7 +985,7 @@ const EleveNouvellePage: React.FC = () => {
                               updateField('motDePasse', e.target.value || null)
                             }
                             placeholder="Laisser vide pour générer"
-                            className={`w-full pl-10 pr-12 py-2.5 bg-white border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
+                            className={`w-full pl-10 pr-12 py-2.5 bg-white border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all ${
                               errors.motDePasse
                                 ? 'border-red-300 bg-red-50'
                                 : 'border-gray-200'
@@ -807,7 +994,12 @@ const EleveNouvellePage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setShowPassword((v) => !v)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                            aria-label={
+                              showPassword
+                                ? 'Masquer le mot de passe'
+                                : 'Afficher le mot de passe'
+                            }
                           >
                             {showPassword ? (
                               <EyeSlashIcon className="w-5 h-5" />
@@ -845,7 +1037,7 @@ const EleveNouvellePage: React.FC = () => {
                   type="button"
                   onClick={handlePrev}
                   disabled={createMutation.isPending}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 text-gray-700 font-medium rounded-lg hover:bg-gray-100 disabled:opacity-50"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 text-gray-700 font-medium rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
                 >
                   <ArrowLeftIcon className="w-4 h-4" />
                   Précédent
@@ -854,14 +1046,14 @@ const EleveNouvellePage: React.FC = () => {
                 <div className="flex items-center gap-3">
                   <Link
                     to="/dashboard/eleves"
-                    className="hidden sm:inline-flex px-4 py-2.5 text-gray-500 hover:text-gray-700 font-medium"
+                    className="hidden sm:inline-flex px-4 py-2.5 text-gray-500 hover:text-gray-700 font-medium transition-colors"
                   >
                     Annuler
                   </Link>
                   <button
                     type="submit"
                     disabled={createMutation.isPending}
-                    className="inline-flex items-center gap-2 px-6 py-2.5 bg-linear-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg shadow-md hover:shadow-lg disabled:opacity-60"
+                    className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-semibold rounded-lg shadow-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {createMutation.isPending ? (
                       <>

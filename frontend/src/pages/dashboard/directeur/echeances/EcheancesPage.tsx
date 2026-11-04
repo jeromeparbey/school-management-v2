@@ -20,10 +20,9 @@ import {
   ArrowsUpDownIcon,
   XMarkIcon,
   ReceiptPercentIcon,
-  AcademicCapIcon,
   ChartBarIcon,
   CurrencyDollarIcon,
-  CalendarIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline';
 import {
   useEcheances,
@@ -37,13 +36,12 @@ import type {
   ListEcheancesParams,
 } from '../../../../types/echeance.types';
 
-// ============================================
+// ═══════════════════════════════════════════════════════════
 // HELPERS
-// ============================================
+// ═══════════════════════════════════════════════════════════
 
 type SortOption = NonNullable<ListEcheancesParams['sortBy']>;
 
-/** 💰 Formate en Francs CFA — jamais XOF/XAF affiché */
 const formatMoney = (amount: number | null | undefined) => {
   if (amount == null) return '0 F CFA';
   return new Intl.NumberFormat('fr-FR').format(Math.round(amount)) + ' F CFA';
@@ -58,15 +56,14 @@ const formatDate = (date: string | null | undefined) => {
   });
 };
 
-/** Retourne le nombre de jours avant la date limite (négatif = en retard) */
 const joursRestants = (dateLimite: string): number => {
   const diff = new Date(dateLimite).getTime() - Date.now();
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 };
 
-// ============================================
+// ═══════════════════════════════════════════════════════════
 // SOUS-COMPOSANT : Carte statistique
-// ============================================
+// ═══════════════════════════════════════════════════════════
 
 interface StatCardProps {
   label: string;
@@ -85,25 +82,31 @@ const StatCard: React.FC<StatCardProps> = ({
   bgColor,
   hint,
 }) => (
-  <div className="bg-white rounded-xl border border-gray-100 p-4">
+  <motion.div
+    initial={{ opacity: 0, y: 8 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-sm transition-shadow"
+  >
     <div className="flex items-center justify-between gap-2">
       <div className="min-w-0">
-        <p className="text-xs text-gray-500">{label}</p>
-        <p className="text-xl font-bold text-gray-900 mt-1 truncate">{value}</p>
+        <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">
+          {label}
+        </p>
+        <p className="text-2xl font-bold text-gray-900 mt-1 truncate">{value}</p>
         {hint && (
           <p className="text-[10px] text-gray-400 mt-0.5 truncate">{hint}</p>
         )}
       </div>
-      <div className={`p-2 rounded-lg ${bgColor} shrink-0`}>
+      <div className={`p-2.5 rounded-xl ${bgColor} shrink-0`}>
         <Icon className={`w-5 h-5 ${color}`} />
       </div>
     </div>
-  </div>
+  </motion.div>
 );
 
-// ============================================
+// ═══════════════════════════════════════════════════════════
 // SOUS-COMPOSANT : Ligne échéance
-// ============================================
+// ═══════════════════════════════════════════════════════════
 
 interface EcheanceRowProps {
   echeance: Echeance;
@@ -127,12 +130,12 @@ const EcheanceRow: React.FC<EcheanceRowProps> = ({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className={`hover:bg-gray-50 transition-colors ${
-        enRetard ? 'bg-rose-50/40' : proche ? 'bg-amber-50/40' : ''
+        enRetard ? 'bg-rose-50/30' : proche ? 'bg-amber-50/30' : ''
       }`}
     >
       {/* Ordre */}
       <td className="px-4 py-4">
-        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm">
+        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-sm shadow-sm shadow-emerald-500/20">
           {echeance.ordre}
         </div>
       </td>
@@ -142,12 +145,12 @@ const EcheanceRow: React.FC<EcheanceRowProps> = ({
         <div>
           <Link
             to={`/dashboard/echeances/${echeance.id}`}
-            className="font-semibold text-gray-900 hover:text-blue-600"
+            className="font-semibold text-gray-900 hover:text-emerald-600 transition-colors"
           >
             {echeance.nom}
           </Link>
           {echeance.planScolarite && (
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-xs text-gray-500 mt-0.5 truncate">
               {echeance.planScolarite.nom}
             </p>
           )}
@@ -194,22 +197,22 @@ const EcheanceRow: React.FC<EcheanceRowProps> = ({
       {/* Statut */}
       <td className="px-4 py-4 text-center">
         {echeance.estPayee ? (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-emerald-50 text-emerald-700 rounded-full">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full">
             <CheckCircleIcon className="w-3 h-3" />
             Payée
           </span>
         ) : enRetard ? (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-rose-50 text-rose-700 rounded-full">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200 rounded-full">
             <ExclamationTriangleIcon className="w-3 h-3" />
             En retard
           </span>
         ) : proche ? (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-amber-50 text-amber-700 rounded-full">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 rounded-full">
             <ClockIcon className="w-3 h-3" />
             Bientôt
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-600 rounded-full">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200 rounded-full">
             <XCircleIcon className="w-3 h-3" />
             En attente
           </span>
@@ -221,7 +224,7 @@ const EcheanceRow: React.FC<EcheanceRowProps> = ({
         <div className="flex items-center justify-end gap-1">
           <Link
             to={`/dashboard/echeances/${echeance.id}`}
-            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
             title="Voir"
             aria-label={`Voir ${echeance.nom}`}
           >
@@ -254,14 +257,14 @@ const EcheanceRow: React.FC<EcheanceRowProps> = ({
   );
 };
 
-// ============================================
+// ═══════════════════════════════════════════════════════════
 // PAGE PRINCIPALE
-// ============================================
+// ═══════════════════════════════════════════════════════════
 
 type StatutFilter = 'all' | 'payee' | 'impayee' | 'en_retard' | 'proche';
 
 const EcheancesPage: React.FC = () => {
-  // ─── Filtres ───
+  // Filtres
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [statutFilter, setStatutFilter] = useState<StatutFilter>('all');
@@ -273,7 +276,7 @@ const EcheancesPage: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // ─── Référentiels ───
+  // Référentiels
   const { data: plansData } = usePlansScolarite({ limit: 200 });
   const { data: classesData } = useClasses({ limit: 200 });
   const { data: anneesData } = useAnneesScolaires({ limit: 50 });
@@ -282,7 +285,7 @@ const EcheancesPage: React.FC = () => {
   const classes = classesData?.classes ?? [];
   const annees = anneesData?.annees ?? [];
 
-  // ─── Params API ───
+  // Params API
   const params = useMemo<ListEcheancesParams>(
     () => ({
       page,
@@ -315,18 +318,17 @@ const EcheancesPage: React.FC = () => {
 
   const hardDeleteMutation = useHardDeleteEcheance();
 
-  // ─── Données normalisées ───
+  // Données normalisées
   const echeancesBrutes: Echeance[] = useMemo(
     () => data?.echeances ?? [],
     [data]
   );
   const pagination = data?.pagination;
 
-  // ─── Filtres côté client (classe, année, statuts temporels) ───
+  // Filtres côté client
   const echeances: Echeance[] = useMemo(() => {
     let result = echeancesBrutes;
 
-    // Statut temporel
     if (statutFilter === 'en_retard') {
       result = result.filter(
         (e) => !e.estPayee && joursRestants(e.dateLimite) < 0
@@ -338,35 +340,28 @@ const EcheancesPage: React.FC = () => {
       });
     }
 
-    // Classe : on ne peut filtrer que côté client car le backend ne le fait pas encore
-    // (il faut étendre findAll pour accepter classeId → on filtre via _meta ou plan)
     if (classeId) {
       const planIdsOfClasse = new Set(
         plans
           .filter((p: any) => p.classeId === classeId)
           .map((p: any) => p.id)
       );
-      result = result.filter(
-        (e) => planIdsOfClasse.has(e.planScolariteId)
-      );
+      result = result.filter((e) => planIdsOfClasse.has(e.planScolariteId));
     }
 
-    // Année : pareil, on filtre via les plans liés
     if (anneeScolaireId) {
       const planIdsOfAnnee = new Set(
         plans
           .filter((p: any) => p.anneeScolaireId === anneeScolaireId)
           .map((p: any) => p.id)
       );
-      result = result.filter(
-        (e) => planIdsOfAnnee.has(e.planScolariteId)
-      );
+      result = result.filter((e) => planIdsOfAnnee.has(e.planScolariteId));
     }
 
     return result;
   }, [echeancesBrutes, statutFilter, classeId, anneeScolaireId, plans]);
 
-  // ─── Statistiques KPI ───
+  // Statistiques KPI
   const stats = useMemo(() => {
     const payees = echeances.filter((e) => e.estPayee).length;
     const enRetard = echeances.filter(
@@ -401,7 +396,7 @@ const EcheancesPage: React.FC = () => {
     };
   }, [echeances]);
 
-  // ─── Handlers ───
+  // Handlers
   const handleHardDelete = async (echeance: Echeance) => {
     const confirmed = confirm(
       `⚠️ SUPPRESSION DÉFINITIVE\n\nÉchéance : ${echeance.nom}\nMontant : ${formatMoney(
@@ -439,7 +434,6 @@ const EcheancesPage: React.FC = () => {
     anneeScolaireId ? 'x' : '',
   ].filter(Boolean).length;
 
-  // ─── Labels pour badges ───
   const STATUT_LABELS: Record<Exclude<StatutFilter, 'all'>, string> = {
     payee: '✅ Payées',
     impayee: '⏳ Impayées',
@@ -452,31 +446,34 @@ const EcheancesPage: React.FC = () => {
   const anneeLabel = annees.find((a: any) => a.id === anneeScolaireId)?.nom;
 
   return (
-    <div className="p-6 space-y-5">
-      {/* ============================================
+    <div className="p-6 space-y-5 max-w-[1600px] mx-auto">
+      {/* ═══════════════════════════════════════
           EN-TÊTE
-          ============================================ */}
+          ═══════════════════════════════════════ */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <ReceiptPercentIcon className="h-7 w-7 text-blue-600" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 shrink-0">
+              <ReceiptPercentIcon className="w-6 h-6" />
+            </div>
             Échéances
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1.5 text-sm text-gray-500">
             {pagination?.total ?? 0} échéance(s) au total
             {activeFiltersCount > 0 && (
-              <span className="ml-2 text-blue-600 font-medium">
-                ({echeances.length} filtrée{echeances.length > 1 ? 's' : ''})
+              <span className="ml-2 inline-flex items-center gap-1 text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded-full text-xs">
+                <SparklesIcon className="w-3 h-3" />
+                {echeances.length} filtrée{echeances.length > 1 ? 's' : ''}
               </span>
             )}
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => refetch()}
             disabled={isFetching}
-            className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
             title="Rafraîchir"
             aria-label="Rafraîchir"
           >
@@ -487,7 +484,7 @@ const EcheancesPage: React.FC = () => {
 
           <Link
             to="/dashboard/plans-scolarite"
-            className="hidden sm:inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
+            className="hidden sm:inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors"
             title="Voir les plans de scolarité"
           >
             <BanknotesIcon className="h-4 w-4" />
@@ -496,7 +493,7 @@ const EcheancesPage: React.FC = () => {
 
           <Link
             to="/dashboard/echeances/nouveau"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium shadow-sm"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-700 hover:to-teal-700 text-sm font-semibold shadow-md shadow-emerald-500/20 transition-all"
           >
             <PlusIcon className="h-4 w-4" />
             Nouvelle échéance
@@ -504,17 +501,17 @@ const EcheancesPage: React.FC = () => {
         </div>
       </div>
 
-      {/* ============================================
+      {/* ═══════════════════════════════════════
           STATISTIQUES KPI
-          ============================================ */}
+          ═══════════════════════════════════════ */}
       {!isLoading && !isError && echeances.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           <StatCard
             label="Affichées"
             value={echeances.length}
             icon={CalendarDaysIcon}
-            color="text-blue-600"
-            bgColor="bg-blue-50"
+            color="text-emerald-600"
+            bgColor="bg-emerald-50"
             hint={`sur ${pagination?.total ?? 0} au total`}
           />
           <StatCard
@@ -541,16 +538,16 @@ const EcheancesPage: React.FC = () => {
             label="Montant nominal"
             value={formatMoney(stats.totalMontant)}
             icon={CurrencyDollarIcon}
-            color="text-indigo-600"
-            bgColor="bg-indigo-50"
+            color="text-amber-600"
+            bgColor="bg-amber-50"
             hint="sur cette page"
           />
           <StatCard
             label="Montant attendu"
             value={formatMoney(stats.totalAttendu)}
             icon={BanknotesIcon}
-            color="text-purple-600"
-            bgColor="bg-purple-50"
+            color="text-teal-600"
+            bgColor="bg-teal-50"
             hint="tous élèves cumulés"
           />
           <StatCard
@@ -564,13 +561,13 @@ const EcheancesPage: React.FC = () => {
         </div>
       )}
 
-      {/* ============================================
+      {/* ═══════════════════════════════════════
           RECHERCHE + FILTRES
-          ============================================ */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
+          ═══════════════════════════════════════ */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
             <input
               type="text"
               placeholder="Rechercher une échéance (nom, plan)…"
@@ -579,7 +576,7 @@ const EcheancesPage: React.FC = () => {
                 setSearch(e.target.value);
                 setPage(1);
               }}
-              className="w-full pl-10 pr-10 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              className="w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
             />
             {search && (
               <button
@@ -587,7 +584,7 @@ const EcheancesPage: React.FC = () => {
                   setSearch('');
                   setPage(1);
                 }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
                 title="Effacer"
                 aria-label="Effacer la recherche"
               >
@@ -597,7 +594,7 @@ const EcheancesPage: React.FC = () => {
           </div>
 
           <div className="relative">
-            <ArrowsUpDownIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <ArrowsUpDownIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none z-10" />
             <select
               value={`${sortBy}-${sortOrder}`}
               onChange={(e) => {
@@ -609,7 +606,7 @@ const EcheancesPage: React.FC = () => {
                 setSortOrder(order);
                 setPage(1);
               }}
-              className="pl-9 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none appearance-none cursor-pointer"
+              className="pl-9 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none appearance-none cursor-pointer transition-all"
               title="Trier par"
             >
               <option value="ordre-asc">Ordre (croissant)</option>
@@ -625,9 +622,9 @@ const EcheancesPage: React.FC = () => {
 
           <button
             onClick={() => setShowFilters((v) => !v)}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border transition-all ${
               activeFiltersCount > 0
-                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                 : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
             }`}
             aria-expanded={showFilters}
@@ -635,7 +632,7 @@ const EcheancesPage: React.FC = () => {
             <FunnelIcon className="h-4 w-4" />
             Filtres
             {activeFiltersCount > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 text-xs font-bold bg-blue-600 text-white rounded-full">
+              <span className="ml-1 px-1.5 py-0.5 text-xs font-bold bg-emerald-600 text-white rounded-full">
                 {activeFiltersCount}
               </span>
             )}
@@ -644,69 +641,66 @@ const EcheancesPage: React.FC = () => {
 
         {/* Badges filtres actifs */}
         {activeFiltersCount > 0 && (
-          <div className="flex flex-wrap gap-2 mt-3">
+          <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">
             {search && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full border border-emerald-200">
                 🔍 "{search}"
                 <button
                   onClick={() => {
                     setSearch('');
                     setPage(1);
                   }}
-                  className="hover:text-blue-900"
+                  className="hover:text-emerald-900"
                 >
                   <XMarkIcon className="h-3 w-3" />
                 </button>
               </span>
             )}
             {statutFilter !== 'all' && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 text-indigo-700 text-xs font-medium rounded-full">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full border border-emerald-200">
                 {STATUT_LABELS[statutFilter as Exclude<StatutFilter, 'all'>]}
                 <button
                   onClick={() => {
                     setStatutFilter('all');
                     setPage(1);
                   }}
-                  className="hover:text-indigo-900"
+                  className="hover:text-emerald-900"
                 >
                   <XMarkIcon className="h-3 w-3" />
                 </button>
               </span>
             )}
-            {/* 🆕 Badge plan */}
             {planScolariteId && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 text-xs font-medium rounded-full">
-                📋 Plan : {planLabel ?? '—'}
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-teal-50 text-teal-700 text-xs font-medium rounded-full border border-teal-200">
+                📋 {planLabel ?? '—'}
                 <button
                   onClick={() => {
                     setPlanScolariteId('');
                     setPage(1);
                   }}
-                  className="hover:text-purple-900"
+                  className="hover:text-teal-900"
                 >
                   <XMarkIcon className="h-3 w-3" />
                 </button>
               </span>
             )}
-            {/* 🆕 Badge classe */}
             {classeId && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 text-xs font-medium rounded-full">
-                🏫 Classe : {classeLabel ?? '—'}
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full border border-emerald-200">
+                🏫 {classeLabel ?? '—'}
                 <button
                   onClick={() => {
                     setClasseId('');
                     setPage(1);
                   }}
-                  className="hover:text-purple-900"
+                  className="hover:text-emerald-900"
                 >
                   <XMarkIcon className="h-3 w-3" />
                 </button>
               </span>
             )}
-            {/* 🆕 Badge année */}
             {anneeScolaireId && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 text-xs font-medium rounded-full">
-                📅 Année : {anneeLabel ?? '—'}
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 text-xs font-medium rounded-full border border-amber-200">
+                📅 {anneeLabel ?? '—'}
                 <button
                   onClick={() => {
                     setAnneeScolaireId('');
@@ -737,7 +731,6 @@ const EcheancesPage: React.FC = () => {
               className="overflow-hidden"
             >
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3 pt-3 border-t border-gray-100">
-                {/* Statut */}
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">
                     Statut
@@ -748,7 +741,7 @@ const EcheancesPage: React.FC = () => {
                       setStatutFilter(e.target.value as StatutFilter);
                       setPage(1);
                     }}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none"
                   >
                     <option value="all">Tous les statuts</option>
                     <option value="payee">Payées</option>
@@ -758,7 +751,6 @@ const EcheancesPage: React.FC = () => {
                   </select>
                 </div>
 
-                {/* 🆕 Plan de scolarité */}
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">
                     Plan de scolarité
@@ -769,7 +761,7 @@ const EcheancesPage: React.FC = () => {
                       setPlanScolariteId(e.target.value);
                       setPage(1);
                     }}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none"
                   >
                     <option value="">Tous les plans</option>
                     {plans.map((p: any) => (
@@ -780,7 +772,6 @@ const EcheancesPage: React.FC = () => {
                   </select>
                 </div>
 
-                {/* 🆕 Classe */}
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">
                     Classe
@@ -791,7 +782,7 @@ const EcheancesPage: React.FC = () => {
                       setClasseId(e.target.value);
                       setPage(1);
                     }}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none"
                   >
                     <option value="">Toutes les classes</option>
                     {classes.map((c: any) => (
@@ -803,7 +794,6 @@ const EcheancesPage: React.FC = () => {
                   </select>
                 </div>
 
-                {/* 🆕 Année scolaire */}
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">
                     Année scolaire
@@ -814,7 +804,7 @@ const EcheancesPage: React.FC = () => {
                       setAnneeScolaireId(e.target.value);
                       setPage(1);
                     }}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none"
                   >
                     <option value="">Toutes les années</option>
                     {annees.map((a: any) => (
@@ -827,10 +817,10 @@ const EcheancesPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex justify-end mt-3">
+              <div className="flex justify-end mt-3 pt-3 border-t border-gray-100">
                 <button
                   onClick={resetFilters}
-                  className="text-xs text-blue-600 hover:underline font-medium"
+                  className="text-xs text-emerald-600 hover:text-emerald-700 font-medium hover:underline"
                 >
                   Réinitialiser les filtres
                 </button>
@@ -843,14 +833,14 @@ const EcheancesPage: React.FC = () => {
       {/* Indicateur rafraîchissement */}
       {isFetching && !isLoading && (
         <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
-          <ArrowPathIcon className="h-4 w-4 animate-spin text-blue-600" />
+          <ArrowPathIcon className="h-4 w-4 animate-spin text-emerald-600" />
           Actualisation…
         </div>
       )}
 
-      {/* ============================================
+      {/* ═══════════════════════════════════════
           CONTENU
-          ============================================ */}
+          ═══════════════════════════════════════ */}
       {isLoading ? (
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
           <div className="animate-pulse p-6 space-y-4">
@@ -877,15 +867,15 @@ const EcheancesPage: React.FC = () => {
           </p>
           <button
             onClick={() => refetch()}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
           >
             Réessayer
           </button>
         </div>
       ) : echeances.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-50 rounded-full mb-4">
-            <ReceiptPercentIcon className="w-10 h-10 text-blue-600" />
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-emerald-50 rounded-full mb-4">
+            <ReceiptPercentIcon className="w-10 h-10 text-emerald-600" />
           </div>
           <h3 className="text-lg font-bold text-gray-900 mb-1">
             Aucune échéance
@@ -898,14 +888,14 @@ const EcheancesPage: React.FC = () => {
           {activeFiltersCount > 0 ? (
             <button
               onClick={resetFilters}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
             >
               Réinitialiser les filtres
             </button>
           ) : (
             <Link
               to="/dashboard/echeances/nouveau"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-700 hover:to-teal-700 font-semibold shadow-md shadow-emerald-500/20 transition-all"
             >
               <PlusIcon className="w-4 h-4" />
               Créer ma première échéance
@@ -913,27 +903,27 @@ const EcheancesPage: React.FC = () => {
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-16">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-16">
                     #
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Échéance
                   </th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Montant
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Date limite
                   </th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Statut
                   </th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -955,22 +945,22 @@ const EcheancesPage: React.FC = () => {
         </div>
       )}
 
-      {/* ============================================
+      {/* ═══════════════════════════════════════
           PAGINATION
-          ============================================ */}
+          ═══════════════════════════════════════ */}
       {pagination && pagination.totalPages > 1 && (
-        <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="bg-white rounded-2xl border border-gray-100 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
           <p className="text-sm text-gray-500">
-            Page <strong>{pagination.page}</strong> sur{' '}
-            <strong>{pagination.totalPages}</strong> — {pagination.total}{' '}
-            échéance(s)
+            Page <strong className="text-gray-900">{pagination.page}</strong> sur{' '}
+            <strong className="text-gray-900">{pagination.totalPages}</strong> —{' '}
+            {pagination.total} échéance(s)
           </p>
 
           <div className="flex items-center gap-1">
             <button
               onClick={() => setPage(1)}
               disabled={page <= 1}
-              className="px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-emerald-50 hover:border-emerald-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               aria-label="Première page"
             >
               ««
@@ -978,7 +968,7 @@ const EcheancesPage: React.FC = () => {
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
-              className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-emerald-50 hover:border-emerald-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Précédent
             </button>
@@ -1000,8 +990,8 @@ const EcheancesPage: React.FC = () => {
                   onClick={() => setPage(p)}
                   className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
                     p === page
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'border-gray-200 hover:bg-gray-50'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-600 shadow-sm'
+                      : 'border-gray-200 hover:bg-emerald-50 hover:border-emerald-200'
                   }`}
                   aria-label={`Page ${p}`}
                   aria-current={p === page ? 'page' : undefined}
@@ -1015,14 +1005,14 @@ const EcheancesPage: React.FC = () => {
                 setPage((p) => Math.min(pagination.totalPages, p + 1))
               }
               disabled={page >= pagination.totalPages}
-              className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-emerald-50 hover:border-emerald-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Suivant
             </button>
             <button
               onClick={() => setPage(pagination.totalPages)}
               disabled={page >= pagination.totalPages}
-              className="px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-emerald-50 hover:border-emerald-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               aria-label="Dernière page"
             >
               »»

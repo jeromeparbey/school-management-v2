@@ -1,6 +1,6 @@
 // frontend2/src/pages/dashboard/directeur/plans-scolarite/PlanScolariteDetailPage.tsx
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -19,6 +19,8 @@ import {
   DocumentTextIcon,
   CurrencyDollarIcon,
   UserGroupIcon,
+  ReceiptPercentIcon,
+  PlusCircleIcon,
 } from '@heroicons/react/24/outline';
 import {
   usePlanScolarite,
@@ -50,17 +52,17 @@ const formatDateTime = (date: string | null | undefined) => {
 };
 
 /**
- * ✅ Formate un montant avec sa devise.
- * Codes ISO (XOF, XAF, EUR, USD…) → symbole/code court.
+ * Formate un montant avec sa devise.
+ * XOF/XAF → F CFA · EUR → € · USD → $ · etc.
  */
 const formatMoney = (
   amount: number | null | undefined,
-  devise: string = 'F CFA'
+  devise: string = 'XOF'
 ): string => {
   if (amount == null) return '—';
   const value = new Intl.NumberFormat('fr-FR', {
     maximumFractionDigits: 0,
-  }).format(amount);
+  }).format(Number(amount));
 
   const upper = (devise || '').toUpperCase();
   if (upper === 'XOF' || upper === 'XAF') return `${value} F CFA`;
@@ -135,10 +137,79 @@ const StatCard: React.FC<StatCardProps> = ({
 );
 
 // ============================================
+// CARTE D'UN FRAIS ANNEXE (libellé + montant)
+// ============================================
+
+interface FraisItemProps {
+  libelle: string;
+  montant: number;
+  devise: string;
+  variant?: 'amber' | 'blue' | 'purple';
+  hint?: string;
+}
+
+const FraisItem: React.FC<FraisItemProps> = ({
+  libelle,
+  montant,
+  devise,
+  variant = 'purple',
+  hint,
+}) => {
+  const styles = {
+    amber: {
+      wrap: 'bg-amber-50 border-amber-200',
+      icon: 'bg-amber-100 text-amber-700',
+      text: 'text-amber-900',
+      amount: 'text-amber-800',
+      hint: 'text-amber-700',
+    },
+    blue: {
+      wrap: 'bg-blue-50 border-blue-200',
+      icon: 'bg-blue-100 text-blue-700',
+      text: 'text-blue-900',
+      amount: 'text-blue-800',
+      hint: 'text-blue-700',
+    },
+    purple: {
+      wrap: 'bg-purple-50 border-purple-200',
+      icon: 'bg-purple-100 text-purple-700',
+      text: 'text-purple-900',
+      amount: 'text-purple-800',
+      hint: 'text-purple-700',
+    },
+  }[variant];
+
+  return (
+    <div
+      className={`flex items-center justify-between gap-4 p-4 rounded-xl border ${styles.wrap}`}
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        <div
+          className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${styles.icon}`}
+        >
+          <ReceiptPercentIcon className="w-5 h-5" />
+        </div>
+        <div className="min-w-0">
+          <p className={`text-sm font-semibold truncate ${styles.text}`}>
+            {libelle}
+          </p>
+          {hint && (
+            <p className={`text-[11px] mt-0.5 ${styles.hint}`}>{hint}</p>
+          )}
+        </div>
+      </div>
+      <p className={`text-base font-bold shrink-0 ${styles.amount}`}>
+        {formatMoney(montant, devise)}
+      </p>
+    </div>
+  );
+};
+
+// ============================================
 // PAGE PRINCIPALE
 // ============================================
 
-type TabKey = 'infos' | 'echeances' | 'assignments';
+type TabKey = 'infos' | 'frais' | 'echeances' | 'assignments';
 
 const PlanScolariteDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -152,9 +223,39 @@ const PlanScolariteDetailPage: React.FC = () => {
 
   const plan = planData?.data;
 
+  // ─────────── Extraction des autres frais (libellé → montant) ───────────
+  const autresFraisList = useMemo(() => {
+    if (!plan?.autresFrais) return [] as { libelle: string; montant: number }[];
+    if (typeof plan.autresFrais !== 'object') return [];
+    return Object.entries(plan.autresFrais as Record<string, unknown>)
+      .map(([libelle, montant]) => ({
+        libelle: String(libelle).trim(),
+        montant: Number(montant) || 0,
+      }))
+      .filter((f) => f.libelle && f.montant > 0);
+  }, [plan?.autresFrais]);
+
+  const totalAutresFrais = useMemo(
+    () => autresFraisList.reduce((sum, f) => sum + f.montant, 0),
+    [autresFraisList]
+  );
+
+  // ─────────── Vérification de cohérence (visuelle, informative) ───────────
+  const totalCalcule = useMemo(() => {
+    if (!plan) return 0;
+    return (
+      Number(plan.fraisInscription ?? 0) +
+      Number(plan.fraisScolarite ?? 0) +
+      totalAutresFrais
+    );
+  }, [plan, totalAutresFrais]);
+
+  const totalCoherent =
+    plan != null && Math.abs(totalCalcule - Number(plan.montantTotal ?? 0)) <= 1;
+
   const handleHardDelete = async () => {
     if (!plan) return;
-    const confirmed = confirm(
+    const confirmed = window.confirm(
       `⚠️ SUPPRESSION DÉFINITIVE\n\nPlan : ${plan.nom}\nMontant : ${formatMoney(
         plan.montantTotal,
         plan.devise
@@ -166,7 +267,7 @@ const PlanScolariteDetailPage: React.FC = () => {
       await hardDeleteMutation.mutateAsync(plan.id);
       navigate('/dashboard/plans-scolarite');
     } catch {
-      /* toast géré */
+      /* toast géré par le hook */
     }
   };
 
@@ -215,16 +316,7 @@ const PlanScolariteDetailPage: React.FC = () => {
 
   const nbEcheances = plan._count?.echeances ?? 0;
   const nbAssignments = plan._count?.assignments ?? 0;
-
-  // Autres frais
-  const autresFraisObj = plan.autresFrais as Record<string, number> | null;
-  const autresFraisEntries = autresFraisObj
-    ? Object.entries(autresFraisObj)
-    : [];
-  const totalAutresFrais = autresFraisEntries.reduce(
-    (sum, [, montant]) => sum + (Number(montant) || 0),
-    0
-  );
+  const devise = plan.devise ?? 'XOF';
 
   // ─────────── Onglets ───────────
   const tabs: Array<{
@@ -234,6 +326,12 @@ const PlanScolariteDetailPage: React.FC = () => {
     badge?: number;
   }> = [
     { key: 'infos', label: 'Informations', icon: IdentificationIcon },
+    {
+      key: 'frais',
+      label: 'Frais',
+      icon: ReceiptPercentIcon,
+      badge: 2 + autresFraisList.length,
+    },
     {
       key: 'echeances',
       label: 'Échéances',
@@ -354,7 +452,7 @@ const PlanScolariteDetailPage: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* ─────────── MONTANT TOTAL (emerald/teal) ─────────── */}
+      {/* ─────────── MONTANT TOTAL ─────────── */}
       <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl p-6 text-white shadow-md">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -362,7 +460,7 @@ const PlanScolariteDetailPage: React.FC = () => {
               Montant total du plan
             </p>
             <p className="text-4xl font-bold mt-1">
-              {formatMoney(plan.montantTotal, plan.devise)}
+              {formatMoney(plan.montantTotal, devise)}
             </p>
           </div>
           <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center shrink-0">
@@ -370,26 +468,41 @@ const PlanScolariteDetailPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Détail rapide */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-white/20">
           <div>
             <p className="text-xs text-emerald-100">Inscription</p>
             <p className="text-lg font-semibold mt-0.5">
-              {formatMoney(plan.fraisInscription, plan.devise)}
+              {formatMoney(plan.fraisInscription, devise)}
             </p>
           </div>
           <div>
             <p className="text-xs text-emerald-100">Scolarité</p>
             <p className="text-lg font-semibold mt-0.5">
-              {formatMoney(plan.fraisScolarite, plan.devise)}
+              {formatMoney(plan.fraisScolarite, devise)}
             </p>
           </div>
           <div>
-            <p className="text-xs text-emerald-100">Autres frais</p>
+            <p className="text-xs text-emerald-100">
+              Autres frais ({autresFraisList.length})
+            </p>
             <p className="text-lg font-semibold mt-0.5">
-              {formatMoney(totalAutresFrais, plan.devise)}
+              {formatMoney(totalAutresFrais, devise)}
             </p>
           </div>
         </div>
+
+        {/* Alerte cohérence */}
+        {!totalCoherent && (
+          <div className="mt-4 p-3 bg-amber-100/20 border border-amber-200/40 rounded-lg flex items-start gap-2">
+            <ExclamationTriangleIcon className="w-4 h-4 text-amber-200 mt-0.5 shrink-0" />
+            <p className="text-xs text-amber-100">
+              Incohérence détectée : la somme des frais (
+              {formatMoney(totalCalcule, devise)}) diffère du montant total
+              enregistré ({formatMoney(plan.montantTotal, devise)}).
+            </p>
+          </div>
+        )}
       </div>
 
       {/* ─────────── STATS ─────────── */}
@@ -412,20 +525,20 @@ const PlanScolariteDetailPage: React.FC = () => {
         />
         <StatCard
           label="Frais totaux"
-          value={formatMoney(plan.montantTotal, plan.devise)}
+          value={formatMoney(plan.montantTotal, devise)}
           icon={BanknotesIcon}
           color="text-amber-600"
           bgColor="bg-amber-50"
         />
         <StatCard
           label="Autres frais"
-          value={formatMoney(totalAutresFrais, plan.devise)}
+          value={formatMoney(totalAutresFrais, devise)}
           icon={DocumentTextIcon}
           color="text-purple-600"
           bgColor="bg-purple-50"
           hint={
-            autresFraisEntries.length > 0
-              ? `${autresFraisEntries.length} type(s)`
+            autresFraisList.length > 0
+              ? `${autresFraisList.length} type(s)`
               : 'Aucun'
           }
         />
@@ -456,7 +569,9 @@ const PlanScolariteDetailPage: React.FC = () => {
         </div>
 
         <div className="p-6">
-          {/* ═══ Onglet Infos ═══ */}
+          {/* ═══════════════════════════════════════
+              ONGLET INFOS
+              ═══════════════════════════════════════ */}
           {activeTab === 'infos' && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -490,63 +605,16 @@ const PlanScolariteDetailPage: React.FC = () => {
                     value={plan.classe?.nom ?? 'Toutes classes'}
                     icon={AcademicCapIcon}
                   />
+                  <InfoRow
+                    label="Devise"
+                    value={devise}
+                    icon={CurrencyDollarIcon}
+                  />
                 </div>
               </div>
 
               <div>
                 <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <CurrencyDollarIcon className="w-4 h-4 text-emerald-600" />
-                  Détails financiers
-                </h3>
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <InfoRow
-                    label="Frais d'inscription"
-                    value={formatMoney(plan.fraisInscription, plan.devise)}
-                    icon={BanknotesIcon}
-                  />
-                  <InfoRow
-                    label="Frais de scolarité"
-                    value={formatMoney(plan.fraisScolarite, plan.devise)}
-                    icon={BanknotesIcon}
-                  />
-                  {autresFraisEntries.length > 0 && (
-                    <InfoRow
-                      label="Autres frais"
-                      value={
-                        <div className="space-y-1">
-                          {autresFraisEntries.map(([cle, montant]) => (
-                            <div
-                              key={cle}
-                              className="flex items-center justify-between text-xs"
-                            >
-                              <span className="text-gray-600">{cle}</span>
-                              <span className="font-medium">
-                                {formatMoney(Number(montant), plan.devise)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      }
-                      icon={DocumentTextIcon}
-                    />
-                  )}
-                  <InfoRow
-                    label="Montant total"
-                    value={
-                      <span className="font-bold text-emerald-700">
-                        {formatMoney(plan.montantTotal, plan.devise)}
-                      </span>
-                    }
-                    icon={CurrencyDollarIcon}
-                  />
-                  <InfoRow
-                    label="Devise"
-                    value={plan.devise}
-                    icon={CurrencyDollarIcon}
-                  />
-                </div>
-
-                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3 mt-6 flex items-center gap-2">
                   <ClockIcon className="w-4 h-4 text-emerald-600" />
                   Informations système
                 </h3>
@@ -575,7 +643,140 @@ const PlanScolariteDetailPage: React.FC = () => {
             </motion.div>
           )}
 
-          {/* ═══ Onglet Échéances ═══ */}
+          {/* ═══════════════════════════════════════
+              ONGLET FRAIS (détail complet)
+              ═══════════════════════════════════════ */}
+          {activeTab === 'frais' && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6"
+            >
+              {/* Frais principaux */}
+              <div>
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <ReceiptPercentIcon className="w-4 h-4 text-emerald-600" />
+                  Frais principaux
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <FraisItem
+                    libelle="Frais d'inscription"
+                    montant={Number(plan.fraisInscription ?? 0)}
+                    devise={devise}
+                    variant="amber"
+                    hint="Payables à l'inscription"
+                  />
+                  <FraisItem
+                    libelle="Frais de scolarité"
+                    montant={Number(plan.fraisScolarite ?? 0)}
+                    devise={devise}
+                    variant="blue"
+                    hint="Répartis en échéances"
+                  />
+                </div>
+              </div>
+
+              {/* Autres frais */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
+                    <PlusCircleIcon className="w-4 h-4 text-purple-600" />
+                    Autres frais
+                    {autresFraisList.length > 0 && (
+                      <span className="ml-1 px-1.5 py-0.5 text-xs font-bold bg-purple-100 text-purple-700 rounded-full">
+                        {autresFraisList.length}
+                      </span>
+                    )}
+                  </h3>
+                  {autresFraisList.length > 0 && (
+                    <p className="text-sm font-semibold text-purple-700">
+                      Total : {formatMoney(totalAutresFrais, devise)}
+                    </p>
+                  )}
+                </div>
+
+                {autresFraisList.length === 0 ? (
+                  <div className="p-6 bg-gray-50 border border-dashed border-gray-200 rounded-xl text-center">
+                    <DocumentTextIcon className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">
+                      Aucun autre frais enregistré pour ce plan.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {autresFraisList.map((f, idx) => (
+                      <FraisItem
+                        key={`${f.libelle}-${idx}`}
+                        libelle={f.libelle}
+                        montant={f.montant}
+                        devise={devise}
+                        variant="purple"
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Récapitulatif */}
+              <div className="mt-6 pt-6 border-t border-gray-100">
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <BanknotesIcon className="w-4 h-4 text-emerald-600" />
+                  Récapitulatif
+                </h3>
+                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-5 space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-700">Frais d'inscription</span>
+                    <span className="font-medium text-gray-900">
+                      {formatMoney(plan.fraisInscription, devise)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-700">Frais de scolarité</span>
+                    <span className="font-medium text-gray-900">
+                      {formatMoney(plan.fraisScolarite, devise)}
+                    </span>
+                  </div>
+                  {autresFraisList.length > 0 && (
+                    <>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-700">
+                          Autres frais ({autresFraisList.length})
+                        </span>
+                        <span className="font-medium text-gray-900">
+                          {formatMoney(totalAutresFrais, devise)}
+                        </span>
+                      </div>
+                      <div className="pl-3 space-y-1 pt-1 border-t border-emerald-200/50">
+                        {autresFraisList.map((f, idx) => (
+                          <div
+                            key={`recap-${f.libelle}-${idx}`}
+                            className="flex items-center justify-between text-xs text-gray-600"
+                          >
+                            <span className="truncate">• {f.libelle}</span>
+                            <span className="font-medium shrink-0 ml-2">
+                              {formatMoney(f.montant, devise)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  <div className="flex items-center justify-between pt-3 mt-2 border-t border-emerald-300">
+                    <span className="text-base font-bold text-emerald-900">
+                      Montant total
+                    </span>
+                    <span className="text-xl font-bold text-emerald-700">
+                      {formatMoney(plan.montantTotal, devise)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ═══════════════════════════════════════
+              ONGLET ÉCHÉANCES
+              ═══════════════════════════════════════ */}
           {activeTab === 'echeances' && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -614,7 +815,7 @@ const PlanScolariteDetailPage: React.FC = () => {
                       </div>
                       <div className="text-right shrink-0">
                         <p className="font-bold text-gray-900">
-                          {formatMoney(echeance.montant, plan.devise)}
+                          {formatMoney(echeance.montant, devise)}
                         </p>
                         {echeance.estPayee ? (
                           <span className="inline-flex items-center gap-1 text-xs text-emerald-700 font-medium mt-0.5">
@@ -652,7 +853,9 @@ const PlanScolariteDetailPage: React.FC = () => {
             </motion.div>
           )}
 
-          {/* ═══ Onglet Assignments ═══ */}
+          {/* ═══════════════════════════════════════
+              ONGLET ASSIGNMENTS
+              ═══════════════════════════════════════ */}
           {activeTab === 'assignments' && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}

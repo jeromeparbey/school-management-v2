@@ -27,6 +27,36 @@ interface ListResult<T> {
   };
 }
 
+// ─── 3. 🆕 TYPES POUR findById (AJOUTER ICI, AVANT LA CLASSE) ───
+
+interface PaiementAgrege {
+  montant: number;
+  allocations: Array<{
+    montant: number;
+    echeanceId: string;
+  }>;
+}
+
+interface EcheanceEnrichie {
+  id: string;
+  nom: string;
+  ordre: number;
+  montant: number;
+  dateLimite: Date;
+  paye: number;
+  restant: number;
+  statut: 'PAYEE' | 'PARTIELLE' | 'IMPAYEE' | 'EN_RETARD';
+  estPayee: boolean;
+}
+
+interface ResumeFinancierClasse {
+  montantTotal: number;
+  totalPaye: number;
+  restant: number;
+  tauxPaiement: number;
+  nbElevesInscrits: number;
+  echeances: EcheanceEnrichie[];
+}
 /**
  * Élève tel que retourné par `listEleves` (sous-ensemble des champs).
  */
@@ -245,22 +275,22 @@ export class ClasseService {
     };
   }
 
-  // ────────── FIND BY ID ──────────
+// ────────── FIND BY ID ──────────
 async findById(ctx: ClasseContext, id: string) {
   const client = await getClient(ctx.schemaName);
 
+  // ═══════════════════════════════════════════════════════════
+  // 1. Charger la classe + relations de base
+  // ═══════════════════════════════════════════════════════════
   const classe = await client.classe.findUnique({
     where: { id },
     include: {
       niveau: true,
       anneeScolaire: true,
-      // ✅ Inclure les créneaux d'emploi du temps
       emploisTemps: {
         where: { estActive: true },
         include: {
-          matiere: {
-            select: { id: true, nom: true, code: true },
-          },
+          matiere: { select: { id: true, nom: true, code: true } },
           enseignant: {
             select: {
               id: true,
@@ -272,10 +302,7 @@ async findById(ctx: ClasseContext, id: string) {
             },
           },
         },
-        orderBy: [
-          { jour: 'asc' },
-          { heureDebut: 'asc' },
-        ],
+        orderBy: [{ jour: 'asc' }, { heureDebut: 'asc' }],
       },
       _count: {
         select: {
@@ -290,7 +317,139 @@ async findById(ctx: ClasseContext, id: string) {
   });
 
   if (!classe) throw new AppError('Classe introuvable', 404);
-  return classe;
+
+  // ═══════════════════════════════════════════════════════════
+  // 2. Charger les plans de scolarité de la classe
+  // ═══════════════════════════════════════════════════════════
+  const plansScolarite = await client.planScolarite.findMany({
+    where: {
+      classeId: id,
+      anneeScolaireId: classe.anneeScolaireId,
+    },
+    include: {
+      echeances: { orderBy: { ordre: 'asc' } },
+      _count: { select: { echeances: true, assignments: true } },
+    },
+    orderBy: [{ estActif: 'desc' }, { createdAt: 'desc' }],
+  });
+
+  const planActif = plansScolarite.find(
+    (p: { estActif: boolean }) => p.estActif
+  ) ?? null;
+
+  // ═══════════════════════════════════════════════════════════
+  // 3. Résumé financier (si plan actif)
+  // ═══════════════════════════════════════════════════════════
+  let resumeFinancier: ResumeFinancierClasse | null = null;
+
+  if (planActif) {
+    // 🔥 Cast explicite pour éviter TS7006 sur les callbacks
+    const paiements = (await client.paiement.findMany({
+      where: {
+        statut: 'COMPLET',
+        eleve: {
+          inscriptions: {
+            some: {
+              classeId: id,
+              anneeScolaireId: classe.anneeScolaireId,
+              estActive: true,
+            },
+          },
+        },
+      },
+      select: {
+        montant: true,
+        allocations: {
+          select: { montant: true, echeanceId: true },
+        },
+      },
+    })) as PaiementAgrege[];
+
+    // ✅ Callbacks typés
+    const totalPaye = paiements.reduce(
+      (s: number, p: PaiementAgrege) => s + p.montant,
+      0
+    );
+
+    // Agrégation par échéance
+    const paiementParEcheance: Record<string, number> = {};
+    paiements.forEach((p: PaiementAgrege) => {
+      p.allocations.forEach((a) => {
+        paiementParEcheance[a.echeanceId] =
+          (paiementParEcheance[a.echeanceId] ?? 0) + a.montant;
+      });
+    });
+
+    // ✅ Type explicite pour `e`
+    type EcheanceBrute = {
+      id: string;
+      nom: string;
+      ordre: number;
+      montant: number;
+      dateLimite: Date;
+      estPayee: boolean;
+    };
+
+    const echeancesEnrichies: EcheanceEnrichie[] = (
+      planActif.echeances ?? []
+    ).map((e: EcheanceBrute) => {
+      const paye = paiementParEcheance[e.id] ?? 0;
+      const restant = Math.max(0, e.montant - paye);
+
+      let statut: 'PAYEE' | 'PARTIELLE' | 'IMPAYEE' | 'EN_RETARD';
+      if (restant <= 0.01) statut = 'PAYEE';
+      else if (paye > 0.01) statut = 'PARTIELLE';
+      else {
+        const jours = Math.ceil(
+          (new Date(e.dateLimite).getTime() - Date.now()) /
+            (1000 * 60 * 60 * 24)
+        );
+        statut = jours < 0 ? 'EN_RETARD' : 'IMPAYEE';
+      }
+
+      return {
+        id: e.id,
+        nom: e.nom,
+        ordre: e.ordre,
+        montant: e.montant,
+        dateLimite: e.dateLimite,
+        paye,
+        restant,
+        statut,
+        estPayee: e.estPayee,
+      };
+    });
+
+    const nbElevesInscrits = await client.inscription.count({
+      where: {
+        classeId: id,
+        anneeScolaireId: classe.anneeScolaireId,
+        estActive: true,
+      },
+    });
+
+    resumeFinancier = {
+      montantTotal: planActif.montantTotal,
+      totalPaye,
+      restant: Math.max(0, planActif.montantTotal - totalPaye),
+      tauxPaiement:
+        planActif.montantTotal > 0
+          ? Math.round((totalPaye / planActif.montantTotal) * 100)
+          : 0,
+      nbElevesInscrits,
+      echeances: echeancesEnrichies,
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // 4. Retour enrichi
+  // ═══════════════════════════════════════════════════════════
+  return {
+    ...classe,
+    plansScolarite,
+    planScolarite: planActif,
+    resumeFinancier,
+  };
 }
 
   // ────────── LIST BY ANNEE ──────────

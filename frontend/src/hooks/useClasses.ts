@@ -292,7 +292,8 @@ export function useCreateClasse() {
           queryKey: classeKeys.byAnnee(created.anneeScolaireId),
         });
       }
-      toast.success(`Classe créée : ${created?.nom ?? '—'}`);
+      // ⚠️ PAS de toast ici — le composant appelant s'en charge.
+      //    Sinon : double toast → re-render → re-mount → reset step.
     },
     onError: (err) => {
       logError('useCreateClasse', err, 'Échec de la création');

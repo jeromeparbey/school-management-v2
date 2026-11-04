@@ -16,7 +16,6 @@ import {
   ShieldCheckIcon,
   ClockIcon,
   XMarkIcon,
-  ChartBarIcon,
 } from '@heroicons/react/24/outline';
 import {
   useRecu,
@@ -30,11 +29,6 @@ import type { FormatImpression } from '../../../../types/recu.types';
 // HELPERS
 // ══════════════════════════════════════════════
 
-/**
- * Formate un montant avec sa devise.
- * - Codes ISO connus (XOF/XAF/EUR/USD…) → symbole/code court
- * - Sinon → suffixe avec la devise fournie
- */
 const formatMoney = (
   amount: number | null | undefined,
   devise: string = 'F CFA'
@@ -52,17 +46,11 @@ const formatMoney = (
   if (upper === 'GBP') return `${value} £`;
   if (upper === 'MAD') return `${value} DH`;
   if (upper === 'NGN') return `${value} ₦`;
-  // Fallback : si devise vide ou inconnue
   return devise ? `${value} ${devise}` : `${value} F CFA`;
 };
 
-/** Résout la devise du reçu avec fallback F CFA. */
 function resolveDevise(recu: any): string {
-  return (
-    recu?.etablissementDevise ||
-    recu?.devise ||
-    'F CFA'
-  );
+  return recu?.etablissementDevise || recu?.devise || 'F CFA';
 }
 
 // ══════════════════════════════════════════════
@@ -160,13 +148,10 @@ const RecuDetailPage: React.FC = () => {
     );
   }
 
-  // 🆕 Devise dynamique
   const devise = resolveDevise(recu);
 
-  // 🆕 Détails financiers (si dispo)
   const details: any = (recu as any).detailsFinanciers ?? null;
-  const pourcentagePaye: number | null =
-    details?.pourcentagePaye ?? null;
+  const pourcentagePaye: number | null = details?.pourcentagePaye ?? null;
   const estSolde: boolean = !!details?.estSolde;
   const estEnRetard: boolean = !!details?.estEnRetard;
   const montantTotalPlan: number | null = details?.montantTotalPlan ?? null;
@@ -174,7 +159,7 @@ const RecuDetailPage: React.FC = () => {
     details?.montantPayeApres ?? recu.montantPaye;
 
   return (
-    <div className="w-full max-w-[1400px] mx-auto space-y-6">
+    <div className="w-full max-w-[1400px] mx-auto space-y-6 p-6">
       {/* ═══════════════════════════════════════════
           BREADCRUMB + ACTIONS
           ═══════════════════════════════════════════ */}
@@ -182,7 +167,7 @@ const RecuDetailPage: React.FC = () => {
         <div className="flex items-center gap-3 min-w-0">
           <Link
             to="/dashboard/recus"
-            className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 shrink-0"
+            className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 shrink-0 transition-colors"
           >
             <ArrowLeftIcon className="w-5 h-5" />
           </Link>
@@ -197,7 +182,9 @@ const RecuDetailPage: React.FC = () => {
               </span>
             </nav>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2 truncate">
-              <DocumentTextIcon className="w-7 h-7 text-blue-600 shrink-0" />
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 shrink-0">
+                <DocumentTextIcon className="w-6 h-6" />
+              </div>
               Détail du reçu
             </h1>
           </div>
@@ -207,7 +194,7 @@ const RecuDetailPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setShowDeleteDialog(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors"
           >
             <XMarkIcon className="w-4 h-4" />
             Supprimer
@@ -221,17 +208,17 @@ const RecuDetailPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ─────────── COLONNE PRINCIPALE ─────────── */}
         <div className="lg:col-span-2 space-y-6">
-          {/* En-tête du reçu (🆕 devise dynamique) */}
-          <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl shadow-lg p-6 text-white">
+          {/* En-tête du reçu (VERT) */}
+          <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl shadow-lg p-6 text-white">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-blue-100 text-xs uppercase font-semibold tracking-wider">
+                <p className="text-emerald-100 text-xs uppercase font-semibold tracking-wider">
                   {recu.etablissementNom}
                 </p>
                 <p className="text-3xl font-bold mt-1 truncate">
                   {formatMoney(recu.montantPaye, devise)}
                 </p>
-                <p className="text-blue-100 text-sm mt-1">
+                <p className="text-emerald-100 text-sm mt-1">
                   Payé le{' '}
                   {new Date(recu.datePaiement).toLocaleDateString('fr-FR', {
                     day: 'numeric',
@@ -241,34 +228,34 @@ const RecuDetailPage: React.FC = () => {
                 </p>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-xs text-blue-100 uppercase font-semibold">
+                <p className="text-xs text-emerald-100 uppercase font-semibold">
                   N° Reçu
                 </p>
                 <p className="font-mono font-bold text-sm mt-1">
                   {recu.numeroRecu}
                 </p>
-                <span className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-wide">
+                <span className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-bold uppercase tracking-wide">
                   <CheckCircleIcon className="w-3 h-3" />
                   Validé
                 </span>
               </div>
             </div>
 
-            {/* 🆕 Statut financier global */}
+            {/* Statut financier global */}
             {(estSolde || estEnRetard) && (
               <div className="mt-4 pt-4 border-t border-white/20">
                 <div className="flex items-center gap-2">
                   {estSolde ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold uppercase">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-bold uppercase">
                       <CheckCircleIcon className="w-3 h-3" /> Soldé
                     </span>
                   ) : estEnRetard ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold uppercase">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/80 text-white text-[10px] font-bold uppercase">
                       <ExclamationTriangleIcon className="w-3 h-3" /> En retard
                     </span>
                   ) : null}
                   {pourcentagePaye != null && (
-                    <span className="text-xs text-blue-100">
+                    <span className="text-xs text-emerald-100">
                       Progression : <strong>{pourcentagePaye}%</strong>
                     </span>
                   )}
@@ -293,20 +280,20 @@ const RecuDetailPage: React.FC = () => {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
-                <UserCircleIcon className="w-4 h-4 text-blue-500" />
+                <UserCircleIcon className="w-4 h-4 text-emerald-500" />
                 Élève
               </h2>
               {recu.eleveId && (
                 <Link
                   to={`/dashboard/eleves/${recu.eleveId}`}
-                  className="text-xs text-blue-600 hover:underline font-medium"
+                  className="text-xs text-emerald-600 hover:underline font-medium transition-colors"
                 >
                   Voir la fiche
                 </Link>
               )}
             </div>
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shrink-0">
+              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-lg shrink-0 shadow-sm">
                 {recu.elevePrenom?.[0] ?? recu.nomEleve?.[0]}
                 {recu.eleveNom?.[0] ?? ''}
               </div>
@@ -356,7 +343,7 @@ const RecuDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Détails financiers (🆕 enrichi + devise dynamique) */}
+          {/* Détails financiers */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 flex items-center gap-2">
               <BanknotesIcon className="w-4 h-4 text-emerald-500" />
@@ -365,32 +352,40 @@ const RecuDetailPage: React.FC = () => {
 
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div>
-                <dt className="text-xs text-gray-500">Montant payé</dt>
-                <dd className="font-bold text-emerald-700 text-lg">
+                <dt className="text-xs text-gray-500 uppercase tracking-wider">
+                  Montant payé
+                </dt>
+                <dd className="font-bold text-emerald-700 text-lg mt-0.5">
                   {formatMoney(recu.montantPaye, devise)}
                 </dd>
               </div>
 
               {montantTotalPlan != null && (
                 <div>
-                  <dt className="text-xs text-gray-500">Total du plan</dt>
-                  <dd className="font-semibold text-gray-900">
+                  <dt className="text-xs text-gray-500 uppercase tracking-wider">
+                    Total du plan
+                  </dt>
+                  <dd className="font-semibold text-gray-900 mt-0.5">
                     {formatMoney(montantTotalPlan, devise)}
                   </dd>
                 </div>
               )}
 
               <div>
-                <dt className="text-xs text-gray-500">Réduction appliquée</dt>
-                <dd className="font-medium text-gray-900">
+                <dt className="text-xs text-gray-500 uppercase tracking-wider">
+                  Réduction appliquée
+                </dt>
+                <dd className="font-medium text-gray-900 mt-0.5">
                   {formatMoney(recu.montantReduction, devise)}
                 </dd>
               </div>
 
               <div>
-                <dt className="text-xs text-gray-500">Solde restant</dt>
+                <dt className="text-xs text-gray-500 uppercase tracking-wider">
+                  Solde restant
+                </dt>
                 <dd
-                  className={`font-semibold ${
+                  className={`font-semibold mt-0.5 ${
                     (recu.montantRestant ?? 0) <= 0.01
                       ? 'text-emerald-700'
                       : 'text-red-600'
@@ -402,8 +397,10 @@ const RecuDetailPage: React.FC = () => {
 
               {montantPayeApres != null && (
                 <div>
-                  <dt className="text-xs text-gray-500">Total payé (cumulé)</dt>
-                  <dd className="font-semibold text-gray-900">
+                  <dt className="text-xs text-gray-500 uppercase tracking-wider">
+                    Total payé (cumulé)
+                  </dt>
+                  <dd className="font-semibold text-gray-900 mt-0.5">
                     {formatMoney(montantPayeApres, devise)}
                   </dd>
                 </div>
@@ -411,30 +408,36 @@ const RecuDetailPage: React.FC = () => {
 
               {pourcentagePaye != null && (
                 <div>
-                  <dt className="text-xs text-gray-500">Progression</dt>
-                  <dd className="font-semibold text-gray-900">
+                  <dt className="text-xs text-gray-500 uppercase tracking-wider">
+                    Progression
+                  </dt>
+                  <dd className="font-semibold text-gray-900 mt-0.5">
                     {pourcentagePaye}%
                   </dd>
                 </div>
               )}
 
               <div>
-                <dt className="text-xs text-gray-500">Moyen de paiement</dt>
-                <dd className="font-medium text-gray-900">
+                <dt className="text-xs text-gray-500 uppercase tracking-wider">
+                  Moyen de paiement
+                </dt>
+                <dd className="font-medium text-gray-900 mt-0.5">
                   {recu.moyenPaiementLabel}
                 </dd>
               </div>
 
               <div className="sm:col-span-2">
-                <dt className="text-xs text-gray-500">Référence paiement</dt>
-                <dd className="font-mono text-gray-900 break-all">
+                <dt className="text-xs text-gray-500 uppercase tracking-wider">
+                  Référence paiement
+                </dt>
+                <dd className="font-mono text-gray-900 break-all mt-0.5">
                   {recu.referencePaiement}
                 </dd>
               </div>
             </dl>
           </div>
 
-          {/* Échéances couvertes (🆕 devise dynamique + typage explicite) */}
+          {/* Échéances couvertes */}
           {recu.echeancesCouvertes && recu.echeancesCouvertes.length > 0 && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <div className="flex items-center justify-between mb-4">
@@ -446,32 +449,27 @@ const RecuDetailPage: React.FC = () => {
                 </span>
               </div>
               <ul className="space-y-2">
-                {recu.echeancesCouvertes.map(
-                  (e: any, idx: number) => (
-                    <li
-                      key={e.echeanceId ?? idx}
-                      className="flex items-center justify-between p-3 rounded-lg bg-gray-50"
-                    >
-                      <div className="min-w-0">
-                        <span className="text-sm text-gray-900 truncate block">
-                          {e.nom ?? e.echeance?.nom ?? `Échéance ${idx + 1}`}
-                        </span>
-                        {e.dateLimite && (
-                          <span className="text-xs text-gray-500">
-                            Échéance :{' '}
-                            {new Date(e.dateLimite).toLocaleDateString('fr-FR')}
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-sm font-semibold text-emerald-700 shrink-0">
-                        {formatMoney(
-                          e.montant ?? e.montantPaye ?? 0,
-                          devise
-                        )}
+                {recu.echeancesCouvertes.map((e: any, idx: number) => (
+                  <li
+                    key={e.echeanceId ?? idx}
+                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-emerald-50/30 transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <span className="text-sm text-gray-900 truncate block">
+                        {e.nom ?? e.echeance?.nom ?? `Échéance ${idx + 1}`}
                       </span>
-                    </li>
-                  )
-                )}
+                      {e.dateLimite && (
+                        <span className="text-xs text-gray-500">
+                          Échéance :{' '}
+                          {new Date(e.dateLimite).toLocaleDateString('fr-FR')}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-sm font-semibold text-emerald-700 shrink-0">
+                      {formatMoney(e.montant ?? e.montantPaye ?? 0, devise)}
+                    </span>
+                  </li>
+                ))}
               </ul>
             </div>
           )}
@@ -505,7 +503,7 @@ const RecuDetailPage: React.FC = () => {
           {/* Impression */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sticky top-4">
             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-              <PrinterIcon className="w-4 h-4" />
+              <PrinterIcon className="w-4 h-4 text-emerald-500" />
               Imprimer / Télécharger
             </h3>
 
@@ -513,7 +511,7 @@ const RecuDetailPage: React.FC = () => {
               {FORMATS.map((f) => (
                 <div
                   key={f.value}
-                  className="p-3 rounded-xl border border-gray-200 bg-gray-50 space-y-2"
+                  className="p-3 rounded-xl border border-gray-200 bg-gray-50 space-y-2 hover:border-emerald-200 transition-colors"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -531,7 +529,7 @@ const RecuDetailPage: React.FC = () => {
                       type="button"
                       onClick={() => handlePreview(f.value)}
                       disabled={previewPDF.isPending}
-                      className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-100 font-medium disabled:opacity-50"
+                      className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-100 font-medium disabled:opacity-50 transition-colors"
                     >
                       <EyeIcon className="w-3.5 h-3.5" />
                       Aperçu
@@ -540,7 +538,7 @@ const RecuDetailPage: React.FC = () => {
                       type="button"
                       onClick={() => handleDownload(f.value)}
                       disabled={downloadPDF.isPending}
-                      className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50"
+                      className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 text-xs bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-700 hover:to-teal-700 font-medium disabled:opacity-50 shadow-sm shadow-emerald-500/20 transition-all"
                     >
                       <ArrowDownTrayIcon className="w-3.5 h-3.5" />
                       PDF
@@ -582,7 +580,7 @@ const RecuDetailPage: React.FC = () => {
           {/* Établissement (snapshot) */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-              <AcademicCapIcon className="w-4 h-4" />
+              <AcademicCapIcon className="w-4 h-4 text-emerald-500" />
               Établissement
             </h3>
             <div className="space-y-1 text-sm">
@@ -619,16 +617,14 @@ const RecuDetailPage: React.FC = () => {
                   Agrément : {recu.etablissementAgrement}
                 </p>
               )}
-              <p className="text-xs text-gray-500">
-                Devise : {devise}
-              </p>
+              <p className="text-xs text-gray-500">Devise : {devise}</p>
             </div>
           </div>
 
           {/* Métadonnées */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-              <ClockIcon className="w-4 h-4" />
+              <ClockIcon className="w-4 h-4 text-emerald-500" />
               Métadonnées
             </h3>
             <dl className="space-y-2 text-xs">
@@ -688,7 +684,7 @@ const RecuDetailPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowDeleteDialog(false)}
-                className="px-4 py-2 text-sm text-gray-700 rounded-lg hover:bg-gray-100"
+                className="px-4 py-2 text-sm text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
               >
                 Annuler
               </button>
@@ -696,7 +692,7 @@ const RecuDetailPage: React.FC = () => {
                 type="button"
                 onClick={handleDelete}
                 disabled={hardDelete.isPending}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 disabled:opacity-60"
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 disabled:opacity-60 transition-colors"
               >
                 {hardDelete.isPending ? 'Suppression…' : 'Supprimer'}
               </button>

@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   ArrowLeftIcon,
   PencilSquareIcon,
@@ -22,9 +22,7 @@ import {
   DocumentTextIcon,
   ChartBarIcon,
   UserGroupIcon,
-  ArrowTrendingDownIcon,
   CurrencyDollarIcon,
-  DocumentCheckIcon,
 } from '@heroicons/react/24/outline';
 import {
   useInscription,
@@ -101,6 +99,180 @@ const STATUT_ECHEANCE_META: Record<
 };
 
 // ═══════════════════════════════════════════════════════════
+// TYPES
+// ═══════════════════════════════════════════════════════════
+
+type EcheanceType = 'FRAIS_INSCRIPTION' | 'AUTRE_FRAIS' | 'ECHEANCE';
+
+interface FraisBlock {
+  total: number;
+  paye: number;
+  restant: number;
+  statut: string;
+}
+
+interface AutreFraisBlock extends FraisBlock {
+  libelle: string;
+}
+
+interface EcheanceEnrichie {
+  id: string;
+  nom: string;
+  ordre: number;
+  montant: number;
+  dateLimite: string | null;
+  paye: number;
+  restant: number;
+  statut: string;
+  type: EcheanceType;
+}
+
+// ═══════════════════════════════════════════════════════════
+// COMPOSANT : Ligne de frais (réutilisable)
+// ═══════════════════════════════════════════════════════════
+
+interface FraisCardProps {
+  libelle: string;
+  type: 'INSCRIPTION' | 'SCOLARITE' | 'AUTRE';
+  total: number;
+  paye: number;
+  restant: number;
+  statut: string;
+  badgeColor: string;
+}
+
+const FraisCard: React.FC<FraisCardProps> = ({
+  libelle,
+  type,
+  total,
+  paye,
+  restant,
+  statut,
+  badgeColor,
+}) => {
+  const pct = total > 0 ? Math.min(100, (paye / total) * 100) : 0;
+  const meta = STATUT_ECHEANCE_META[statut] ?? STATUT_ECHEANCE_META.IMPAYEE;
+  const Icon = meta.icon;
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
+      {/* En-tête */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-semibold text-gray-900 truncate">
+              {libelle}
+            </p>
+            <span
+              className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${badgeColor}`}
+            >
+              {type === 'INSCRIPTION'
+                ? 'Inscription'
+                : type === 'SCOLARITE'
+                ? 'Scolarité'
+                : 'Autre frais'}
+            </span>
+          </div>
+        </div>
+        <span
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${meta.bg} ${meta.text} shrink-0`}
+        >
+          <Icon className="w-3 h-3" />
+          {meta.label}
+        </span>
+      </div>
+
+      {/* Barre de progression */}
+      <div>
+        <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+          <div
+            className={`h-full transition-all ${
+              pct >= 100
+                ? 'bg-emerald-500'
+                : statut === 'EN_RETARD'
+                ? 'bg-red-500'
+                : 'bg-blue-500'
+            }`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Montants */}
+      <div className="grid grid-cols-3 gap-2 text-xs">
+        <div>
+          <p className="text-gray-500">Total</p>
+          <p className="font-semibold text-gray-900">{formatMoney(total)}</p>
+        </div>
+        <div>
+          <p className="text-gray-500">Payé</p>
+          <p className="font-semibold text-emerald-700">
+            {formatMoney(paye)}
+          </p>
+        </div>
+        <div>
+          <p className="text-gray-500">Restant</p>
+          <p
+            className={`font-semibold ${
+              restant > 0.01 ? 'text-red-600' : 'text-gray-400'
+            }`}
+          >
+            {formatMoney(restant)}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════
+// 🔥 FONCTION CLÉ : Classification d'une échéance
+// ═══════════════════════════════════════════════════════════
+
+/**
+ * Détermine le type d'une échéance de manière fiable.
+ * Ordre de priorité :
+ *   1. `e.type` fourni par le backend (le plus fiable)
+ *   2. Détection par nom (contient "inscription" → frais d'inscription)
+ *   3. Détection par ordre 0 (convention frais d'inscription)
+ *   4. Détection par libellé dans `autresFrais` (→ autre frais)
+ *   5. Par défaut : échéance de scolarité
+ */
+const classifyEcheance = (
+  e: any,
+  autresFraisLibelles: string[]
+): EcheanceType => {
+  // 1. Type explicite du backend
+  if (
+    e.type === 'FRAIS_INSCRIPTION' ||
+    e.type === 'AUTRE_FRAIS' ||
+    e.type === 'ECHEANCE'
+  ) {
+    return e.type;
+  }
+
+  const nomLower = (e.nom ?? '').toLowerCase().trim();
+
+  // 2. Frais d'inscription par nom
+  if (nomLower.includes('inscription')) {
+    return 'FRAIS_INSCRIPTION';
+  }
+
+  // 3. Frais d'inscription par ordre 0
+  if (e.ordre === 0) {
+    return 'FRAIS_INSCRIPTION';
+  }
+
+  // 4. Autre frais par libellé
+  if (autresFraisLibelles.includes(nomLower)) {
+    return 'AUTRE_FRAIS';
+  }
+
+  // 5. Par défaut : échéance de scolarité
+  return 'ECHEANCE';
+};
+
+// ═══════════════════════════════════════════════════════════
 // PAGE
 // ═══════════════════════════════════════════════════════════
 
@@ -115,7 +287,7 @@ const InscriptionDetailPage: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
 
-  // Charger les inscriptions de la classe/année pour afficher les élèves
+  // Charger les inscriptions de la classe/année
   const { data: inscriptionsClasseData } = useInscriptions({
     classeId: inscription?.classeId,
     anneeScolaireId: inscription?.anneeScolaireId,
@@ -142,12 +314,202 @@ const InscriptionDetailPage: React.FC = () => {
 
   const handleDelete = () => {
     if (!id || !inscription) return;
-    const nom = `${inscription.eleve?.prenom ?? ''} ${inscription.eleve?.nom ?? ''}`;
+    const nom = `${inscription.eleve?.prenom ?? ''} ${
+      inscription.eleve?.nom ?? ''
+    }`;
     if (!window.confirm(`Désactiver l'inscription de "${nom}" ?`)) return;
     softDelete.mutate(id, {
       onSuccess: () => navigate('/dashboard/inscriptions'),
     });
   };
+
+  // ══════════════════════════════════════════
+  // 🔥 ANALYSE FINANCIÈRE CORRIGÉE
+  // ══════════════════════════════════════════
+
+  const analyse = useMemo(() => {
+    if (!inscription) {
+      return {
+        fraisInscription: {
+          total: 0,
+          paye: 0,
+          restant: 0,
+          statut: 'IMPAYEE',
+        } as FraisBlock,
+        fraisScolarite: {
+          total: 0,
+          paye: 0,
+          restant: 0,
+          statut: 'IMPAYEE',
+        } as FraisBlock,
+        autresFrais: [] as AutreFraisBlock[],
+        totalAutresFrais: 0,
+        totalPayeAutresFrais: 0,
+        resteAutresFrais: 0,
+        montantTotal: 0,
+        totalPaye: 0,
+        restant: 0,
+        statutGlobal: 'IMPAYE',
+        echeances: [] as EcheanceEnrichie[],
+      };
+    }
+
+    const plan = inscription.planScolarite;
+    const resume = inscription.resumeFinancier;
+    const echeancesBrutes = (resume?.echeances ?? []) as any[];
+
+    // ── Libellés des autres frais (pour classification) ──
+    const autresFraisObj = plan?.autresFrais as Record<string, number> | null;
+    const autresFraisLibelles = autresFraisObj
+      ? Object.keys(autresFraisObj).map((k) => k.trim().toLowerCase())
+      : [];
+
+    // ── Classification stricte de chaque échéance ──
+    const echeances: EcheanceEnrichie[] = echeancesBrutes.map((e: any) => {
+      const type = classifyEcheance(e, autresFraisLibelles);
+      return {
+        id: e.id,
+        nom: e.nom,
+        ordre: e.ordre ?? 0,
+        montant: Number(e.montant ?? 0),
+        dateLimite: e.dateLimite ?? null,
+        paye: Number(e.paye ?? 0),
+        restant: Number(e.restant ?? 0),
+        statut: e.statut ?? 'IMPAYEE',
+        type,
+      };
+    });
+
+    // ═══════════════════════════════════════════════
+    // FRAIS D'INSCRIPTION
+    // ═══════════════════════════════════════════════
+    const fraisInscriptionTotal = Number(plan?.fraisInscription ?? 0);
+    const echeancesInscription = echeances.filter(
+      (e) => e.type === 'FRAIS_INSCRIPTION'
+    );
+    const fraisInscriptionPaye = echeancesInscription.reduce(
+      (s, e) => s + e.paye,
+      0
+    );
+    const fraisInscriptionRestant = Math.max(
+      0,
+      fraisInscriptionTotal - fraisInscriptionPaye
+    );
+    const fraisInscriptionStatut: string =
+      fraisInscriptionTotal === 0
+        ? 'PAYEE' // Rien à payer
+        : fraisInscriptionRestant <= 0.01
+        ? 'PAYEE'
+        : fraisInscriptionPaye > 0.01
+        ? 'PARTIELLE'
+        : 'IMPAYEE';
+
+    // ═══════════════════════════════════════════════
+    // FRAIS DE SCOLARITÉ (type === ECHEANCE UNIQUEMENT)
+    // ═══════════════════════════════════════════════
+    const fraisScolariteTotal = Number(plan?.fraisScolarite ?? 0);
+    const echeancesScolarite = echeances.filter(
+      (e) => e.type === 'ECHEANCE'
+    );
+    const fraisScolaritePaye = echeancesScolarite.reduce(
+      (s, e) => s + e.paye,
+      0
+    );
+    const fraisScolariteRestant = Math.max(
+      0,
+      fraisScolariteTotal - fraisScolaritePaye
+    );
+    const fraisScolariteStatut: string =
+      fraisScolariteTotal === 0
+        ? 'PAYEE'
+        : fraisScolariteRestant <= 0.01
+        ? 'PAYEE'
+        : fraisScolaritePaye > 0.01
+        ? 'PARTIELLE'
+        : 'IMPAYEE';
+
+    // ═══════════════════════════════════════════════
+    // AUTRES FRAIS (avec leur vrai libellé)
+    // ═══════════════════════════════════════════════
+    const autresFrais: AutreFraisBlock[] = [];
+
+    if (autresFraisObj && typeof autresFraisObj === 'object') {
+      Object.entries(autresFraisObj).forEach(([libelle, montant]) => {
+        const total = Number(montant);
+        if (total <= 0) return;
+
+        // Chercher les échéances correspondant à ce libellé
+        const libelleLower = libelle.trim().toLowerCase();
+        const echeancesLigne = echeances.filter(
+          (e) =>
+            e.type === 'AUTRE_FRAIS' &&
+            e.nom?.toLowerCase().trim() === libelleLower
+        );
+        const paye = echeancesLigne.reduce((s, e) => s + e.paye, 0);
+        const restant = Math.max(0, total - paye);
+        const statut =
+          restant <= 0.01
+            ? 'PAYEE'
+            : paye > 0.01
+            ? 'PARTIELLE'
+            : 'IMPAYEE';
+
+        autresFrais.push({ libelle, total, paye, restant, statut });
+      });
+    }
+
+    const totalAutresFrais = autresFrais.reduce((s, f) => s + f.total, 0);
+    const totalPayeAutresFrais = autresFrais.reduce((s, f) => s + f.paye, 0);
+    const resteAutresFrais = autresFrais.reduce((s, f) => s + f.restant, 0);
+
+    // ═══════════════════════════════════════════════
+    // TOTAUX GLOBAUX
+    // ═══════════════════════════════════════════════
+    const montantTotal =
+      fraisInscriptionTotal + fraisScolariteTotal + totalAutresFrais;
+
+    // Recalculer totalPaye à partir des frais classifiés (plus fiable)
+    const totalPayeCalcule =
+      fraisInscriptionPaye + fraisScolaritePaye + totalPayeAutresFrais;
+
+    // Si le backend donne un totalPaye, on l'utilise en priorité
+    // car il inclut tous les paiements réels même mal classifiés
+    const totalPaye = Number(resume?.totalPaye ?? totalPayeCalcule);
+
+    const restant = Math.max(0, montantTotal - totalPaye);
+    const statutGlobal =
+      montantTotal === 0
+        ? 'PAYE'
+        : restant <= 0.01
+        ? 'PAYE'
+        : totalPaye > 0.01
+        ? 'PARTIEL'
+        : 'IMPAYE';
+
+    return {
+      fraisInscription: {
+        total: fraisInscriptionTotal,
+        paye: fraisInscriptionPaye,
+        restant: fraisInscriptionRestant,
+        statut: fraisInscriptionStatut,
+      },
+      fraisScolarite: {
+        total: fraisScolariteTotal,
+        paye: fraisScolaritePaye,
+        restant: fraisScolariteRestant,
+        statut: fraisScolariteStatut,
+      },
+      autresFrais,
+      totalAutresFrais,
+      totalPayeAutresFrais,
+      resteAutresFrais,
+      montantTotal,
+      totalPaye,
+      restant,
+      statutGlobal,
+      echeances,
+    };
+  }, [inscription]);
 
   // ─────────── Loading ───────────
   if (isLoading) {
@@ -193,37 +555,84 @@ const InscriptionDetailPage: React.FC = () => {
     );
   }
 
-  const eleveNom = `${inscription.eleve?.prenom ?? ''} ${inscription.eleve?.nom ?? ''}`.trim();
+  const eleveNom = `${inscription.eleve?.prenom ?? ''} ${
+    inscription.eleve?.nom ?? ''
+  }`.trim();
+
   const hasBeenUpdated =
     new Date(inscription.updatedAt).getTime() >
     new Date(inscription.createdAt).getTime() + 1000;
 
   const plan = inscription.planScolarite ?? null;
-  const resumeFinancier = inscription.resumeFinancier ?? null;
   const paiements = inscription.paiements ?? [];
-  const echeances = resumeFinancier?.echeances ?? [];
 
   const capacite = inscription.classe?.capacite ?? null;
-  const nbInscrits = elevesDeLaClasse.filter(
-    (e : any) => e.estActive
-  ).length;
+  const nbInscrits = elevesDeLaClasse.filter((e: any) => e.estActive).length;
   const placesRestantes =
     capacite != null ? Math.max(0, capacite - nbInscrits) : null;
 
-  const totalPaye = resumeFinancier?.totalPaye ?? 0;
-  const restant = resumeFinancier?.restant ?? 0;
-  const montantTotal = resumeFinancier?.duTheorique ?? plan?.montantTotal ?? 0;
-  const tauxPaiement = resumeFinancier?.tauxPaiement ?? 0;
+  const {
+    fraisInscription,
+    fraisScolarite,
+    autresFrais,
+    totalAutresFrais,
+    totalPayeAutresFrais,
+    resteAutresFrais,
+    montantTotal,
+    totalPaye,
+    restant,
+    statutGlobal,
+    echeances,
+  } = analyse;
+
+  const tauxPaiement =
+    montantTotal > 0 ? Math.round((totalPaye / montantTotal) * 100) : 0;
 
   const echeancesPayees = echeances.filter(
-    (e: any) => e.statut === 'PAYEE'
+    (e) => e.statut === 'PAYEE'
   ).length;
   const echeancesPartielles = echeances.filter(
-    (e: any) => e.statut === 'PARTIELLE'
+    (e) => e.statut === 'PARTIELLE'
   ).length;
   const echeancesImpayees = echeances.filter(
-    (e: any) => e.statut === 'IMPAYEE' || e.statut === 'EN_RETARD'
+    (e) => e.statut === 'IMPAYEE' || e.statut === 'EN_RETARD'
   ).length;
+
+  // Configuration badge statut global
+  const statutGlobalConfig = {
+    PAYE: {
+      bg: 'bg-emerald-50 border-emerald-200',
+      text: 'text-emerald-800',
+      label: 'Entièrement payé',
+      sublabel: 'Tous les frais ont été réglés.',
+      icon: CheckCircleIcon,
+      iconBg: 'bg-emerald-100',
+      iconColor: 'text-emerald-600',
+      badge: 'bg-emerald-600 text-white',
+    },
+    PARTIEL: {
+      bg: 'bg-blue-50 border-blue-200',
+      text: 'text-blue-800',
+      label: 'Paiement partiel',
+      sublabel: 'Certains frais restent à régler.',
+      icon: CurrencyDollarIcon,
+      iconBg: 'bg-blue-100',
+      iconColor: 'text-blue-600',
+      badge: 'bg-blue-600 text-white',
+    },
+    IMPAYE: {
+      bg: 'bg-amber-50 border-amber-200',
+      text: 'text-amber-800',
+      label: 'Non payé',
+      sublabel: 'Aucun paiement enregistré pour le moment.',
+      icon: ExclamationTriangleIcon,
+      iconBg: 'bg-amber-100',
+      iconColor: 'text-amber-600',
+      badge: 'bg-amber-600 text-white',
+    },
+  }[statutGlobal as 'PAYE' | 'PARTIEL' | 'IMPAYE'];
+
+  const StatutIcon = statutGlobalConfig.icon;
 
   return (
     <div className="w-full max-w-[1400px] mx-auto space-y-6">
@@ -282,7 +691,7 @@ const InscriptionDetailPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ─────────── COLONNE PRINCIPALE ─────────── */}
         <div className="lg:col-span-2 space-y-6">
-          {/* ─── Statut ─── */}
+          {/* ─── Statut inscription ─── */}
           <div
             className={`rounded-2xl border p-5 ${
               inscription.estActive
@@ -335,6 +744,87 @@ const InscriptionDetailPage: React.FC = () => {
             </div>
           </div>
 
+          {/* ─── STATUT FINANCIER GLOBAL ─── */}
+          <div className={`rounded-2xl border p-5 ${statutGlobalConfig.bg}`}>
+            <div className="flex items-start gap-3">
+              <div
+                className={`w-12 h-12 rounded-full ${statutGlobalConfig.iconBg} flex items-center justify-center shrink-0`}
+              >
+                <StatutIcon
+                  className={`w-6 h-6 ${statutGlobalConfig.iconColor}`}
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className={`font-bold text-lg ${statutGlobalConfig.text}`}>
+                    {statutGlobalConfig.label}
+                  </p>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${statutGlobalConfig.badge}`}
+                  >
+                    {statutGlobal}
+                  </span>
+                </div>
+                <p
+                  className={`text-xs mt-0.5 ${statutGlobalConfig.text} opacity-80`}
+                >
+                  {statutGlobalConfig.sublabel}
+                </p>
+
+                {/* Montants clés */}
+                <div className="grid grid-cols-3 gap-3 mt-3">
+                  <div>
+                    <p className="text-[10px] uppercase text-gray-500 tracking-wider">
+                      Total dû
+                    </p>
+                    <p className="text-sm font-bold text-gray-900">
+                      {formatMoney(montantTotal)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase text-gray-500 tracking-wider">
+                      Payé
+                    </p>
+                    <p className="text-sm font-bold text-emerald-700">
+                      {formatMoney(totalPaye)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase text-gray-500 tracking-wider">
+                      Restant
+                    </p>
+                    <p
+                      className={`text-sm font-bold ${
+                        restant > 0.01 ? 'text-red-600' : 'text-gray-400'
+                      }`}
+                    >
+                      {formatMoney(restant)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Barre de progression */}
+                <div className="mt-3">
+                  <div className="h-2 rounded-full bg-white/60 overflow-hidden">
+                    <div
+                      className={`h-full transition-all ${
+                        tauxPaiement >= 100
+                          ? 'bg-gradient-to-r from-emerald-400 to-emerald-600'
+                          : statutGlobal === 'PARTIEL'
+                          ? 'bg-gradient-to-r from-blue-400 to-blue-600'
+                          : 'bg-gradient-to-r from-amber-400 to-orange-500'
+                      }`}
+                      style={{ width: `${Math.min(100, tauxPaiement)}%` }}
+                    />
+                  </div>
+                  <p className="text-xs font-semibold text-gray-700 mt-1 text-right">
+                    {tauxPaiement}% réglé
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* ─── Élève + Classe + Année ─── */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <div className="flex items-center justify-between mb-4">
@@ -380,7 +870,7 @@ const InscriptionDetailPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Classe + Année en dessous */}
+            {/* Classe + Année */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5 pt-5 border-t border-gray-100">
               <div>
                 <p className="text-xs text-gray-500 uppercase tracking-wider flex items-center gap-1">
@@ -443,7 +933,7 @@ const InscriptionDetailPage: React.FC = () => {
                   key: 'plan',
                   label: 'Plan & frais',
                   icon: ReceiptPercentIcon,
-                  badge: echeances.length,
+                  badge: 2 + autresFrais.length,
                 },
                 {
                   key: 'paiements',
@@ -513,11 +1003,51 @@ const InscriptionDetailPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Barre de progression */}
+                  {/* Répartition par type de frais */}
+                  <div>
+                    <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2 flex items-center gap-2">
+                      <ReceiptPercentIcon className="w-3.5 h-3.5" />
+                      Répartition par type de frais
+                    </h4>
+                    <div className="space-y-2">
+                      <FraisCard
+                        libelle="Frais d'inscription"
+                        type="INSCRIPTION"
+                        total={fraisInscription.total}
+                        paye={fraisInscription.paye}
+                        restant={fraisInscription.restant}
+                        statut={fraisInscription.statut}
+                        badgeColor="bg-amber-100 text-amber-700"
+                      />
+                      <FraisCard
+                        libelle="Frais de scolarité"
+                        type="SCOLARITE"
+                        total={fraisScolarite.total}
+                        paye={fraisScolarite.paye}
+                        restant={fraisScolarite.restant}
+                        statut={fraisScolarite.statut}
+                        badgeColor="bg-blue-100 text-blue-700"
+                      />
+                      {autresFrais.map((f, idx) => (
+                        <FraisCard
+                          key={idx}
+                          libelle={f.libelle}
+                          type="AUTRE"
+                          total={f.total}
+                          paye={f.paye}
+                          restant={f.restant}
+                          statut={f.statut}
+                          badgeColor="bg-purple-100 text-purple-700"
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Barre de progression globale */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <p className="text-xs font-medium text-gray-700">
-                        Progression du paiement
+                        Progression globale
                       </p>
                       <p className="text-xs font-bold text-gray-900">
                         {tauxPaiement}%
@@ -604,11 +1134,6 @@ const InscriptionDetailPage: React.FC = () => {
                               Vous
                             </span>
                           )}
-                          {!ins.estActive && (
-                            <span className="text-[10px] text-gray-500">
-                              Inactif
-                            </span>
-                          )}
                         </Link>
                       ))}
                     </div>
@@ -643,7 +1168,7 @@ const InscriptionDetailPage: React.FC = () => {
                             Frais d'inscription
                           </span>
                           <span className="font-semibold text-gray-900">
-                            {formatMoney(plan.fraisInscription)}
+                            {formatMoney(fraisInscription.total)}
                           </span>
                         </div>
                         <div className="flex justify-between text-sm">
@@ -651,16 +1176,82 @@ const InscriptionDetailPage: React.FC = () => {
                             Frais de scolarité
                           </span>
                           <span className="font-semibold text-gray-900">
-                            {formatMoney(plan.fraisScolarite)}
+                            {formatMoney(fraisScolarite.total)}
                           </span>
                         </div>
+                        {autresFrais.length > 0 && (
+                          <div className="pt-2 border-t border-gray-200">
+                            <p className="text-xs text-gray-500 mb-1">
+                              Autres frais ({autresFrais.length})
+                            </p>
+                            {autresFrais.map((f, idx) => (
+                              <div
+                                key={idx}
+                                className="flex justify-between text-xs"
+                              >
+                                <span className="text-gray-600">
+                                  • {f.libelle}
+                                </span>
+                                <span className="font-medium text-gray-900">
+                                  {formatMoney(f.total)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
                           <span className="font-medium text-gray-700">
                             Total plan
                           </span>
                           <span className="font-bold text-gray-900 text-base">
-                            {formatMoney(plan.montantTotal)}
+                            {formatMoney(montantTotal)}
                           </span>
+                        </div>
+                      </div>
+
+                      {/* Détail par frais */}
+                      <div>
+                        <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                          <ReceiptPercentIcon className="w-3.5 h-3.5" />
+                          Détail des frais
+                        </h4>
+                        <div className="space-y-2">
+                          <FraisCard
+                            libelle="Frais d'inscription"
+                            type="INSCRIPTION"
+                            total={fraisInscription.total}
+                            paye={fraisInscription.paye}
+                            restant={fraisInscription.restant}
+                            statut={fraisInscription.statut}
+                            badgeColor="bg-amber-100 text-amber-700"
+                          />
+                          <FraisCard
+                            libelle="Frais de scolarité"
+                            type="SCOLARITE"
+                            total={fraisScolarite.total}
+                            paye={fraisScolarite.paye}
+                            restant={fraisScolarite.restant}
+                            statut={fraisScolarite.statut}
+                            badgeColor="bg-blue-100 text-blue-700"
+                          />
+                          {autresFrais.length === 0 ? (
+                            <p className="text-xs text-gray-400 text-center py-2">
+                              Aucun autre frais
+                            </p>
+                          ) : (
+                            autresFrais.map((f, idx) => (
+                              <FraisCard
+                                key={idx}
+                                libelle={f.libelle}
+                                type="AUTRE"
+                                total={f.total}
+                                paye={f.paye}
+                                restant={f.restant}
+                                statut={f.statut}
+                                badgeColor="bg-purple-100 text-purple-700"
+                              />
+                            ))
+                          )}
                         </div>
                       </div>
 
@@ -677,15 +1268,30 @@ const InscriptionDetailPage: React.FC = () => {
                           </p>
                         ) : (
                           <div className="space-y-2">
-                            {echeances.map((e: any) => {
+                            {echeances.map((e) => {
                               const meta =
                                 STATUT_ECHEANCE_META[e.statut] ??
                                 STATUT_ECHEANCE_META.IMPAYEE;
                               const Icon = meta.icon;
                               const pct =
                                 e.montant > 0
-                                  ? Math.min(100, (e.paye / e.montant) * 100)
+                                  ? Math.min(
+                                      100,
+                                      (e.paye / e.montant) * 100
+                                    )
                                   : 0;
+                              const typeLabel =
+                                e.type === 'FRAIS_INSCRIPTION'
+                                  ? 'Inscription'
+                                  : e.type === 'AUTRE_FRAIS'
+                                  ? 'Autre frais'
+                                  : 'Scolarité';
+                              const typeBadgeColor =
+                                e.type === 'FRAIS_INSCRIPTION'
+                                  ? 'bg-amber-100 text-amber-700'
+                                  : e.type === 'AUTRE_FRAIS'
+                                  ? 'bg-purple-100 text-purple-700'
+                                  : 'bg-blue-100 text-blue-700';
 
                               return (
                                 <div
@@ -698,12 +1304,22 @@ const InscriptionDetailPage: React.FC = () => {
                                         {e.ordre + 1}
                                       </div>
                                       <div className="min-w-0">
-                                        <p className="text-sm font-medium text-gray-900 truncate">
-                                          {e.nom}
-                                        </p>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <p className="text-sm font-medium text-gray-900 truncate">
+                                            {e.nom}
+                                          </p>
+                                          <span
+                                            className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${typeBadgeColor}`}
+                                          >
+                                            {typeLabel}
+                                          </span>
+                                        </div>
                                         <p className="text-[10px] text-gray-500">
-                                          Limite :{' '}
-                                          {formatDate(e.dateLimite)}
+                                          {e.dateLimite
+                                            ? `Limite : ${formatDate(
+                                                e.dateLimite
+                                              )}`
+                                            : 'Sans échéance'}
                                         </p>
                                       </div>
                                     </div>
@@ -715,7 +1331,6 @@ const InscriptionDetailPage: React.FC = () => {
                                     </span>
                                   </div>
 
-                                  {/* Progression */}
                                   <div className="mt-2">
                                     <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
                                       <div
@@ -731,7 +1346,6 @@ const InscriptionDetailPage: React.FC = () => {
                                     </div>
                                   </div>
 
-                                  {/* Montants */}
                                   <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
                                     <div>
                                       <p className="text-gray-500">Total</p>
@@ -828,9 +1442,23 @@ const InscriptionDetailPage: React.FC = () => {
                                     ` — par ${p.caissier.prenom} ${p.caissier.nom}`}
                                 </p>
                                 {p.allocations?.length > 0 && (
-                                  <p className="text-[10px] text-emerald-600 mt-0.5">
-                                    {p.allocations.length} échéance(s) couverte(s)
-                                  </p>
+                                  <div className="mt-1">
+                                    <p className="text-[10px] text-emerald-600">
+                                      {p.allocations.length} échéance(s)
+                                      couverte(s) :
+                                    </p>
+                                    <div className="flex flex-wrap gap-1 mt-0.5">
+                                      {p.allocations.map((a: any) => (
+                                        <span
+                                          key={a.id}
+                                          className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded"
+                                        >
+                                          {a.echeance?.nom ?? 'Échéance'} :{' '}
+                                          {formatMoney(a.montant)}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
                                 )}
                               </div>
                               <p className="text-sm font-bold text-gray-900 shrink-0">
@@ -864,7 +1492,9 @@ const InscriptionDetailPage: React.FC = () => {
                       </div>
                       <p className="text-xs text-gray-600 mt-0.5">
                         Date d'inscription effective :{' '}
-                        <strong>{formatDate(inscription.dateInscription)}</strong>
+                        <strong>
+                          {formatDate(inscription.dateInscription)}
+                        </strong>
                       </p>
                     </li>
 
@@ -961,16 +1591,73 @@ const InscriptionDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Récap financier */}
+          {/* Récap financier détaillé */}
           <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl shadow-lg p-5 text-white">
             <h3 className="text-xs font-bold uppercase tracking-wider opacity-90 mb-3 flex items-center gap-1.5">
               <ChartBarIcon className="w-4 h-4" />
               Récapitulatif financier
             </h3>
-            <div className="space-y-2 text-sm">
+
+            {/* Détail par frais */}
+            <div className="space-y-2 text-xs pb-3 border-b border-white/20">
+              <div className="flex justify-between">
+                <span className="opacity-80">Inscription</span>
+                <span className="font-semibold">
+                  {formatMoney(fraisInscription.paye)} /{' '}
+                  {formatMoney(fraisInscription.total)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="opacity-80">Scolarité</span>
+                <span className="font-semibold">
+                  {formatMoney(fraisScolarite.paye)} /{' '}
+                  {formatMoney(fraisScolarite.total)}
+                </span>
+              </div>
+              {autresFrais.length > 0 && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="opacity-80">
+                      Autres frais ({autresFrais.length})
+                    </span>
+                    <span className="font-semibold">
+                      {formatMoney(totalPayeAutresFrais)} /{' '}
+                      {formatMoney(totalAutresFrais)}
+                    </span>
+                  </div>
+                  {/* Détail autres frais */}
+                  <div className="pl-2 space-y-0.5">
+                    {autresFrais.map((f, idx) => (
+                      <div
+                        key={idx}
+                        className="flex justify-between text-[11px] opacity-90"
+                      >
+                        <span>• {f.libelle}</span>
+                        <span
+                          className={
+                            f.restant > 0.01
+                              ? 'text-amber-200'
+                              : 'text-emerald-200'
+                          }
+                        >
+                          {f.restant > 0.01
+                            ? `reste ${formatMoney(f.restant)}`
+                            : '✓ payé'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Totaux */}
+            <div className="space-y-2 text-sm pt-3">
               <div className="flex justify-between">
                 <span className="opacity-80">Total dû</span>
-                <span className="font-semibold">{formatMoney(montantTotal)}</span>
+                <span className="font-semibold">
+                  {formatMoney(montantTotal)}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="opacity-80">Payé</span>

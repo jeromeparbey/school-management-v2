@@ -59,24 +59,20 @@ const inscriptionInclude = {
 
 /**
  * Récupère le plan de scolarité applicable à une classe.
- * Priorité :
- *  1. Plan spécifique à la classe
- *  2. Plan du niveau
- *  3. Aucun plan
+ *
+ * ⚠️ POLITIQUE MÉTIER : seul le plan SPÉCIFIQUE à la classe est pris.
+ * Le fallback "plan du niveau" a été retiré pour éviter qu'une classe
+ * sans plan propre hérite silencieusement du plan d'une autre classe
+ * du même niveau (bug : échéances d'une autre classe affichées).
+ *
+ * Si plusieurs plans existent pour la même classe, on prend le plus récent.
  */
 async function findPlanForClasse(
   client: any,
   classeId: string,
   anneeScolaireId: string
 ) {
-  const classe = await client.classe.findUnique({
-    where: { id: classeId },
-    select: { id: true, niveauId: true },
-  });
-  if (!classe) return null;
-
-  // 1. Plan spécifique à la classe
-  const planClasse = await client.planScolarite.findFirst({
+  return client.planScolarite.findFirst({
     where: {
       classeId,
       anneeScolaireId,
@@ -85,29 +81,18 @@ async function findPlanForClasse(
     include: {
       echeances: { orderBy: { ordre: 'asc' } },
     },
+    orderBy: { createdAt: 'desc' },
   });
-  if (planClasse) return planClasse;
-
-  // 2. Plan du niveau
-  if (classe.niveauId) {
-    const planNiveau = await client.planScolarite.findFirst({
-      where: {
-        niveauId: classe.niveauId,
-        anneeScolaireId,
-        estActif: true,
-      },
-      include: {
-        echeances: { orderBy: { ordre: 'asc' } },
-      },
-    });
-    if (planNiveau) return planNiveau;
-  }
-
-  return null;
 }
 
 /**
  * Calcule le résumé financier d'un assignment.
+ *
+ * ⭐ Inclut désormais :
+ *  - Les frais d'inscription (toujours visibles)
+ *  - Les autres frais (avec leur vrai libellé)
+ *  - Les échéances réelles du plan
+ *  - Un statut global de paiement
  */
 async function getResumeFinancierAssignment(
   client: any,
@@ -136,10 +121,12 @@ async function getResumeFinancierAssignment(
   });
   if (!assignment) return null;
 
+  const plan = assignment.planScolarite;
   const montantTotal = assignment.montantPersonnalise
-    ?? assignment.planScolarite?.montantTotal
+    ?? plan?.montantTotal
     ?? 0;
 
+  // Réductions
   const totalReduction = (assignment.reductions ?? []).reduce(
     (s: number, r: any) => {
       if (r.type === 'FIXE') return s + r.valeur;
@@ -158,42 +145,119 @@ async function getResumeFinancierAssignment(
 
   const restant = Math.max(0, duTheorique - totalPaye);
 
-  const echeances = (assignment.planScolarite?.echeances ?? []).map(
-    (e: any) => {
-      const payeSurEcheance = (assignment.paiements ?? []).reduce(
-        (s: number, p: any) => {
-          const allocs = (p.allocations ?? []).filter(
-            (a: any) => a.echeanceId === e.id
-          );
-          return s + allocs.reduce((ss: number, a: any) => ss + a.montant, 0);
-        },
-        0
-      );
-      const restantEcheance = Math.max(0, e.montant - payeSurEcheance);
+  // Statut global
+  let statutGlobal: 'PAYE' | 'PARTIEL' | 'IMPAYE';
+  if (totalPaye <= TOLERANCE) statutGlobal = 'IMPAYE';
+  else if (restant <= TOLERANCE) statutGlobal = 'PAYE';
+  else statutGlobal = 'PARTIEL';
 
-      let statut: 'PAYEE' | 'PARTIELLE' | 'IMPAYEE' | 'EN_RETARD';
-      if (restantEcheance <= TOLERANCE) statut = 'PAYEE';
-      else if (payeSurEcheance > TOLERANCE) statut = 'PARTIELLE';
-      else {
-        const jours = Math.ceil(
-          (new Date(e.dateLimite).getTime() - Date.now()) /
-            (1000 * 60 * 60 * 24)
+  // ──────────────────────────────────────────
+  // ÉCHÉANCES RÉELLES DU PLAN
+  // ──────────────────────────────────────────
+  const echeancesReelles = (plan?.echeances ?? []).map((e: any) => {
+    const payeSurEcheance = (assignment.paiements ?? []).reduce(
+      (s: number, p: any) => {
+        const allocs = (p.allocations ?? []).filter(
+          (a: any) => a.echeanceId === e.id
         );
-        statut = jours < 0 ? 'EN_RETARD' : 'IMPAYEE';
-      }
+        return s + allocs.reduce((ss: number, a: any) => ss + a.montant, 0);
+      },
+      0
+    );
+    const restantEcheance = Math.max(0, e.montant - payeSurEcheance);
 
-      return {
-        id: e.id,
-        nom: e.nom,
-        ordre: e.ordre,
-        montant: e.montant,
-        dateLimite: e.dateLimite,
-        paye: payeSurEcheance,
-        restant: restantEcheance,
-        statut,
-      };
+    let statut: 'PAYEE' | 'PARTIELLE' | 'IMPAYEE' | 'EN_RETARD';
+    if (restantEcheance <= TOLERANCE) statut = 'PAYEE';
+    else if (payeSurEcheance > TOLERANCE) statut = 'PARTIELLE';
+    else {
+      const jours = Math.ceil(
+        (new Date(e.dateLimite).getTime() - Date.now()) /
+          (1000 * 60 * 60 * 24)
+      );
+      statut = jours < 0 ? 'EN_RETARD' : 'IMPAYEE';
     }
-  );
+
+    return {
+      id: e.id,
+      nom: e.nom,
+      ordre: e.ordre,
+      montant: e.montant,
+      dateLimite: e.dateLimite,
+      paye: payeSurEcheance,
+      restant: restantEcheance,
+      statut,
+      estPayee: restantEcheance <= TOLERANCE,
+      type: 'ECHEANCE' as const,
+    };
+  });
+
+  // ──────────────────────────────────────────
+  // ⭐ FRAIS D'INSCRIPTION + AUTRES FRAIS
+  // On les ajoute au résumé, avec leur vrai libellé
+  // et en calculant ce qui a été payé dessus.
+  // ──────────────────────────────────────────
+  const fraisVirtuels: any[] = [];
+
+  // Frais d'inscription
+  const fraisInscription = Number(plan?.fraisInscription ?? 0);
+  if (fraisInscription > 0) {
+    // Chercher une échéance existante "inscription" (créée par resolveAllocation)
+    const echeanceInscription = (plan?.echeances ?? []).find(
+      (e: any) =>
+        e.nom?.toLowerCase().includes('inscription') ||
+        e.ordre === 0
+    );
+
+    // Si elle existe, on l'a déjà dans echeancesReelles → skip
+    if (!echeanceInscription) {
+      // Sinon on l'affiche comme virtuelle : rien payé pour l'instant
+      fraisVirtuels.push({
+        id: '__frais_inscription__',
+        nom: "Frais d'inscription",
+        ordre: 0,
+        montant: fraisInscription,
+        dateLimite: null,
+        paye: 0,
+        restant: fraisInscription,
+        statut: 'IMPAYEE',
+        estPayee: false,
+        type: 'FRAIS_INSCRIPTION' as const,
+      });
+    }
+  }
+
+  // Autres frais
+  const autresFrais = plan?.autresFrais as Record<string, number> | null;
+  if (autresFrais && typeof autresFrais === 'object') {
+    Object.entries(autresFrais).forEach(([libelle, montant], idx) => {
+      const montantNum = Number(montant);
+      if (montantNum <= 0) return;
+
+      // Chercher une échéance existante avec ce libellé
+      const echeanceExistante = (plan?.echeances ?? []).find(
+        (e: any) => e.nom === libelle
+      );
+
+      // Si elle existe, on l'a déjà dans echeancesReelles → skip
+      if (echeanceExistante) return;
+
+      fraisVirtuels.push({
+        id: `__autre_frais_${idx}__`,
+        nom: libelle,
+        ordre: 100 + idx,
+        montant: montantNum,
+        dateLimite: null,
+        paye: 0,
+        restant: montantNum,
+        statut: 'IMPAYEE',
+        estPayee: false,
+        type: 'AUTRE_FRAIS' as const,
+      });
+    });
+  }
+
+  // Fusion : frais virtuels (inscription/autres) + échéances réelles
+  const echeances = [...fraisVirtuels, ...echeancesReelles];
 
   return {
     montantTotal,
@@ -201,6 +265,7 @@ async function getResumeFinancierAssignment(
     duTheorique,
     totalPaye,
     restant,
+    statutGlobal, // ⭐ NOUVEAU
     tauxPaiement:
       duTheorique > 0 ? Math.round((totalPaye / duTheorique) * 100) : 0,
     echeances,
@@ -230,6 +295,9 @@ async function generatePaymentReference(tx: any): Promise<string> {
 
 /**
  * Résout une allocation en créant l'échéance si nécessaire.
+ *
+ * ⭐ AMÉLIORÉ : le nom de l'échéance créée reprend le vrai libellé
+ * (ex: "Uniforme", "Cantine") au lieu de "Autre frais" générique.
  */
 async function resolveAllocation(
   tx: any,
@@ -239,7 +307,6 @@ async function resolveAllocation(
 ): Promise<{ echeanceId: string; montant: number }> {
   // Cas 1 : frais d'inscription virtuel
   if (alloc.echeanceId === '__frais_inscription__') {
-    // Chercher une échéance "Frais d'inscription" existante
     let echeance = await tx.echeance.findFirst({
       where: {
         planScolariteId: planId,
@@ -265,13 +332,31 @@ async function resolveAllocation(
     return { echeanceId: echeance.id, montant: alloc.montant };
   }
 
-  // Cas 2 : autre frais virtuel
+  // Cas 2 : autre frais virtuel (ex: __autre_frais_0__)
   if (alloc.echeanceId.startsWith('__autre_frais_')) {
-    const nomFrais = 'Autre frais';
+    // ⭐ Extraire l'index pour retrouver le vrai libellé
+    const match = alloc.echeanceId.match(/__autre_frais_(\d+)__/);
+    const index = match ? parseInt(match[1], 10) : -1;
+
+    const autresFrais = plan.autresFrais as Record<string, number> | null;
+    let vraiLibelle = 'Autre frais';
+    let vraiMontant = alloc.montant;
+
+    if (autresFrais && typeof autresFrais === 'object') {
+      const entries = Object.entries(autresFrais).filter(
+        ([, m]) => Number(m) > 0
+      );
+      if (index >= 0 && index < entries.length) {
+        vraiLibelle = entries[index][0];
+        vraiMontant = Number(entries[index][1]);
+      }
+    }
+
+    // Chercher une échéance existante avec ce libellé exact
     let echeance = await tx.echeance.findFirst({
       where: {
         planScolariteId: planId,
-        nom: { contains: nomFrais, mode: 'insensitive' },
+        nom: vraiLibelle,
       },
     });
 
@@ -279,10 +364,10 @@ async function resolveAllocation(
       echeance = await tx.echeance.create({
         data: {
           planScolariteId: planId,
-          nom: nomFrais,
-          montant: alloc.montant,
+          nom: vraiLibelle, // ⭐ vrai libellé (Uniforme, Cantine…)
+          montant: vraiMontant,
           dateLimite: new Date(),
-          ordre: 50,
+          ordre: 100 + index,
         },
       });
     }
@@ -323,7 +408,10 @@ export class InscriptionService {
     });
     if (!classe) throw new AppError('Classe introuvable', 404);
     if (classe.estArchive) {
-      throw new AppError("Impossible de s'inscrire dans une classe archivée", 400);
+      throw new AppError(
+        "Impossible de s'inscrire dans une classe archivée",
+        400
+      );
     }
 
     // 3. Vérifier l'année
@@ -333,7 +421,10 @@ export class InscriptionService {
     });
     if (!annee) throw new AppError('Année scolaire introuvable', 404);
     if (annee.estArchive) {
-      throw new AppError("Impossible de s'inscrire dans une année archivée", 400);
+      throw new AppError(
+        "Impossible de s'inscrire dans une année archivée",
+        400
+      );
     }
 
     // 4. Capacité
@@ -346,7 +437,10 @@ export class InscriptionService {
         },
       });
       if (nbInscrits >= classe.capacite) {
-        throw new AppError(`Classe pleine (${nbInscrits}/${classe.capacite})`, 409);
+        throw new AppError(
+          `Classe pleine (${nbInscrits}/${classe.capacite})`,
+          409
+        );
       }
     }
 
@@ -413,6 +507,7 @@ export class InscriptionService {
               montantTotal: result.plan.montantTotal,
               fraisInscription: result.plan.fraisInscription,
               fraisScolarite: result.plan.fraisScolarite,
+              autresFrais: result.plan.autresFrais,
               devise: result.plan.devise,
               nombreEcheances: result.plan.echeances?.length ?? 0,
             }
@@ -456,7 +551,10 @@ export class InscriptionService {
     });
     if (!classe) throw new AppError('Classe introuvable', 404);
     if (classe.estArchive) {
-      throw new AppError("Impossible de s'inscrire dans une classe archivée", 400);
+      throw new AppError(
+        "Impossible de s'inscrire dans une classe archivée",
+        400
+      );
     }
 
     if (classe.capacite) {
@@ -468,7 +566,10 @@ export class InscriptionService {
         },
       });
       if (nbInscrits >= classe.capacite) {
-        throw new AppError(`Classe pleine (${nbInscrits}/${classe.capacite})`, 409);
+        throw new AppError(
+          `Classe pleine (${nbInscrits}/${classe.capacite})`,
+          409
+        );
       }
     }
 
@@ -487,7 +588,10 @@ export class InscriptionService {
 
     // 3. Valider les allocations
     if (input.allocations && input.allocations.length > 0) {
-      const totalAlloue = input.allocations.reduce((s, a) => s + a.montant, 0);
+      const totalAlloue = input.allocations.reduce(
+        (s, a) => s + a.montant,
+        0
+      );
       if (totalAlloue > input.montantPaiement + TOLERANCE) {
         throw new AppError(
           `Le total des allocations (${totalAlloue}) dépasse le montant du paiement (${input.montantPaiement})`,
@@ -516,7 +620,10 @@ export class InscriptionService {
           select: { id: true, nom: true, montant: true, planScolariteId: true },
         });
         if (!echeance) {
-          throw new AppError(`Échéance introuvable : ${alloc.echeanceId}`, 404);
+          throw new AppError(
+            `Échéance introuvable : ${alloc.echeanceId}`,
+            404
+          );
         }
         if (echeance.planScolariteId !== plan.id) {
           throw new AppError(
@@ -569,10 +676,17 @@ export class InscriptionService {
               statut: 'ACTIF',
             },
           });
+        } else if (!assignment.classeId) {
+          // ⭐ Mise à jour si l'assignment existant n'avait pas de classeId
+          assignment = await tx.assignmentScolarite.update({
+            where: { id: assignment.id },
+            data: { classeId: input.classeId },
+          });
         }
 
-        // 4.3. Résoudre les allocations (créer échéances manquantes si besoin)
-        const allocationsResolues: { echeanceId: string; montant: number }[] = [];
+        // 4.3. Résoudre les allocations
+        const allocationsResolues: { echeanceId: string; montant: number }[] =
+          [];
         for (const alloc of input.allocations ?? []) {
           const resolved = await resolveAllocation(tx, plan.id, plan, alloc);
           allocationsResolues.push(resolved);
@@ -611,28 +725,32 @@ export class InscriptionService {
             })),
           });
 
-          // 4.7. Mettre à jour estPayee
-          for (const alloc of allocationsResolues) {
+          // 4.7. Recalculer estPayee pour chaque échéance touchée
+          const echeanceIds = [
+            ...new Set(allocationsResolues.map((a) => a.echeanceId)),
+          ];
+
+          for (const echeanceId of echeanceIds) {
             const totalAlloue = await tx.allocationPaiement.aggregate({
               where: {
-                echeanceId: alloc.echeanceId,
+                echeanceId,
                 paiement: { statut: 'COMPLET' },
               },
               _sum: { montant: true },
             });
             const echeance = await tx.echeance.findUnique({
-              where: { id: alloc.echeanceId },
+              where: { id: echeanceId },
               select: { montant: true },
             });
-            if (
-              echeance &&
-              (totalAlloue._sum.montant ?? 0) >= echeance.montant - TOLERANCE
-            ) {
-              await tx.echeance.update({
-                where: { id: alloc.echeanceId },
-                data: { estPayee: true },
-              });
-            }
+            const nouveauEstPayee =
+              !!echeance &&
+              (totalAlloue._sum.montant ?? 0) >=
+                echeance.montant - TOLERANCE;
+
+            await tx.echeance.update({
+              where: { id: echeanceId },
+              data: { estPayee: nouveauEstPayee },
+            });
           }
         }
 
@@ -677,6 +795,7 @@ export class InscriptionService {
           montantTotal: plan.montantTotal,
           fraisInscription: plan.fraisInscription,
           fraisScolarite: plan.fraisScolarite,
+          autresFrais: plan.autresFrais,
           devise: plan.devise,
         },
         assignment: result.assignment,
@@ -719,13 +838,11 @@ export class InscriptionService {
     if (q.classeId) where.classeId = q.classeId;
     if (q.anneeScolaireId) where.anneeScolaireId = q.anneeScolaireId;
 
-    // ✅ Normalisation estActive (boolean OU string)
     if (q.estActive !== undefined && q.estActive !== null) {
       const val: any = q.estActive;
       where.estActive = val === true || val === 'true' || val === '1';
     }
 
-    // ✅ Tri typé
     const allowedSort = ['dateInscription', 'createdAt'] as const;
     type SortField = (typeof allowedSort)[number];
 
@@ -832,6 +949,7 @@ export class InscriptionService {
             montantTotal: plan.montantTotal,
             fraisInscription: plan.fraisInscription,
             fraisScolarite: plan.fraisScolarite,
+            autresFrais: plan.autresFrais,
             devise: plan.devise,
             echeances: (plan.echeances ?? []).map((e: any) => ({
               id: e.id,
@@ -839,6 +957,7 @@ export class InscriptionService {
               ordre: e.ordre,
               montant: e.montant,
               dateLimite: e.dateLimite,
+              estPayee: e.estPayee,
             })),
           }
         : null,
@@ -900,7 +1019,7 @@ export class InscriptionService {
     });
     if (!classe) throw new AppError('Classe introuvable', 404);
 
-    // ✅ Compter les inscrits dans CETTE classe pour CETTE année
+    // Compter les inscrits dans CETTE classe pour CETTE année
     const nbInscrits = await client.inscription.count({
       where: { classeId, anneeScolaireId, estActive: true },
     });
@@ -970,6 +1089,7 @@ export class InscriptionService {
               ordre: e.ordre,
               montant: e.montant,
               dateLimite: e.dateLimite,
+              estPayee: e.estPayee,
             })),
           }
         : null,
@@ -981,7 +1101,11 @@ export class InscriptionService {
   // UPDATE
   // ══════════════════════════════════════════
 
-  async update(ctx: InscriptionContext, id: string, input: UpdateInscriptionInput) {
+  async update(
+    ctx: InscriptionContext,
+    id: string,
+    input: UpdateInscriptionInput
+  ) {
     const client = await getClient(ctx.schemaName);
 
     const existing = await client.inscription.findUnique({

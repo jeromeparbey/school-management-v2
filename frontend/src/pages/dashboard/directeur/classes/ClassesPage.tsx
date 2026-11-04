@@ -20,6 +20,7 @@ import {
   XMarkIcon,
   CheckCircleIcon,
   ArrowsUpDownIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline';
 import {
   useClasses,
@@ -62,39 +63,51 @@ const ClasseCard: React.FC<ClasseCardProps> = ({
 
   const tauxColor =
     taux > 90
-      ? 'bg-rose-100 text-rose-700'
+      ? 'bg-rose-50 text-rose-700 border-rose-200'
       : taux > 75
-      ? 'bg-amber-100 text-amber-700'
-      : 'bg-emerald-100 text-emerald-700';
+      ? 'bg-amber-50 text-amber-700 border-amber-200'
+      : 'bg-emerald-50 text-emerald-700 border-emerald-200';
 
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      className={`group bg-white rounded-2xl border shadow-sm hover:shadow-md transition-all ${
+      whileHover={{ y: -2 }}
+      className={`group bg-white rounded-2xl border shadow-sm hover:shadow-lg transition-all ${
         classe.estArchive
-          ? 'border-orange-200 bg-orange-50/30'
-          : 'border-gray-100'
+          ? 'border-orange-200 bg-orange-50/20'
+          : 'border-gray-100 hover:border-emerald-200'
       }`}
     >
       {/* Header carte */}
       <div className="p-5 pb-3">
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start gap-3">
+          {/* Icône dans carré gradient */}
+          <div
+            className={`w-12 h-12 rounded-xl flex items-center justify-center text-white shrink-0 shadow-sm ${
+              classe.estArchive
+                ? 'bg-gradient-to-br from-orange-400 to-amber-500'
+                : 'bg-gradient-to-br from-emerald-500 to-teal-600'
+            }`}
+          >
+            <BuildingOfficeIcon className="w-6 h-6" />
+          </div>
+
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-lg font-bold text-gray-900 truncate">
                 {classe.nom}
               </h3>
               {classe.estArchive && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded-full">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 text-orange-700 text-[10px] font-bold uppercase rounded-full">
                   <ArchiveBoxIcon className="w-3 h-3" />
                   Archivée
                 </span>
               )}
               {!classe.estArchive && !classe.estActive && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-bold uppercase rounded-full">
                   <XCircleIcon className="w-3 h-3" />
                   Inactive
                 </span>
@@ -107,7 +120,7 @@ const ClasseCard: React.FC<ClasseCardProps> = ({
 
           {capacite > 0 && (
             <span
-              className={`text-xs font-semibold px-2 py-1 rounded-full ${tauxColor} flex-shrink-0`}
+              className={`text-xs font-semibold px-2 py-1 rounded-full border ${tauxColor} flex-shrink-0`}
             >
               {taux}%
             </span>
@@ -118,7 +131,7 @@ const ClasseCard: React.FC<ClasseCardProps> = ({
       {/* Infos */}
       <div className="px-5 space-y-2 text-sm">
         <div className="flex items-center gap-2 text-gray-600">
-          <UserGroupIcon className="h-4 w-4 text-gray-400" />
+          <UserGroupIcon className="h-4 w-4 text-emerald-500 shrink-0" />
           <span>
             <strong className="text-gray-900">{effectif}</strong>
             {capacite > 0 ? ` / ${capacite}` : ''} élève
@@ -127,22 +140,23 @@ const ClasseCard: React.FC<ClasseCardProps> = ({
         </div>
 
         <div className="flex items-center gap-2 text-gray-600">
-          <BuildingOfficeIcon className="h-4 w-4 text-gray-400" />
+          <BuildingOfficeIcon className="h-4 w-4 text-gray-400 shrink-0" />
           <span>
             {classe.salle ? (
               <>
-                Salle <strong className="text-gray-900">{classe.salle}</strong>
+                Salle{' '}
+                <strong className="text-gray-900">{classe.salle}</strong>
               </>
             ) : (
-              <span className="text-gray-400">Salle non définie</span>
+              <span className="text-gray-400 italic">Salle non définie</span>
             )}
           </span>
         </div>
 
         {classe.anneeScolaire && (
           <div className="flex items-center gap-2 text-gray-600">
-            <AcademicCapIcon className="h-4 w-4 text-gray-400" />
-            <span>
+            <AcademicCapIcon className="h-4 w-4 text-emerald-500 shrink-0" />
+            <span className="truncate">
               {classe.anneeScolaire.nom}
               {classe.anneeScolaire.estActive && (
                 <span className="ml-1 text-xs text-emerald-600 font-medium">
@@ -158,7 +172,7 @@ const ClasseCard: React.FC<ClasseCardProps> = ({
       <div className="px-5 py-4 mt-3 border-t border-gray-100 flex items-center justify-between">
         <Link
           to={`/dashboard/classes/${classe.id}`}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700 hover:text-emerald-800 transition-colors"
         >
           <EyeIcon className="h-4 w-4" />
           Voir le détail
@@ -223,17 +237,25 @@ const StatCard: React.FC<StatCardProps> = ({
   color,
   bgColor,
 }) => (
-  <div className="bg-white rounded-xl border border-gray-100 p-4">
+  <motion.div
+    initial={{ opacity: 0, y: 8 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-sm transition-shadow"
+  >
     <div className="flex items-center justify-between">
-      <div>
-        <p className="text-xs text-gray-500">{label}</p>
-        <p className="text-xl font-bold text-gray-900 mt-1">{value}</p>
+      <div className="min-w-0">
+        <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">
+          {label}
+        </p>
+        <p className="text-2xl font-bold text-gray-900 mt-1 truncate">
+          {value}
+        </p>
       </div>
-      <div className={`p-2 rounded-lg ${bgColor}`}>
+      <div className={`p-2.5 rounded-xl ${bgColor} shrink-0`}>
         <Icon className={`w-5 h-5 ${color}`} />
       </div>
     </div>
-  </div>
+  </motion.div>
 );
 
 // ============================================
@@ -253,10 +275,8 @@ const ClassesPage: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Niveaux (pour le select)
+  // Niveaux
   const { data: niveauxData } = useNiveaux({ limit: 200 });
-
-  // ✅ CORRIGÉ : le hook retourne { niveaux, pagination }
   const niveaux: Niveau[] = useMemo(
     () => niveauxData?.niveaux ?? [],
     [niveauxData]
@@ -283,16 +303,10 @@ const ClassesPage: React.FC = () => {
   const softDeleteMutation = useSoftDeleteClasse();
   const hardDeleteMutation = useHardDeleteClasse();
 
-  // ✅ CORRIGÉ : le hook retourne { classes, pagination }
-  const classes: Classe[] = useMemo(
-    () => data?.classes ?? [],
-    [data]
-  );
+  const classes: Classe[] = useMemo(() => data?.classes ?? [], [data]);
   const pagination = data?.pagination;
 
-  // ─────────────────────────────────────────
-  // STATISTIQUES RAPIDES
-  // ─────────────────────────────────────────
+  // Statistiques rapides
   const stats = useMemo(() => {
     const totalCapacite = classes.reduce(
       (sum, c) => sum + (c.capacite ?? 0),
@@ -302,20 +316,18 @@ const ClassesPage: React.FC = () => {
       (sum, c) => sum + (c._count?.inscriptions ?? 0),
       0
     );
-    const actives = classes.filter((c) => c.estActive && !c.estArchive).length;
-    const archivees = classes.filter((c) => c.estArchive).length;
+    const actives = classes.filter(
+      (c) => c.estActive && !c.estArchive
+    ).length;
 
     return {
       totalCapacite,
       totalEffectif,
       actives,
-      archivees,
     };
   }, [classes]);
 
-  // ─────────────────────────────────────────
-  // HANDLERS
-  // ─────────────────────────────────────────
+  // Handlers
   const handleSoftDelete = async (classe: Classe) => {
     if (
       !confirm(
@@ -372,32 +384,35 @@ const ClassesPage: React.FC = () => {
   const selectedNiveau = niveaux.find((n) => n.id === niveauFilter);
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-6 space-y-5 max-w-[1600px] mx-auto">
       {/* ============================================
           EN-TÊTE
           ============================================ */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <BuildingOfficeIcon className="h-7 w-7 text-blue-600" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 shrink-0">
+              <BuildingOfficeIcon className="w-6 h-6" />
+            </div>
             Gestion des classes
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1.5 text-sm text-gray-500">
             {pagination?.total ?? 0} classe(s) au total
             {activeFiltersCount > 0 && (
-              <span className="ml-2 text-blue-600 font-medium">
-                ({classes.length} filtrée{classes.length > 1 ? 's' : ''})
+              <span className="ml-2 inline-flex items-center gap-1 text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded-full text-xs">
+                <SparklesIcon className="w-3 h-3" />
+                {classes.length} filtrée{classes.length > 1 ? 's' : ''}
               </span>
             )}
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {/* Rafraîchir */}
           <button
             onClick={() => refetch()}
             disabled={isFetching}
-            className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm"
+            className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
             title="Rafraîchir"
             aria-label="Rafraîchir la liste"
           >
@@ -406,20 +421,20 @@ const ClassesPage: React.FC = () => {
             />
           </button>
 
-          {/* Lien vers la liste des niveaux */}
+          {/* Niveaux */}
           <Link
             to="/dashboard/niveaux"
-            className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
+            className="hidden sm:inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors"
             title="Gérer les niveaux"
           >
             <AcademicCapIcon className="h-4 w-4" />
             Niveaux
           </Link>
 
-          {/* Lien vers la page de création dédiée */}
+          {/* Nouvelle classe */}
           <Link
             to="/dashboard/classes/nouveau"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium shadow-sm"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-700 hover:to-teal-700 text-sm font-semibold shadow-md shadow-emerald-500/20 transition-all"
           >
             <PlusIcon className="h-4 w-4" />
             Nouvelle classe
@@ -431,13 +446,13 @@ const ClassesPage: React.FC = () => {
           STATISTIQUES RAPIDES
           ============================================ */}
       {!isLoading && !isError && classes.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <StatCard
             label="Classes affichées"
             value={classes.length}
             icon={BuildingOfficeIcon}
-            color="text-blue-600"
-            bgColor="bg-blue-50"
+            color="text-emerald-600"
+            bgColor="bg-emerald-50"
           />
           <StatCard
             label="Actives"
@@ -457,8 +472,8 @@ const ClassesPage: React.FC = () => {
             label="Capacité totale"
             value={stats.totalCapacite || '—'}
             icon={AcademicCapIcon}
-            color="text-orange-600"
-            bgColor="bg-orange-50"
+            color="text-teal-600"
+            bgColor="bg-teal-50"
           />
         </div>
       )}
@@ -466,11 +481,11 @@ const ClassesPage: React.FC = () => {
       {/* ============================================
           RECHERCHE + FILTRES
           ============================================ */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
+      <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Recherche */}
-          <div className="relative flex-1 sm:col-span-2">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+          <div className="relative flex-1">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
             <input
               type="text"
               placeholder="Rechercher par nom, code ou salle…"
@@ -479,16 +494,15 @@ const ClassesPage: React.FC = () => {
                 setSearch(e.target.value);
                 setPage(1);
               }}
-              className="w-full pl-10 pr-10 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              className="w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
             />
-            {/* ✅ Bouton effacer la recherche */}
             {search && (
               <button
                 onClick={() => {
                   setSearch('');
                   setPage(1);
                 }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
                 title="Effacer la recherche"
                 aria-label="Effacer la recherche"
               >
@@ -499,7 +513,7 @@ const ClassesPage: React.FC = () => {
 
           {/* Tri */}
           <div className="relative">
-            <ArrowsUpDownIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <ArrowsUpDownIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none z-10" />
             <select
               value={`${sortBy}-${sortOrder}`}
               onChange={(e) => {
@@ -511,7 +525,7 @@ const ClassesPage: React.FC = () => {
                 setSortOrder(order);
                 setPage(1);
               }}
-              className="pl-9 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none appearance-none cursor-pointer"
+              className="pl-9 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none appearance-none cursor-pointer transition-all"
               title="Trier par"
             >
               <option value="createdAt-desc">Plus récentes</option>
@@ -526,9 +540,9 @@ const ClassesPage: React.FC = () => {
           {/* Bouton filtres */}
           <button
             onClick={() => setShowFilters((v) => !v)}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border transition-all ${
               activeFiltersCount > 0
-                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                 : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
             }`}
             aria-expanded={showFilters}
@@ -536,25 +550,25 @@ const ClassesPage: React.FC = () => {
             <FunnelIcon className="h-4 w-4" />
             Filtres
             {activeFiltersCount > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 text-xs font-bold bg-blue-600 text-white rounded-full">
+              <span className="ml-1 px-1.5 py-0.5 text-xs font-bold bg-emerald-600 text-white rounded-full">
                 {activeFiltersCount}
               </span>
             )}
           </button>
         </div>
 
-        {/* ✅ Badges des filtres actifs */}
+        {/* Badges des filtres actifs */}
         {activeFiltersCount > 0 && (
-          <div className="flex flex-wrap gap-2 mt-3">
+          <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">
             {search && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full border border-emerald-200">
                 🔍 "{search}"
                 <button
                   onClick={() => {
                     setSearch('');
                     setPage(1);
                   }}
-                  className="hover:text-blue-900"
+                  className="hover:text-emerald-900"
                   title="Retirer ce filtre"
                 >
                   <XMarkIcon className="h-3 w-3" />
@@ -562,14 +576,14 @@ const ClassesPage: React.FC = () => {
               </span>
             )}
             {selectedNiveau && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 text-indigo-700 text-xs font-medium rounded-full">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-teal-50 text-teal-700 text-xs font-medium rounded-full border border-teal-200">
                 🎓 {selectedNiveau.nom}
                 <button
                   onClick={() => {
                     setNiveauFilter('');
                     setPage(1);
                   }}
-                  className="hover:text-indigo-900"
+                  className="hover:text-teal-900"
                   title="Retirer ce filtre"
                 >
                   <XMarkIcon className="h-3 w-3" />
@@ -577,7 +591,7 @@ const ClassesPage: React.FC = () => {
               </span>
             )}
             {estActiveFilter !== 'all' && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full border border-emerald-200">
                 {estActiveFilter === 'true' ? '✅ Actives' : '⛔ Inactives'}
                 <button
                   onClick={() => {
@@ -620,7 +634,7 @@ const ClassesPage: React.FC = () => {
                       setNiveauFilter(e.target.value);
                       setPage(1);
                     }}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none"
                   >
                     <option value="">Tous les niveaux</option>
                     {niveaux.map((n: Niveau) => (
@@ -641,7 +655,7 @@ const ClassesPage: React.FC = () => {
                       setEstActiveFilter(e.target.value as any);
                       setPage(1);
                     }}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none"
                   >
                     <option value="all">Toutes</option>
                     <option value="true">Actives</option>
@@ -649,17 +663,23 @@ const ClassesPage: React.FC = () => {
                   </select>
                 </div>
               </div>
+              <div className="flex justify-end mt-3 pt-3 border-t border-gray-100">
+                <button
+                  onClick={resetFilters}
+                  className="text-xs text-emerald-600 hover:text-emerald-700 font-medium hover:underline"
+                >
+                  Réinitialiser les filtres
+                </button>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* ============================================
-          INDICATEUR DE CHARGEMENT (isFetching)
-          ============================================ */}
+      {/* Indicateur rafraîchissement */}
       {isFetching && !isLoading && (
         <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
-          <ArrowPathIcon className="h-4 w-4 animate-spin text-blue-600" />
+          <ArrowPathIcon className="h-4 w-4 animate-spin text-emerald-600" />
           Actualisation…
         </div>
       )}
@@ -674,8 +694,13 @@ const ClassesPage: React.FC = () => {
               key={i}
               className="bg-white rounded-2xl border border-gray-100 p-5 animate-pulse"
             >
-              <div className="h-6 bg-gray-100 rounded w-2/3 mb-2" />
-              <div className="h-3 bg-gray-100 rounded w-1/2 mb-4" />
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-gray-100 rounded-xl" />
+                <div className="flex-1">
+                  <div className="h-5 bg-gray-100 rounded w-2/3 mb-2" />
+                  <div className="h-3 bg-gray-100 rounded w-1/2" />
+                </div>
+              </div>
               <div className="h-3 bg-gray-100 rounded w-full mb-2" />
               <div className="h-3 bg-gray-100 rounded w-3/4 mb-2" />
               <div className="h-3 bg-gray-100 rounded w-1/2" />
@@ -692,15 +717,15 @@ const ClassesPage: React.FC = () => {
           </p>
           <button
             onClick={() => refetch()}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
           >
             Réessayer
           </button>
         </div>
       ) : classes.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-50 rounded-full mb-4">
-            <BuildingOfficeIcon className="w-10 h-10 text-blue-600" />
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-emerald-50 rounded-full mb-4">
+            <BuildingOfficeIcon className="w-10 h-10 text-emerald-600" />
           </div>
           <h3 className="text-lg font-bold text-gray-900 mb-1">
             Aucune classe
@@ -713,14 +738,14 @@ const ClassesPage: React.FC = () => {
           {activeFiltersCount > 0 ? (
             <button
               onClick={resetFilters}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
             >
               Réinitialiser les filtres
             </button>
           ) : (
             <Link
               to="/dashboard/classes/nouveau"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-700 hover:to-teal-700 font-semibold shadow-md shadow-emerald-500/20 transition-all"
             >
               <PlusIcon className="w-4 h-4" />
               Créer ma première classe
@@ -747,18 +772,18 @@ const ClassesPage: React.FC = () => {
           PAGINATION
           ============================================ */}
       {pagination && pagination.totalPages > 1 && (
-        <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="bg-white rounded-2xl border border-gray-100 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
           <p className="text-sm text-gray-500">
-            Page <strong>{pagination.page}</strong> sur{' '}
-            <strong>{pagination.totalPages}</strong> — {pagination.total}{' '}
-            classe(s) au total
+            Page <strong className="text-gray-900">{pagination.page}</strong> sur{' '}
+            <strong className="text-gray-900">{pagination.totalPages}</strong> —{' '}
+            {pagination.total} classe(s) au total
           </p>
 
           <div className="flex items-center gap-1">
             <button
               onClick={() => setPage(1)}
               disabled={page <= 1}
-              className="px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-emerald-50 hover:border-emerald-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               aria-label="Première page"
             >
               ««
@@ -766,21 +791,17 @@ const ClassesPage: React.FC = () => {
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
-              className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-emerald-50 hover:border-emerald-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Précédent
             </button>
 
-            {/* ✅ Numéros de page (3 autour de la page actuelle) */}
             {Array.from(
               { length: Math.min(5, pagination.totalPages) },
               (_, i) => {
                 const start = Math.max(
                   1,
-                  Math.min(
-                    page - 2,
-                    pagination.totalPages - 4
-                  )
+                  Math.min(page - 2, pagination.totalPages - 4)
                 );
                 return start + i;
               }
@@ -792,8 +813,8 @@ const ClassesPage: React.FC = () => {
                   onClick={() => setPage(p)}
                   className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
                     p === page
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'border-gray-200 hover:bg-gray-50'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-600 shadow-sm'
+                      : 'border-gray-200 hover:bg-emerald-50 hover:border-emerald-200'
                   }`}
                   aria-label={`Page ${p}`}
                   aria-current={p === page ? 'page' : undefined}
@@ -807,14 +828,14 @@ const ClassesPage: React.FC = () => {
                 setPage((p) => Math.min(pagination.totalPages, p + 1))
               }
               disabled={page >= pagination.totalPages}
-              className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-emerald-50 hover:border-emerald-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Suivant
             </button>
             <button
               onClick={() => setPage(pagination.totalPages)}
               disabled={page >= pagination.totalPages}
-              className="px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-emerald-50 hover:border-emerald-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               aria-label="Dernière page"
             >
               »»

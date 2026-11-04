@@ -1,7 +1,7 @@
 // frontend2/src/pages/dashboard/directeur/plans-scolarite/PlanScolariteNouvellePage.tsx
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   BanknotesIcon,
@@ -27,6 +27,7 @@ import { useAnneesScolaires } from '../../../../hooks/useAnneesScolaires';
 import { useNiveaux } from '../../../../hooks/useNiveaux';
 import { useClasses } from '../../../../hooks/useClasses';
 import { useToast } from '../../../../context/ToastContext';
+import { MoneyInput } from '../../../../components/ui/MoneyInput';
 import type { CreatePlanScolaritePayload } from '../../../../types/planScolarite.types';
 import type { AnneeScolaire } from '../../../../types/anneeScolaire.types';
 import type { Niveau } from '../../../../types/niveau.types';
@@ -64,15 +65,19 @@ const initialForm = {
 const PlanScolariteNouvellePage: React.FC = () => {
   const navigate = useNavigate();
   const toast = useToast();
+  const [searchParams] = useSearchParams();
 
   const [form, setForm] = useState(initialForm);
   const [autresFrais, setAutresFrais] = useState<AutreFraisItem[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // 🆕 États pour la recherche classe
+  // États pour la recherche classe
   const [searchClasse, setSearchClasse] = useState('');
   const [showClasseDropdown, setShowClasseDropdown] = useState(false);
   const classeDropdownRef = useRef<HTMLDivElement>(null);
+
+  // 🆕 Flag : pré-remplissage depuis query params déjà effectué
+  const prefilledFromQueryRef = useRef(false);
 
   const createMutation = useCreatePlanScolarite();
 
@@ -104,6 +109,28 @@ const PlanScolariteNouvellePage: React.FC = () => {
   );
 
   // ═══════════════════════════════════════════════════════════
+  // 🆕 PRÉ-REMPLISSAGE DEPUIS QUERY PARAMS
+  // ═══════════════════════════════════════════════════════════
+
+  useEffect(() => {
+    if (prefilledFromQueryRef.current) return;
+
+    const classeIdParam = searchParams.get('classeId');
+    const niveauIdParam = searchParams.get('niveauId');
+    const anneeIdParam = searchParams.get('anneeScolaireId');
+
+    if (classeIdParam || niveauIdParam || anneeIdParam) {
+      setForm((f) => ({
+        ...f,
+        classeId: classeIdParam ?? f.classeId,
+        niveauId: niveauIdParam ?? f.niveauId,
+        anneeScolaireId: anneeIdParam ?? f.anneeScolaireId,
+      }));
+      prefilledFromQueryRef.current = true;
+    }
+  }, [searchParams]);
+
+  // ═══════════════════════════════════════════════════════════
   // FILTRAGE INTELLIGENT DES CLASSES
   // ═══════════════════════════════════════════════════════════
 
@@ -117,7 +144,7 @@ const PlanScolariteNouvellePage: React.FC = () => {
     });
   }, [classes, form.niveauId, form.anneeScolaireId]);
 
-  // 🆕 Filtre par recherche texte
+  // Filtre par recherche texte
   const classesRecherchees = useMemo(() => {
     const q = searchClasse.trim().toLowerCase();
     if (!q) return classesFiltrees;
@@ -129,10 +156,15 @@ const PlanScolariteNouvellePage: React.FC = () => {
     });
   }, [classesFiltrees, searchClasse]);
 
-  // ─── Année active par défaut ───
+  // ─── Année active par défaut (si pas pré-remplie) ───
   const [autoSelected, setAutoSelected] = useState(false);
   useEffect(() => {
-    if (!autoSelected && anneesScolaires.length > 0 && !form.anneeScolaireId) {
+    if (
+      !autoSelected &&
+      !prefilledFromQueryRef.current &&
+      anneesScolaires.length > 0 &&
+      !form.anneeScolaireId
+    ) {
       const active = anneesScolaires.find((a) => a.estActive);
       if (active) {
         setForm((f) => ({ ...f, anneeScolaireId: active.id }));
@@ -531,7 +563,7 @@ const PlanScolariteNouvellePage: React.FC = () => {
                 </div>
               </div>
 
-              {/* 🆕 Classe — Combobox avec recherche */}
+              {/* Classe — Combobox avec recherche */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center justify-between">
                   <span>
@@ -594,8 +626,7 @@ const PlanScolariteNouvellePage: React.FC = () => {
                         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                           {classesRecherchees.length} classe(s)
                           {form.niveauId && ' · filtrées par niveau'}
-                          {searchClasse.trim() &&
-                            ` · "${searchClasse}"`}
+                          {searchClasse.trim() && ` · "${searchClasse}"`}
                         </p>
                       </div>
 
@@ -709,18 +740,18 @@ const PlanScolariteNouvellePage: React.FC = () => {
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* ✅ Frais d'inscription — MoneyInput */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Frais d'inscription ({form.devise})
               </label>
-              <input
-                type="number"
+              <MoneyInput
+                value={form.fraisInscription}
+                onChange={(v) => updateField('fraisInscription', v)}
+                placeholder="0"
                 min={0}
                 step={1000}
-                value={form.fraisInscription}
-                onChange={(e) =>
-                  updateField('fraisInscription', Number(e.target.value) || 0)
-                }
+                withThousandsSeparator
                 className={`w-full px-4 py-2.5 bg-gray-50 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none ${
                   errors.fraisInscription
                     ? 'border-red-300 bg-red-50'
@@ -734,18 +765,18 @@ const PlanScolariteNouvellePage: React.FC = () => {
               )}
             </div>
 
+            {/* ✅ Frais de scolarité — MoneyInput */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Frais de scolarité ({form.devise})
               </label>
-              <input
-                type="number"
+              <MoneyInput
+                value={form.fraisScolarite}
+                onChange={(v) => updateField('fraisScolarite', v)}
+                placeholder="0"
                 min={0}
                 step={1000}
-                value={form.fraisScolarite}
-                onChange={(e) =>
-                  updateField('fraisScolarite', Number(e.target.value) || 0)
-                }
+                withThousandsSeparator
                 className={`w-full px-4 py-2.5 bg-gray-50 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none ${
                   errors.fraisScolarite
                     ? 'border-red-300 bg-red-50'
@@ -793,19 +824,16 @@ const PlanScolariteNouvellePage: React.FC = () => {
                       placeholder="Ex: Uniforme"
                       className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
                     />
-                    <input
-                      type="number"
-                      min={0}
-                      step={1000}
+                    {/* ✅ Montant autre frais — MoneyInput */}
+                    <MoneyInput
                       value={f.montant}
-                      onChange={(e) =>
-                        updateAutreFrais(
-                          index,
-                          'montant',
-                          Number(e.target.value) || 0
-                        )
+                      onChange={(v) =>
+                        updateAutreFrais(index, 'montant', v)
                       }
                       placeholder="Montant"
+                      min={0}
+                      step={1000}
+                      withThousandsSeparator
                       className="w-32 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
                     />
                     <button

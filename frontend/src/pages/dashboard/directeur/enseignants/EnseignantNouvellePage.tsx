@@ -28,9 +28,10 @@ import { useCreateEnseignant } from '../../../../hooks/useEnseignants';
 import { useToast } from '../../../../context/ToastContext';
 import type { CreateEnseignantPayload } from '../../../../types/enseignant.types';
 
-// ============================================
+// ═══════════════════════════════════════════════════════════
 // ÉTAT INITIAL
-// ============================================
+// ═══════════════════════════════════════════════════════════
+
 const initialForm: CreateEnseignantPayload = {
   email: null,
   motDePasse: null,
@@ -52,9 +53,10 @@ const initialForm: CreateEnseignantPayload = {
 
 const CONTRATS = ['CDI', 'CDD', 'VACATAIRE', 'STAGE'];
 
-// ============================================
+// ═══════════════════════════════════════════════════════════
 // COMPOSANT
-// ============================================
+// ═══════════════════════════════════════════════════════════
+
 const EnseignantNouvellePage: React.FC = () => {
   const navigate = useNavigate();
   const toast = useToast();
@@ -83,12 +85,14 @@ const EnseignantNouvellePage: React.FC = () => {
     const errs: Record<string, string> = {};
 
     if (!form.prenom.trim()) errs.prenom = 'Le prénom est obligatoire';
-    else if (form.prenom.trim().length < 2) errs.prenom = 'Minimum 2 caractères';
+    else if (form.prenom.trim().length < 2)
+      errs.prenom = 'Minimum 2 caractères';
 
     if (!form.nom.trim()) errs.nom = 'Le nom est obligatoire';
     else if (form.nom.trim().length < 2) errs.nom = 'Minimum 2 caractères';
 
-    if (!form.dateNaissance) errs.dateNaissance = 'Date de naissance obligatoire';
+    if (!form.dateNaissance)
+      errs.dateNaissance = 'Date de naissance obligatoire';
 
     if (!form.telephone.trim())
       errs.telephone = 'Le téléphone est obligatoire';
@@ -117,7 +121,11 @@ const EnseignantNouvellePage: React.FC = () => {
       } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
         errs.email = 'Email invalide';
       }
-      if (form.motDePasse && form.motDePasse.length > 0 && form.motDePasse.length < 8) {
+      if (
+        form.motDePasse &&
+        form.motDePasse.length > 0 &&
+        form.motDePasse.length < 8
+      ) {
         errs.motDePasse = 'Minimum 8 caractères';
       }
     }
@@ -133,6 +141,8 @@ const EnseignantNouvellePage: React.FC = () => {
   };
 
   // ─────────────────────────────────────────
+  // NAVIGATION
+  // ─────────────────────────────────────────
   const handleNext = () => {
     if (validateStep1()) {
       setStep(2);
@@ -146,8 +156,14 @@ const EnseignantNouvellePage: React.FC = () => {
   };
 
   // ─────────────────────────────────────────
+  // SOUMISSION (uniquement étape 2)
+  // ─────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // 🔒 GARDE-FOU : ne jamais créer depuis l'étape 1
+    if (step !== 2) return;
+
     if (!validateStep2()) return;
 
     try {
@@ -203,14 +219,17 @@ const EnseignantNouvellePage: React.FC = () => {
     }
   };
 
+  // ═══════════════════════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════════════════════
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
-      {/* En-tête */}
+      {/* EN-TÊTE */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Link
             to="/dashboard/enseignants"
-            className="p-2 rounded-lg text-gray-500 hover:bg-gray-100"
+            className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
             title="Retour"
             aria-label="Retour à la liste"
           >
@@ -218,7 +237,9 @@ const EnseignantNouvellePage: React.FC = () => {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <AcademicCapIcon className="w-7 h-7 text-indigo-600" />
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 shrink-0">
+                <AcademicCapIcon className="w-5 h-5" />
+              </div>
               Nouvel enseignant
             </h1>
             <p className="text-sm text-gray-500 mt-0.5">
@@ -228,7 +249,7 @@ const EnseignantNouvellePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Étapes */}
+      {/* INDICATEUR D'ÉTAPES */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100/50 p-6">
         <div className="flex items-center justify-center gap-2 md:gap-4">
           {[
@@ -242,7 +263,7 @@ const EnseignantNouvellePage: React.FC = () => {
                     step > s.n
                       ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
                       : step === s.n
-                      ? 'bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/30 scale-110'
+                      ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/30 scale-110'
                       : 'bg-gray-200 text-gray-500'
                   }`}
                 >
@@ -279,6 +300,7 @@ const EnseignantNouvellePage: React.FC = () => {
 
       <form
         onSubmit={handleSubmit}
+        noValidate
         className="bg-white rounded-2xl shadow-sm border border-gray-100/50 p-6 md:p-8"
       >
         <AnimatePresence mode="wait">
@@ -295,8 +317,8 @@ const EnseignantNouvellePage: React.FC = () => {
               className="space-y-6"
             >
               <div className="flex items-center gap-2 pb-4 border-b border-gray-100">
-                <div className="p-2 bg-indigo-50 rounded-lg">
-                  <IdentificationIcon className="w-5 h-5 text-indigo-600" />
+                <div className="p-2 bg-emerald-50 rounded-lg">
+                  <IdentificationIcon className="w-5 h-5 text-emerald-600" />
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-gray-900">
@@ -322,7 +344,7 @@ const EnseignantNouvellePage: React.FC = () => {
                       onChange={(e) => updateField('prenom', e.target.value)}
                       placeholder="Ex: Jean"
                       maxLength={100}
-                      className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
+                      className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all ${
                         errors.prenom
                           ? 'border-red-300 bg-red-50'
                           : 'border-gray-200'
@@ -349,8 +371,10 @@ const EnseignantNouvellePage: React.FC = () => {
                       onChange={(e) => updateField('nom', e.target.value)}
                       placeholder="Ex: Dupont"
                       maxLength={100}
-                      className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
-                        errors.nom ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                      className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all ${
+                        errors.nom
+                          ? 'border-red-300 bg-red-50'
+                          : 'border-gray-200'
                       }`}
                     />
                   </div>
@@ -372,9 +396,9 @@ const EnseignantNouvellePage: React.FC = () => {
                         key={s}
                         type="button"
                         onClick={() => updateField('sexe', s)}
-                        className={`flex-1 px-4 py-2.5 rounded-lg font-medium text-sm transition-colors ${
+                        className={`flex-1 px-4 py-2.5 rounded-lg font-medium text-sm transition-all ${
                           form.sexe === s
-                            ? 'bg-indigo-600 text-white shadow-md'
+                            ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-500/20'
                             : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100'
                         }`}
                       >
@@ -398,7 +422,7 @@ const EnseignantNouvellePage: React.FC = () => {
                         updateField('dateNaissance', e.target.value)
                       }
                       max={new Date().toISOString().slice(0, 10)}
-                      className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
+                      className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all ${
                         errors.dateNaissance
                           ? 'border-red-300 bg-red-50'
                           : 'border-gray-200'
@@ -426,7 +450,7 @@ const EnseignantNouvellePage: React.FC = () => {
                     onChange={(e) => updateField('telephone', e.target.value)}
                     placeholder="+225 07 00 00 00 00"
                     maxLength={30}
-                    className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
+                    className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all ${
                       errors.telephone
                         ? 'border-red-300 bg-red-50'
                         : 'border-gray-200'
@@ -455,7 +479,7 @@ const EnseignantNouvellePage: React.FC = () => {
                     }
                     placeholder="Ex: 12 rue des Écoles, Abidjan"
                     maxLength={300}
-                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
                   />
                 </div>
               </div>
@@ -475,23 +499,27 @@ const EnseignantNouvellePage: React.FC = () => {
               className="space-y-6"
             >
               {/* Récap */}
-              <div className="p-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
+              <div className="p-4 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl border border-emerald-100">
                 <div className="flex items-start gap-3">
-                  <SparklesIcon className="w-5 h-5 text-indigo-500 mt-0.5 shrink-0" />
+                  <SparklesIcon className="w-5 h-5 text-emerald-500 mt-0.5 shrink-0" />
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-gray-900">
                       Récapitulatif
                     </p>
                     <p className="text-xs text-gray-600 mt-1">
-                      <strong>{form.prenom} {form.nom}</strong> — {form.sexe === 'M' ? 'Homme' : 'Femme'}, {form.telephone}
+                      <strong>
+                        {form.prenom} {form.nom}
+                      </strong>{' '}
+                      — {form.sexe === 'M' ? 'Homme' : 'Femme'},{' '}
+                      {form.telephone}
                     </p>
                   </div>
                 </div>
               </div>
 
               <div className="flex items-center gap-2 pb-4 border-b border-gray-100">
-                <div className="p-2 bg-purple-50 rounded-lg">
-                  <BriefcaseIcon className="w-5 h-5 text-purple-600" />
+                <div className="p-2 bg-teal-50 rounded-lg">
+                  <BriefcaseIcon className="w-5 h-5 text-teal-600" />
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-gray-900">
@@ -515,7 +543,7 @@ const EnseignantNouvellePage: React.FC = () => {
                     onChange={(e) =>
                       updateField('dateEmbauche', e.target.value)
                     }
-                    className={`w-full px-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
+                    className={`w-full px-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all ${
                       errors.dateEmbauche
                         ? 'border-red-300 bg-red-50'
                         : 'border-gray-200'
@@ -535,8 +563,10 @@ const EnseignantNouvellePage: React.FC = () => {
                   </label>
                   <select
                     value={form.typeContrat}
-                    onChange={(e) => updateField('typeContrat', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                    onChange={(e) =>
+                      updateField('typeContrat', e.target.value)
+                    }
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
                   >
                     {CONTRATS.map((c) => (
                       <option key={c} value={c}>
@@ -561,7 +591,7 @@ const EnseignantNouvellePage: React.FC = () => {
                     }
                     placeholder="Ex: Master en Mathématiques"
                     maxLength={200}
-                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
                   />
                 </div>
 
@@ -578,7 +608,7 @@ const EnseignantNouvellePage: React.FC = () => {
                     }
                     placeholder="Ex: Mathématiques"
                     maxLength={200}
-                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
                   />
                 </div>
               </div>
@@ -594,11 +624,12 @@ const EnseignantNouvellePage: React.FC = () => {
                     type="number"
                     min={0}
                     step={1000}
-                    value={form.salaireBase}
+                    value={form.salaireBase || ''}
                     onChange={(e) =>
                       updateField('salaireBase', Number(e.target.value) || 0)
                     }
-                    className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
+                    placeholder="0"
+                    className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all ${
                       errors.salaireBase
                         ? 'border-red-300 bg-red-50'
                         : 'border-gray-200'
@@ -607,19 +638,27 @@ const EnseignantNouvellePage: React.FC = () => {
                 </div>
                 {form.salaireBase > 0 && (
                   <p className="text-xs text-gray-500 mt-1">
-                    {new Intl.NumberFormat('fr-FR').format(form.salaireBase)} F CFA
+                    {new Intl.NumberFormat('fr-FR').format(
+                      form.salaireBase
+                    )}{' '}
+                    F CFA
+                  </p>
+                )}
+                {errors.salaireBase && (
+                  <p className="text-xs text-red-600 mt-1.5">
+                    {errors.salaireBase}
                   </p>
                 )}
               </div>
 
-              {/* ─── Toggle Compte ─── */}
+              {/* Toggle Compte */}
               <div className="border-t border-gray-100 pt-4">
-                <label className="flex items-start gap-3 p-4 bg-indigo-50 border border-indigo-100 rounded-xl cursor-pointer hover:bg-indigo-100/50 transition-colors">
+                <label className="flex items-start gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-xl cursor-pointer hover:bg-emerald-100/50 transition-colors">
                   <input
                     type="checkbox"
                     checked={withAccount}
                     onChange={(e) => setWithAccount(e.target.checked)}
-                    className="mt-0.5 w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500"
+                    className="mt-0.5 w-5 h-5 rounded text-emerald-600 focus:ring-emerald-500"
                   />
                   <div>
                     <p className="text-sm font-medium text-gray-900">
@@ -636,12 +675,13 @@ const EnseignantNouvellePage: React.FC = () => {
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
-                    className="mt-4 space-y-4 pl-4 border-l-2 border-indigo-200"
+                    className="mt-4 space-y-4 pl-4 border-l-2 border-emerald-200"
                   >
                     {/* Email */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                        Email de connexion <span className="text-red-500">*</span>
+                        Email de connexion{' '}
+                        <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
                         <EnvelopeIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -652,7 +692,7 @@ const EnseignantNouvellePage: React.FC = () => {
                             updateField('email', e.target.value || null)
                           }
                           placeholder={`${form.prenom.toLowerCase() || 'prenom'}.${form.nom.toLowerCase() || 'nom'}@ecole.ci`}
-                          className={`w-full pl-10 pr-4 py-2.5 bg-white border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
+                          className={`w-full pl-10 pr-4 py-2.5 bg-white border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all ${
                             errors.email
                               ? 'border-red-300 bg-red-50'
                               : 'border-gray-200'
@@ -677,10 +717,13 @@ const EnseignantNouvellePage: React.FC = () => {
                           type={showPassword ? 'text' : 'password'}
                           value={form.motDePasse ?? ''}
                           onChange={(e) =>
-                            updateField('motDePasse', e.target.value || null)
+                            updateField(
+                              'motDePasse',
+                              e.target.value || null
+                            )
                           }
                           placeholder="Laisser vide pour générer automatiquement"
-                          className={`w-full pl-10 pr-12 py-2.5 bg-white border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${
+                          className={`w-full pl-10 pr-12 py-2.5 bg-white border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all ${
                             errors.motDePasse
                               ? 'border-red-300 bg-red-50'
                               : 'border-gray-200'
@@ -689,7 +732,12 @@ const EnseignantNouvellePage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setShowPassword((v) => !v)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                          aria-label={
+                            showPassword
+                              ? 'Masquer le mot de passe'
+                              : 'Afficher le mot de passe'
+                          }
                         >
                           {showPassword ? (
                             <EyeSlashIcon className="w-5 h-5" />
@@ -732,7 +780,7 @@ const EnseignantNouvellePage: React.FC = () => {
                 type="button"
                 onClick={handlePrev}
                 disabled={createMutation.isPending}
-                className="inline-flex items-center gap-2 px-4 py-2.5 text-gray-700 font-medium rounded-lg hover:bg-gray-100 disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-4 py-2.5 text-gray-700 font-medium rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
               >
                 <ArrowLeftIcon className="w-4 h-4" />
                 Précédent
@@ -743,7 +791,7 @@ const EnseignantNouvellePage: React.FC = () => {
           <div className="flex items-center gap-3">
             <Link
               to="/dashboard/enseignants"
-              className="hidden sm:inline-flex px-4 py-2.5 text-gray-500 hover:text-gray-700 font-medium"
+              className="hidden sm:inline-flex px-4 py-2.5 text-gray-500 hover:text-gray-700 font-medium transition-colors"
             >
               Annuler
             </Link>
@@ -752,7 +800,7 @@ const EnseignantNouvellePage: React.FC = () => {
               <button
                 type="button"
                 onClick={handleNext}
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-lg shadow-md hover:shadow-lg"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-semibold rounded-lg shadow-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30 transition-all"
               >
                 Suivant
                 <ArrowRightIcon className="w-4 h-4" />
@@ -761,7 +809,7 @@ const EnseignantNouvellePage: React.FC = () => {
               <button
                 type="submit"
                 disabled={createMutation.isPending}
-                className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-lg shadow-md hover:shadow-lg disabled:opacity-60"
+                className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-semibold rounded-lg shadow-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {createMutation.isPending ? (
                   <>

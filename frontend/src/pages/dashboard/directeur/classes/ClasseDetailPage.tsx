@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   BuildingOfficeIcon,
   ArrowLeftIcon,
@@ -26,10 +26,10 @@ import {
   ArrowTopRightOnSquareIcon,
   StarIcon,
   PlusIcon,
-  BookOpenIcon,
-  PhoneIcon,
-  EnvelopeIcon,
-  UserCircleIcon,
+  ReceiptPercentIcon,
+  DocumentTextIcon,
+  CurrencyDollarIcon,
+  BanknotesIcon,
 } from '@heroicons/react/24/outline';
 import {
   useClasse,
@@ -71,6 +71,22 @@ const formatDateTime = (date: string | null | undefined) => {
     hour: '2-digit',
     minute: '2-digit',
   });
+};
+
+const formatMoney = (
+  amount: number | null | undefined,
+  devise = 'XOF'
+): string => {
+  if (amount == null) return '—';
+  const value = new Intl.NumberFormat('fr-FR', {
+    maximumFractionDigits: 0,
+  }).format(Number(amount));
+  const upper = (devise || '').toUpperCase();
+  if (upper === 'XOF' || upper === 'XAF') return `${value} F CFA`;
+  if (upper === 'EUR') return `${value} €`;
+  if (upper === 'USD') return `${value} $`;
+  if (upper === 'MAD') return `${value} DH`;
+  return `${value} ${devise}`;
 };
 
 const calculerAge = (dateNaissance: string) => {
@@ -152,7 +168,13 @@ const StatCard: React.FC<StatCardProps> = ({
 // PAGE
 // ═══════════════════════════════════════════════════════════
 
-type TabKey = 'infos' | 'eleves' | 'emploiTemps' | 'equipe' | 'statistiques';
+type TabKey =
+  | 'infos'
+  | 'eleves'
+  | 'emploiTemps'
+  | 'equipe'
+  | 'plan'
+  | 'statistiques';
 
 const ClasseDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -175,7 +197,7 @@ const ClasseDetailPage: React.FC = () => {
   const softDeleteMutation = useSoftDeleteClasse();
   const hardDeleteMutation = useHardDeleteClasse();
 
-  const classe = classeData?.data;
+  const classe: any = classeData?.data;
 
   // ─── Élèves ───
   const eleves = useMemo(() => {
@@ -205,11 +227,10 @@ const ClasseDetailPage: React.FC = () => {
     return list;
   }, [eleves, searchEleve, filterSexe]);
 
-  // ─── Emploi du temps (à plat, groupé par jour) ───
+  // ─── Emploi du temps ───
   const emploiTemps = useMemo(() => {
     if (!classe) return [];
-    const any = classe as any;
-    const raw = any.emploisTemps ?? any.emploiTemps ?? [];
+    const raw = classe.emploisTemps ?? classe.emploiTemps ?? [];
     if (!Array.isArray(raw)) return [];
 
     return JOURS_ORDER.map((jour) => ({
@@ -223,7 +244,7 @@ const ClasseDetailPage: React.FC = () => {
     })).filter((d) => d.cours.length > 0);
   }, [classe]);
 
-  // ─── Équipe pédagogique / Titulaire ───
+  // ─── Affectations ───
   const affectations = useMemo(() => {
     if (!affectationsData) return [];
     const any = affectationsData as any;
@@ -240,24 +261,20 @@ const ClasseDetailPage: React.FC = () => {
     [affectations]
   );
 
-  const autresEnseignants = useMemo(
-    () =>
-      affectations.filter(
-        (a: any) => a.id !== titulaire?.id && a.matiereId !== null
-      ),
-    [affectations, titulaire]
-  );
-
   // ─── Stats ───
   const stats = statsData?.data;
-  const effectif =
-    classe?._count?.inscriptions ?? eleves.length ?? 0;
+  const effectif = classe?._count?.inscriptions ?? eleves.length ?? 0;
   const capacite = classe?.capacite ?? 0;
   const placesRestantes =
     stats?.classe?.placesRestantes ??
     (capacite > 0 ? Math.max(capacite - effectif, 0) : null);
   const tauxOccupation =
     capacite > 0 ? Math.round((effectif / capacite) * 100) : 0;
+
+  // ─── Plan de scolarité (nouveau) ───
+  const planActif = classe?.planScolarite ?? null;
+  const plansScolarite = classe?.plansScolarite ?? [];
+  const resumeFinancier = classe?.resumeFinancier ?? null;
 
   // ─── Handlers ───
   const handleSoftDelete = async () => {
@@ -298,6 +315,11 @@ const ClasseDetailPage: React.FC = () => {
       /* toast géré */
     }
   };
+
+  // URL pour créer un plan pré-rempli
+  const createPlanUrl = classe
+    ? `/dashboard/plans-scolarite/nouveau?classeId=${classe.id}&niveauId=${classe.niveauId}&anneeScolaireId=${classe.anneeScolaireId}`
+    : '/dashboard/plans-scolarite/nouveau';
 
   // ─── Loading ───
   if (isLoading) {
@@ -399,10 +421,16 @@ const ClasseDetailPage: React.FC = () => {
                     Inactive
                   </span>
                 )}
+                {planActif && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-teal-50 text-teal-700 rounded-full">
+                    <ReceiptPercentIcon className="w-3.5 h-3.5" />
+                    Plan actif
+                  </span>
+                )}
                 {titulaire && (
                   <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-amber-50 text-amber-700 rounded-full">
                     <StarIcon className="w-3.5 h-3.5" />
-                    Titulaire : {titulaire.enseignant?.prenom}{' '}
+                    {titulaire.enseignant?.prenom}{' '}
                     {titulaire.enseignant?.nom}
                   </span>
                 )}
@@ -520,9 +548,7 @@ const ClasseDetailPage: React.FC = () => {
           color="text-blue-600"
           bgColor="bg-blue-50"
           hint={
-            tauxOccupation > 0
-              ? `${tauxOccupation}% occupé`
-              : undefined
+            tauxOccupation > 0 ? `${tauxOccupation}% occupé` : undefined
           }
         />
         <StatCard
@@ -534,7 +560,7 @@ const ClasseDetailPage: React.FC = () => {
           hint={titulaire ? 'Titulaire désigné' : 'Sans titulaire'}
         />
         <StatCard
-          label="Moyenne générale"
+          label="Moyenne"
           value={
             stats?.moyenneGenerale != null
               ? `${stats.moyenneGenerale.toFixed(2)}/20`
@@ -561,16 +587,19 @@ const ClasseDetailPage: React.FC = () => {
               key: 'emploiTemps',
               label: 'Emploi du temps',
               icon: ClockIcon,
-              badge: emploiTemps.reduce(
-                (s, d) => s + d.cours.length,
-                0
-              ),
+              badge: emploiTemps.reduce((s, d) => s + d.cours.length, 0),
             },
             {
               key: 'equipe',
-              label: 'Équipe pédagogique',
+              label: 'Équipe',
               icon: UserGroupIcon,
               badge: affectations.length,
+            },
+            {
+              key: 'plan',
+              label: 'Plan de scolarité',
+              icon: ReceiptPercentIcon,
+              badge: plansScolarite.length,
             },
             {
               key: 'statistiques',
@@ -677,10 +706,10 @@ const ClasseDetailPage: React.FC = () => {
                   />
                   <InfoRow
                     label="Emplois du temps"
-                    value={classe._count?.emploisTemps ?? emploiTemps.reduce(
-                      (s, d) => s + d.cours.length,
-                      0
-                    )}
+                    value={
+                      classe._count?.emploisTemps ??
+                      emploiTemps.reduce((s, d) => s + d.cours.length, 0)
+                    }
                     icon={ClockIcon}
                   />
                   <InfoRow
@@ -713,7 +742,6 @@ const ClasseDetailPage: React.FC = () => {
                       <Link
                         to={`/dashboard/enseignants/${titulaire.enseignantId}`}
                         className="p-2 text-amber-600 hover:bg-white rounded-lg"
-                        title="Voir la fiche"
                       >
                         <ArrowTopRightOnSquareIcon className="w-4 h-4" />
                       </Link>
@@ -763,7 +791,6 @@ const ClasseDetailPage: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-4"
             >
-              {/* Recherche + filtre */}
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
                   <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -798,14 +825,13 @@ const ClasseDetailPage: React.FC = () => {
 
                 <Link
                   to={`/dashboard/inscriptions/nouvelle?classeId=${classe.id}&anneeScolaireId=${classe.anneeScolaireId}`}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 whitespace-nowrap"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-sm font-semibold rounded-lg hover:from-emerald-700 hover:to-teal-700 whitespace-nowrap shadow-md shadow-emerald-500/20"
                 >
                   <PlusIcon className="w-4 h-4" />
                   Inscrire
                 </Link>
               </div>
 
-              {/* Info */}
               {!loadingEleves && eleves.length > 0 && (
                 <div className="flex items-center justify-between text-xs text-gray-500">
                   <span>
@@ -820,7 +846,6 @@ const ClasseDetailPage: React.FC = () => {
                 </div>
               )}
 
-              {/* Liste */}
               {loadingEleves ? (
                 <div className="text-center py-12">
                   <ArrowPathIcon className="w-8 h-8 text-emerald-600 mx-auto animate-spin" />
@@ -909,7 +934,7 @@ const ClasseDetailPage: React.FC = () => {
                                     className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${
                                       eleve.sexe === 'F'
                                         ? 'bg-gradient-to-br from-pink-500 to-rose-500'
-                                        : 'bg-gradient-to-br from-blue-500 to-indigo-500'
+                                        : 'bg-gradient-to-br from-emerald-500 to-teal-600'
                                     }`}
                                   >
                                     {eleve.prenom?.[0]}
@@ -1115,7 +1140,7 @@ const ClasseDetailPage: React.FC = () => {
                         className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shrink-0 ${
                           aff.estPrincipal
                             ? 'bg-gradient-to-br from-amber-500 to-orange-600'
-                            : 'bg-gradient-to-br from-blue-500 to-indigo-600'
+                            : 'bg-gradient-to-br from-emerald-500 to-teal-600'
                         }`}
                       >
                         {aff.enseignant?.prenom?.[0]}
@@ -1148,6 +1173,192 @@ const ClasseDetailPage: React.FC = () => {
                     </div>
                   ))}
                 </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ═══════════════════════════════════════
+              ONGLET : PLAN DE SCOLARITÉ
+              ═══════════════════════════════════════ */}
+          {activeTab === 'plan' && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-5"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
+                  <ReceiptPercentIcon className="w-4 h-4 text-emerald-500" />
+                  Plan de scolarité
+                </h3>
+                {planActif && (
+                  <Link
+                    to={`/dashboard/plans-scolarite/${planActif.id}`}
+                    className="text-xs text-emerald-600 hover:underline font-medium inline-flex items-center gap-1"
+                  >
+                    Voir le plan
+                    <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5" />
+                  </Link>
+                )}
+              </div>
+
+              {/* Aucun plan */}
+              {!planActif ? (
+                <div className="text-center py-12 bg-amber-50 border border-amber-200 rounded-xl">
+                  <ReceiptPercentIcon className="w-16 h-16 text-amber-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-bold text-amber-800 mb-1">
+                    Aucun plan de scolarité actif
+                  </h3>
+                  <p className="text-amber-700 mb-4 max-w-md mx-auto text-sm">
+                    Créez un plan pour permettre la facturation des élèves de
+                    cette classe.
+                  </p>
+                  <Link
+                    to={createPlanUrl}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-medium"
+                  >
+                    <PlusIcon className="w-4 h-4" />
+                    Créer un plan pour cette classe
+                  </Link>
+                </div>
+              ) : (
+                <>
+                  {/* Résumé du plan */}
+                  <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-5">
+                    <div className="flex items-start justify-between gap-3 mb-4">
+                      <div className="min-w-0">
+                        <p className="text-base font-bold text-emerald-900">
+                          {planActif.nom}
+                        </p>
+                        {planActif.description && (
+                          <p className="text-xs text-emerald-700 mt-0.5">
+                            {planActif.description}
+                          </p>
+                        )}
+                      </div>
+                      <span className="text-[10px] font-bold uppercase px-2 py-1 bg-emerald-600 text-white rounded-full shrink-0">
+                        Actif
+                      </span>
+                    </div>
+
+                    {/* Frais détaillés */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="bg-white/80 rounded-lg p-3">
+                        <p className="text-[10px] text-emerald-700 uppercase tracking-wider">
+                          Inscription
+                        </p>
+                        <p className="text-lg font-bold text-gray-900 mt-1">
+                          {formatMoney(
+                            planActif.fraisInscription,
+                            planActif.devise
+                          )}
+                        </p>
+                      </div>
+                      <div className="bg-white/80 rounded-lg p-3">
+                        <p className="text-[10px] text-emerald-700 uppercase tracking-wider">
+                          Scolarité
+                        </p>
+                        <p className="text-lg font-bold text-gray-900 mt-1">
+                          {formatMoney(
+                            planActif.fraisScolarite,
+                            planActif.devise
+                          )}
+                        </p>
+                      </div>
+                      {planActif.autresFrais &&
+                        Object.keys(planActif.autresFrais).length > 0 && (
+                          <div className="bg-white/80 rounded-lg p-3">
+                            <p className="text-[10px] text-emerald-700 uppercase tracking-wider">
+                              Autres frais
+                            </p>
+                            <p className="text-lg font-bold text-gray-900 mt-1">
+                              {formatMoney(
+                                Object.values(planActif.autresFrais).reduce(
+                                  (s: number, v: any) => s + Number(v),
+                                  0
+                                ),
+                                planActif.devise
+                              )}
+                            </p>
+                          </div>
+                        )}
+                      <div className="bg-emerald-600 rounded-lg p-3">
+                        <p className="text-[10px] text-emerald-100 uppercase tracking-wider">
+                          Total
+                        </p>
+                        <p className="text-lg font-bold text-white mt-1">
+                          {formatMoney(
+                            planActif.montantTotal,
+                            planActif.devise
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Détail autres frais */}
+                    {planActif.autresFrais &&
+                      Object.keys(planActif.autresFrais).length > 0 && (
+                        <div className="mt-3 bg-white/80 rounded-lg p-3">
+                          <p className="text-[10px] text-emerald-700 uppercase tracking-wider mb-2">
+                            Détail des autres frais
+                          </p>
+                          <div className="space-y-1">
+                            {Object.entries(planActif.autresFrais).map(
+                              ([libelle, montant]) => (
+                                <div
+                                  key={libelle}
+                                  className="flex justify-between text-xs"
+                                >
+                                  <span className="text-gray-700">
+                                    • {libelle}
+                                  </span>
+                                  <span className="font-semibold text-gray-900">
+                                    {formatMoney(
+                                      Number(montant),
+                                      planActif.devise
+                                    )}
+                                  </span>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      )}
+                  </div>
+
+                
+                  {/* Historique des plans */}
+                  {plansScolarite.length > 1 && (
+                    <div className="pt-4 border-t border-gray-100">
+                      <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2 flex items-center gap-1">
+                        <DocumentTextIcon className="w-3.5 h-3.5" />
+                        Historique ({plansScolarite.length} plan(s))
+                      </h4>
+                      <div className="space-y-1">
+                        {plansScolarite
+                          .filter((p: any) => p.id !== planActif.id)
+                          .map((p: any) => (
+                            <Link
+                              key={p.id}
+                              to={`/dashboard/plans-scolarite/${p.id}`}
+                              className="flex items-center justify-between bg-gray-50 hover:bg-gray-100 rounded-lg p-2 text-xs"
+                            >
+                              <span className="truncate">{p.nom}</span>
+                              <span
+                                className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                                  p.estActif
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : 'bg-gray-200 text-gray-600'
+                                }`}
+                              >
+                                {p.estActif ? 'Actif' : 'Inactif'}
+                              </span>
+                            </Link>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </motion.div>
           )}

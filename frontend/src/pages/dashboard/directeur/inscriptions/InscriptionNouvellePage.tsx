@@ -29,6 +29,7 @@ import { useEleves, useCreateEleve } from '../../../../hooks/useEleves';
 import { useClasses } from '../../../../hooks/useClasses';
 import { useAnneesScolaires } from '../../../../hooks/useAnneesScolaires';
 import { useToast } from '../../../../context/ToastContext';
+import { MoneyInput } from '../../../../components/ui/MoneyInput';
 import type { AnneeScolaire } from '../../../../types/anneeScolaire.types';
 import type { Eleve } from '../../../../types/eleve.types';
 import type {
@@ -193,7 +194,7 @@ const InscriptionNouvellePage: React.FC = () => {
   }, [annees, anneeScolaireId]);
 
   // ══════════════════════════════════════════
-  // ✅ APERÇU INSCRIPTION (source de vérité pour les places restantes)
+  // APERÇU INSCRIPTION
   // ══════════════════════════════════════════
 
   const {
@@ -214,24 +215,15 @@ const InscriptionNouvellePage: React.FC = () => {
   const montantTotalPlan = plan?.montantTotal ?? 0;
   const dejaInscrit = preview?.dejaInscrit ?? false;
 
-  // ✅ Places restantes calculées par le BACKEND
+  // Places restantes calculées par le BACKEND
   const nbInscrits = preview?.classe?.nbInscrits ?? 0;
   const capacite = preview?.classe?.capacite ?? selectedClasse?.capacite ?? null;
   const placesRestantes = preview?.classe?.placesRestantes ?? null;
   const classePleine = preview?.classe?.classePleine ?? false;
 
   // ══════════════════════════════════════════
-  // ✅ ÉLÈVES ÉLIGIBLES = sans inscription active pour cette année
+  // ÉLÈVES ÉLIGIBLES
   // ══════════════════════════════════════════
-  // On utilise le `dejaInscrit` du preview pour l'élève sélectionné.
-  // Pour filtrer la LISTE, on utilise la présence dans une inscription active
-  // (via le hook useEleves qui ne contient pas cette info directement,
-  // donc on charge toutes les inscriptions actives de l'année à part).
-
-  // Option 1 : ne pas filtrer (laisser l'utilisateur voir tous les élèves).
-  // Option 2 : filtrer via un tableau d'IDs déjà inscrits.
-  // ⚠️ Ici on filtre via le preview quand un élève est sélectionné,
-  // et on affiche un avertissement si déjà inscrit.
   const filteredEleves = useMemo(() => {
     const q = searchEleve.trim().toLowerCase();
     const base = eleves.filter(
@@ -249,7 +241,7 @@ const InscriptionNouvellePage: React.FC = () => {
   }, [eleves, searchEleve]);
 
   // ══════════════════════════════════════════
-  // ✅ ÉCHÉANCES ENRICHIES (frais d'inscription + autres frais + échéances)
+  // ÉCHÉANCES ENRICHIES
   // ══════════════════════════════════════════
 
   const echeances = useMemo(() => {
@@ -553,6 +545,17 @@ const InscriptionNouvellePage: React.FC = () => {
   // RENDER
   // ═══════════════════════════════════════════════════════
 
+  // ⭐ URL pré-remplie pour "Créer un plan"
+  const createPlanUrl = selectedClasse
+    ? `/dashboard/plans-scolarite/nouveau?classeId=${
+        selectedClasse.id
+      }&niveauId=${(selectedClasse as any).niveauId ?? ''}&anneeScolaireId=${
+        anneeScolaireId || ''
+      }`
+    : anneeScolaireId
+    ? `/dashboard/plans-scolarite/nouveau?anneeScolaireId=${anneeScolaireId}`
+    : '/dashboard/plans-scolarite/nouveau';
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* En-tête */}
@@ -622,8 +625,9 @@ const InscriptionNouvellePage: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700">
                 Classe <span className="text-red-500">*</span>
               </label>
+              {/* ⭐ Lien avec query params pour pré-remplir */}
               <Link
-                to="/dashboard/plans-scolarite/nouveau"
+                to={createPlanUrl}
                 className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline"
               >
                 <PlusIcon className="w-3.5 h-3.5" />
@@ -726,7 +730,7 @@ const InscriptionNouvellePage: React.FC = () => {
               <p className="text-xs text-red-600 mt-1.5">{errors.classeId}</p>
             )}
 
-            {/* ✅ Places restantes (depuis le BACKEND) */}
+            {/* Places restantes */}
             {selectedClasse && capacite != null && anneeScolaireId && (
               <div
                 className={`mt-2 p-3 rounded-lg flex items-start gap-2 border ${
@@ -783,27 +787,29 @@ const InscriptionNouvellePage: React.FC = () => {
               </div>
             )}
 
-            {/* Alerte plan manquant */}
+            {/* ⭐ Alerte plan manquant enrichie */}
             {selectedClasse &&
               anneeScolaireId &&
               !previewLoading &&
               preview &&
               !plan && (
-                <div className="mt-2 p-3 rounded-lg bg-amber-50 border border-amber-200 flex items-start gap-2">
-                  <ExclamationTriangleIcon className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-                  <div className="flex-1 text-xs text-amber-800">
+                <div className="mt-2 p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3">
+                  <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+                  <div className="flex-1 text-sm text-amber-800">
                     <p className="font-semibold">
-                      Aucun plan de scolarité actif pour cette classe
+                      Aucun plan de scolarité pour la classe{' '}
+                      <span className="font-bold">{selectedClasse.nom}</span>
                     </p>
-                    <p className="mt-0.5">
-                      L'élève sera inscrit sans paiement associé.
+                    <p className="mt-1 text-xs text-amber-700">
+                      Créez un plan <strong>spécifique à cette classe</strong>{' '}
+                      pour que les échéances apparaissent.
                     </p>
                     <Link
-                      to="/dashboard/plans-scolarite/nouveau"
-                      className="inline-flex items-center gap-1 mt-1 text-emerald-600 hover:underline font-medium"
+                      to={createPlanUrl}
+                      className="inline-flex items-center gap-1 mt-2 px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-medium hover:bg-amber-700"
                     >
-                      <PlusIcon className="w-3 h-3" />
-                      Créer un plan maintenant
+                      <PlusIcon className="w-3.5 h-3.5" />
+                      Créer un plan pour cette classe
                     </Link>
                   </div>
                 </div>
@@ -946,7 +952,6 @@ const InscriptionNouvellePage: React.FC = () => {
               <p className="text-xs text-red-600 mt-1.5">{errors.eleveId}</p>
             )}
 
-            {/* ✅ Alerte si déjà inscrit (via preview) */}
             {selectedEleve && dejaInscrit && (
               <div className="mt-2 p-3 rounded-lg bg-red-50 border border-red-200 flex items-start gap-2">
                 <ExclamationTriangleIcon className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
@@ -1017,23 +1022,21 @@ const InscriptionNouvellePage: React.FC = () => {
                             <span className="text-red-500">*</span>
                           </label>
                           <div className="relative">
-                            <CurrencyDollarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                            <input
-                              type="number"
-                              min={0}
-                              step="1"
-                              value={montantPaiement || ''}
-                              onChange={(e) =>
-                                handleMontantChange(Number(e.target.value))
-                              }
+                            <CurrencyDollarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none z-10" />
+                            {/* ⭐ MoneyInput avec préfixe icône + suffixe F CFA */}
+                            <MoneyInput
+                              value={montantPaiement}
+                              onChange={(v) => handleMontantChange(v)}
                               placeholder="0"
+                              min={0}
+                              withThousandsSeparator
                               className={`w-full pl-10 pr-20 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none ${
                                 errors.montant
                                   ? 'border-red-300 bg-red-50'
                                   : 'border-gray-200'
                               }`}
                             />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500">
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500 pointer-events-none">
                               F CFA
                             </span>
                           </div>
@@ -1191,18 +1194,16 @@ const InscriptionNouvellePage: React.FC = () => {
                                   {isAllocated && alloc && (
                                     <div className="mt-2 pl-7">
                                       <div className="flex items-center gap-2">
-                                        <input
-                                          type="number"
-                                          min={0}
-                                          step="1"
-                                          max={restant}
+                                        {/* ⭐ MoneyInput pour l'allocation */}
+                                        <MoneyInput
                                           value={alloc.montant}
-                                          onChange={(ev) =>
-                                            updateAllocationMontant(
-                                              e.id,
-                                              Number(ev.target.value)
-                                            )
+                                          onChange={(v) =>
+                                            updateAllocationMontant(e.id, v)
                                           }
+                                          placeholder="0"
+                                          min={0}
+                                          max={restant}
+                                          withThousandsSeparator
                                           className="w-32 px-2 py-1 text-sm bg-white border border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
                                         />
                                         <span className="text-xs text-gray-500">

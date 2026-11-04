@@ -30,6 +30,14 @@ import EleveDetailPage from './pages/dashboard/directeur/eleves/EleveDetailPage'
 import EleveEditerPage from './pages/dashboard/directeur/eleves/EleveEditerPage';
 import ImportElevesPage from './pages/dashboard/directeur/import/ImportElevesPage';
 
+
+// ═══════════════════════════════════════════════════════════
+// DIRECTEUR — RÉDUCTIONS
+// ═══════════════════════════════════════════════════════════
+import ReductionsListPage from './pages/dashboard/directeur/reductions/ReductionsListPage';
+import ReductionNouvellePage from './pages/dashboard/directeur/reductions/ReductionNouvellePage';
+import ReductionDetailPage from './pages/dashboard/directeur/reductions/ReductionDetailPage';
+import ReductionEditerPage from './pages/dashboard/directeur/reductions/ReductionEditerPage';
 // ═══════════════════════════════════════════════════════════
 // DIRECTEUR — INSCRIPTIONS
 // ═══════════════════════════════════════════════════════════
@@ -456,6 +464,18 @@ function App() {
                 path="plans-scolarite/:id"
                 element={<PlanScolariteDetailPage />}
               />
+
+              {/* ─── Réductions ─── */}
+<Route path="reductions" element={<ReductionsListPage />} />
+<Route
+  path="reductions/nouvelle"
+  element={<ReductionNouvellePage />}
+/>
+<Route
+  path="reductions/:id/editer"
+  element={<ReductionEditerPage />}
+/>
+<Route path="reductions/:id" element={<ReductionDetailPage />} />
 
               {/* ─── Échéances ─── */}
               <Route path="echeances" element={<EcheancesPage />} />

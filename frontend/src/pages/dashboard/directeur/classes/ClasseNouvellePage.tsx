@@ -1,6 +1,6 @@
 // frontend2/src/pages/dashboard/directeur/classes/ClasseNouvellePage.tsx
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -61,6 +61,8 @@ const ClasseNouvellePage: React.FC = () => {
   const [form, setForm] = useState<CreateClassePayload>(initialForm);
   const [step, setStep] = useState<1 | 2>(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const isSubmittingRef = useRef(false);
+  const hasAutoSelectedRef = useRef(false);
 
   const createMutation = useCreateClasse();
 
@@ -98,15 +100,22 @@ const ClasseNouvellePage: React.FC = () => {
     [anneesScolaires, form.anneeScolaireId]
   );
 
-  // ✅ Auto-sélectionner l'année active si elle existe
+  // ✅ Auto-sélection UNE SEULE FOIS (ref guard)
   useEffect(() => {
-    if (!form.anneeScolaireId && anneesScolaires.length > 0) {
+    if (hasAutoSelectedRef.current) return;
+    if (form.anneeScolaireId) {
+      hasAutoSelectedRef.current = true;
+      return;
+    }
+    if (anneesScolaires.length > 0) {
       const active = anneesScolaires.find((a) => a.estActive);
       if (active) {
         setForm((f) => ({ ...f, anneeScolaireId: active.id }));
+        hasAutoSelectedRef.current = true;
       }
     }
-  }, [anneesScolaires, form.anneeScolaireId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [anneesScolaires.length]);
 
   // ─────────────────────────────────────────
   // HANDLERS
@@ -120,7 +129,7 @@ const ClasseNouvellePage: React.FC = () => {
   };
 
   // ─────────────────────────────────────────
-  // VALIDATION ÉTAPE 1 (identité)
+  // VALIDATION ÉTAPE 1
   // ─────────────────────────────────────────
   const validateStep1 = (): boolean => {
     const errs: Record<string, string> = {};
@@ -160,7 +169,7 @@ const ClasseNouvellePage: React.FC = () => {
   };
 
   // ─────────────────────────────────────────
-  // VALIDATION ÉTAPE 2 (détails)
+  // VALIDATION ÉTAPE 2
   // ─────────────────────────────────────────
   const validateStep2 = (): boolean => {
     const errs: Record<string, string> = {};
@@ -209,11 +218,24 @@ const ClasseNouvellePage: React.FC = () => {
   };
 
   // ─────────────────────────────────────────
-  // SOUMISSION
+  // SOUMISSION — 🔒 MANUELLE, PLUS DE SUBMIT NATIF
   // ─────────────────────────────────────────
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreate = async () => {
+    // 🔒 GARDE-FOU : uniquement à l'étape 2
+    if (step !== 2) {
+      console.warn('🚨 handleCreate bloqué — step =', step);
+      return;
+    }
+
+    // 🔒 Anti double-soumission
+    if (isSubmittingRef.current || createMutation.isPending) {
+      console.warn('🚨 handleCreate bloqué — déjà en cours');
+      return;
+    }
+
     if (!validateStep2()) return;
+
+    isSubmittingRef.current = true;
 
     try {
       const payload: CreateClassePayload = {
@@ -236,8 +258,7 @@ const ClasseNouvellePage: React.FC = () => {
             duration: 4000,
             action: {
               label: 'Voir le détail',
-              onClick: () =>
-                navigate(`/dashboard/classes/${res.data!.id}`),
+              onClick: () => navigate(`/dashboard/classes/${res.data!.id}`),
             },
           }
         );
@@ -253,6 +274,45 @@ const ClasseNouvellePage: React.FC = () => {
       }
     } catch {
       /* toast géré par le hook */
+    } finally {
+      isSubmittingRef.current = false;
+    }
+  };
+
+  // ─────────────────────────────────────────
+  // 🔥 KEY HANDLER : bloque Entrée à l'étape 1
+  //    (plus de submit natif donc plus de risque)
+  // ─────────────────────────────────────────
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Enter') return;
+
+    const target = e.target as HTMLElement;
+    const tag = target.tagName;
+
+    // Laisse les selects/textarea/checkbox/boutons tranquilles
+    if (
+      tag === 'SELECT' ||
+      tag === 'TEXTAREA' ||
+      tag === 'BUTTON' ||
+      (target as HTMLInputElement).type === 'checkbox' ||
+      (target as HTMLInputElement).type === 'radio'
+    ) {
+      return;
+    }
+
+    // Étape 1 : Entrée sur un input texte → avance
+    if (step === 1) {
+      e.preventDefault();
+      e.stopPropagation();
+      handleNext();
+      return;
+    }
+
+    // Étape 2 : Entrée sur un input texte → NE FAIT RIEN
+    // (l'utilisateur doit cliquer explicitement sur "Créer la classe")
+    if (step === 2) {
+      e.preventDefault();
+      e.stopPropagation();
     }
   };
 
@@ -261,9 +321,7 @@ const ClasseNouvellePage: React.FC = () => {
   // ─────────────────────────────────────────
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
-      {/* ============================================
-          EN-TÊTE
-          ============================================ */}
+      {/* EN-TÊTE */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Link
@@ -276,7 +334,7 @@ const ClasseNouvellePage: React.FC = () => {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <BuildingOfficeIcon className="w-7 h-7 text-blue-600" />
+              <BuildingOfficeIcon className="w-7 h-7 text-emerald-600" />
               Nouvelle classe
             </h1>
             <p className="text-sm text-gray-500 mt-0.5">
@@ -285,7 +343,6 @@ const ClasseNouvellePage: React.FC = () => {
           </div>
         </div>
 
-        {/* ✅ Liens contextuels */}
         <div className="hidden sm:flex items-center gap-2">
           <Link
             to="/dashboard/niveaux"
@@ -306,9 +363,7 @@ const ClasseNouvellePage: React.FC = () => {
         </div>
       </div>
 
-      {/* ============================================
-          INDICATEUR D'ÉTAPES
-          ============================================ */}
+      {/* INDICATEUR D'ÉTAPES */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100/50 p-6">
         <div className="flex items-center justify-center gap-2 md:gap-4">
           {[
@@ -322,7 +377,7 @@ const ClasseNouvellePage: React.FC = () => {
                     step > s.n
                       ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
                       : step === s.n
-                      ? 'bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/30 scale-110'
+                      ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/30 scale-110'
                       : 'bg-gray-200 text-gray-500'
                   }`}
                 >
@@ -358,17 +413,15 @@ const ClasseNouvellePage: React.FC = () => {
         </div>
       </div>
 
-      {/* ============================================
-          FORMULAIRE
-          ============================================ */}
-      <form
-        onSubmit={handleSubmit}
+      {/* ═══════════════════════════════════════
+          CONTENEUR (plus de <form>, plus de submit natif)
+          ═══════════════════════════════════════ */}
+      <div
+        onKeyDown={handleKeyDown}
         className="bg-white rounded-2xl shadow-sm border border-gray-100/50 p-6 md:p-8"
       >
         <AnimatePresence mode="wait">
-          {/* ═══════════════════════════════════════
-              ÉTAPE 1 : IDENTITÉ
-              ═══════════════════════════════════════ */}
+          {/* ═══ ÉTAPE 1 : IDENTITÉ ═══ */}
           {step === 1 && (
             <motion.div
               key="step1"
@@ -379,8 +432,8 @@ const ClasseNouvellePage: React.FC = () => {
               className="space-y-6"
             >
               <div className="flex items-center gap-2 pb-4 border-b border-gray-100">
-                <div className="p-2 bg-blue-50 rounded-lg">
-                  <IdentificationIcon className="w-5 h-5 text-blue-600" />
+                <div className="p-2 bg-emerald-50 rounded-lg">
+                  <IdentificationIcon className="w-5 h-5 text-emerald-600" />
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-gray-900">
@@ -407,7 +460,7 @@ const ClasseNouvellePage: React.FC = () => {
                     onChange={(e) => updateField('nom', e.target.value)}
                     placeholder="Ex: 3ème A"
                     maxLength={100}
-                    className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all ${
+                    className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all ${
                       errors.nom
                         ? 'border-red-300 bg-red-50'
                         : 'border-gray-200'
@@ -447,7 +500,7 @@ const ClasseNouvellePage: React.FC = () => {
                     }
                     placeholder="Ex: 3EME-A-2025"
                     maxLength={50}
-                    className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none font-mono uppercase transition-all ${
+                    className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none font-mono uppercase transition-all ${
                       errors.code
                         ? 'border-red-300 bg-red-50'
                         : 'border-gray-200'
@@ -491,7 +544,7 @@ const ClasseNouvellePage: React.FC = () => {
                     value={form.niveauId}
                     onChange={(e) => updateField('niveauId', e.target.value)}
                     disabled={loadingNiveaux}
-                    className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all ${
+                    className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all ${
                       errors.niveauId
                         ? 'border-red-300 bg-red-50'
                         : 'border-gray-200'
@@ -543,9 +596,7 @@ const ClasseNouvellePage: React.FC = () => {
             </motion.div>
           )}
 
-          {/* ═══════════════════════════════════════
-              ÉTAPE 2 : CONFIGURATION
-              ═══════════════════════════════════════ */}
+          {/* ═══ ÉTAPE 2 : CONFIGURATION ═══ */}
           {step === 2 && (
             <motion.div
               key="step2"
@@ -555,10 +606,9 @@ const ClasseNouvellePage: React.FC = () => {
               transition={{ duration: 0.3 }}
               className="space-y-6"
             >
-              {/* Récap étape 1 */}
-              <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
+              <div className="p-4 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl border border-emerald-100">
                 <div className="flex items-start gap-3">
-                  <SparklesIcon className="w-5 h-5 text-blue-500 mt-0.5 shrink-0" />
+                  <SparklesIcon className="w-5 h-5 text-emerald-500 mt-0.5 shrink-0" />
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-gray-900">
                       Récapitulatif
@@ -573,8 +623,8 @@ const ClasseNouvellePage: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2 pb-4 border-b border-gray-100">
-                <div className="p-2 bg-indigo-50 rounded-lg">
-                  <AdjustmentsHorizontalIcon className="w-5 h-5 text-indigo-600" />
+                <div className="p-2 bg-teal-50 rounded-lg">
+                  <AdjustmentsHorizontalIcon className="w-5 h-5 text-teal-600" />
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-gray-900">
@@ -586,7 +636,7 @@ const ClasseNouvellePage: React.FC = () => {
                 </div>
               </div>
 
-              {/* ✅ Année scolaire — SELECT */}
+              {/* Année scolaire */}
               <div>
                 <label
                   htmlFor="classe-annee"
@@ -603,7 +653,7 @@ const ClasseNouvellePage: React.FC = () => {
                       updateField('anneeScolaireId', e.target.value)
                     }
                     disabled={loadingAnnees}
-                    className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all ${
+                    className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all ${
                       errors.anneeScolaireId
                         ? 'border-red-300 bg-red-50'
                         : 'border-gray-200'
@@ -625,13 +675,12 @@ const ClasseNouvellePage: React.FC = () => {
                   </select>
                 </div>
 
-                {/* ✅ Aperçu de l'année sélectionnée */}
                 {selectedAnnee && (
-                  <div className="mt-2 p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-800">
+                  <div className="mt-2 p-3 bg-emerald-50 border border-emerald-100 rounded-lg text-xs text-emerald-800">
                     <p className="font-semibold mb-0.5">
                       📅 {selectedAnnee.nom}
                     </p>
-                    <p className="text-blue-700">
+                    <p className="text-emerald-700">
                       Du{' '}
                       {new Date(selectedAnnee.dateDebut).toLocaleDateString(
                         'fr-FR',
@@ -651,7 +700,6 @@ const ClasseNouvellePage: React.FC = () => {
                   </div>
                 )}
 
-                {/* ✅ Alerte + lien si aucune année */}
                 {anneesScolaires.length === 0 && !loadingAnnees && (
                   <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
                     <ExclamationTriangleIcon className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
@@ -705,7 +753,7 @@ const ClasseNouvellePage: React.FC = () => {
                         )
                       }
                       placeholder="35"
-                      className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
+                      className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none ${
                         errors.capacite
                           ? 'border-red-300 bg-red-50'
                           : 'border-gray-200'
@@ -741,7 +789,7 @@ const ClasseNouvellePage: React.FC = () => {
                       }
                       placeholder="Ex: B12"
                       maxLength={50}
-                      className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
+                      className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none ${
                         errors.salle
                           ? 'border-red-300 bg-red-50'
                           : 'border-gray-200'
@@ -761,10 +809,8 @@ const ClasseNouvellePage: React.FC = () => {
                 <input
                   type="checkbox"
                   checked={form.estActive ?? true}
-                  onChange={(e) =>
-                    updateField('estActive', e.target.checked)
-                  }
-                  className="mt-0.5 w-5 h-5 rounded text-blue-600 focus:ring-blue-500"
+                  onChange={(e) => updateField('estActive', e.target.checked)}
+                  className="mt-0.5 w-5 h-5 rounded text-emerald-600 focus:ring-emerald-500"
                 />
                 <div>
                   <p className="text-sm font-medium text-gray-900">
@@ -778,11 +824,11 @@ const ClasseNouvellePage: React.FC = () => {
               </label>
 
               {/* Info box */}
-              <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3">
-                <InformationCircleIcon className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
-                <div className="text-xs text-blue-800">
+              <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl flex items-start gap-3">
+                <InformationCircleIcon className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
+                <div className="text-xs text-emerald-800">
                   <p className="font-semibold mb-0.5">Prochaines étapes</p>
-                  <ul className="space-y-0.5 text-blue-700">
+                  <ul className="space-y-0.5 text-emerald-700">
                     <li>• Inscrire des élèves dans la classe</li>
                     <li>• Affecter des enseignants aux matières</li>
                     <li>• Créer l'emploi du temps</li>
@@ -793,9 +839,7 @@ const ClasseNouvellePage: React.FC = () => {
           )}
         </AnimatePresence>
 
-        {/* ============================================
-            ACTIONS
-            ============================================ */}
+        {/* ACTIONS */}
         <div className="flex items-center justify-between gap-3 pt-6 mt-6 border-t border-gray-100">
           <div>
             {step === 2 && (
@@ -829,14 +873,15 @@ const ClasseNouvellePage: React.FC = () => {
                     ? 'Créez un niveau avant de continuer'
                     : 'Passer à l’étape suivante'
                 }
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-semibold rounded-lg shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
               >
                 Suivant
                 <ArrowRightIcon className="w-4 h-4" />
               </button>
             ) : (
               <button
-                type="submit"
+                type="button"
+                onClick={handleCreate}
                 disabled={
                   createMutation.isPending || anneesScolaires.length === 0
                 }
@@ -845,7 +890,7 @@ const ClasseNouvellePage: React.FC = () => {
                     ? 'Créez une année scolaire avant de valider'
                     : 'Créer la classe'
                 }
-                className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-semibold rounded-lg shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {createMutation.isPending ? (
                   <>
@@ -862,11 +907,9 @@ const ClasseNouvellePage: React.FC = () => {
             )}
           </div>
         </div>
-      </form>
+      </div>
 
-      {/* ============================================
-          INFO BAS DE PAGE
-          ============================================ */}
+      {/* INFO BAS DE PAGE */}
       <div className="text-center text-xs text-gray-400">
         <p>
           💡 La création d'une classe est immédiate. Vous pourrez ensuite y

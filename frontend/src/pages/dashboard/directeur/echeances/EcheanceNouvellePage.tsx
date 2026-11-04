@@ -5,7 +5,6 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ReceiptPercentIcon,
   ArrowLeftIcon,
-  CheckCircleIcon,
   ExclamationTriangleIcon,
   ArrowPathIcon,
   SparklesIcon,
@@ -17,19 +16,20 @@ import { useCreateEcheance } from '../../../../hooks/useEcheance';
 import { usePlansScolarite } from '../../../../hooks/usePlanScolarite';
 import { useEcheancesByPlan } from '../../../../hooks/useEcheance';
 import { useToast } from '../../../../context/ToastContext';
+import { MoneyInput } from '../../../../components/ui/MoneyInput';
 import type { CreateEcheancePayload } from '../../../../types/echeance.types';
 import type { PlanScolarite } from '../../../../types/planScolarite.types';
 
-// ============================================
+// ═══════════════════════════════════════════════════════════
 // HELPERS
-// ============================================
+// ═══════════════════════════════════════════════════════════
 
 const formatMoney = (amount: number, devise = 'XOF') =>
   new Intl.NumberFormat('fr-FR').format(amount) + ` ${devise}`;
 
-// ============================================
+// ═══════════════════════════════════════════════════════════
 // ÉTAT INITIAL
-// ============================================
+// ═══════════════════════════════════════════════════════════
 
 const initialForm: CreateEcheancePayload = {
   planScolariteId: '',
@@ -39,9 +39,9 @@ const initialForm: CreateEcheancePayload = {
   ordre: 1,
 };
 
-// ============================================
+// ═══════════════════════════════════════════════════════════
 // COMPOSANT
-// ============================================
+// ═══════════════════════════════════════════════════════════
 
 const EcheanceNouvellePage: React.FC = () => {
   const navigate = useNavigate();
@@ -66,7 +66,7 @@ const EcheanceNouvellePage: React.FC = () => {
     [plansData]
   );
 
-  // Échéances du plan sélectionné (pour éviter les doublons d'ordre et calculer le reste)
+  // Échéances du plan sélectionné
   const { data: echeancesData } = useEcheancesByPlan(
     form.planScolariteId || undefined
   );
@@ -77,7 +77,11 @@ const EcheanceNouvellePage: React.FC = () => {
 
   // Auto-suggest ordre suivant
   useEffect(() => {
-    if (form.planScolariteId && echeancesExistantes.length > 0 && form.ordre === 1) {
+    if (
+      form.planScolariteId &&
+      echeancesExistantes.length > 0 &&
+      form.ordre === 1
+    ) {
       const maxOrdre = Math.max(...echeancesExistantes.map((e) => e.ordre));
       setForm((f) => ({ ...f, ordre: maxOrdre + 1 }));
     }
@@ -133,9 +137,7 @@ const EcheanceNouvellePage: React.FC = () => {
     }
 
     // Vérifier ordre unique
-    if (
-      echeancesExistantes.some((e) => e.ordre === (form.ordre ?? 1))
-    ) {
+    if (echeancesExistantes.some((e) => e.ordre === (form.ordre ?? 1))) {
       errs.ordre = `Une échéance avec l'ordre ${form.ordre} existe déjà`;
     }
 
@@ -179,7 +181,8 @@ const EcheanceNouvellePage: React.FC = () => {
           }
         );
         setTimeout(
-          () => navigate(`/dashboard/plans-scolarite/${form.planScolariteId}`),
+          () =>
+            navigate(`/dashboard/plans-scolarite/${form.planScolariteId}`),
           1500
         );
       }
@@ -193,18 +196,23 @@ const EcheanceNouvellePage: React.FC = () => {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-12">
-      {/* En-tête */}
+      {/* ═══════════════════════════════════════
+          EN-TÊTE
+          ═══════════════════════════════════════ */}
       <div className="flex items-center gap-3">
         <Link
           to="/dashboard/echeances"
-          className="p-2 rounded-lg text-gray-500 hover:bg-gray-100"
+          className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
           title="Retour"
+          aria-label="Retour"
         >
           <ArrowLeftIcon className="w-5 h-5" />
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <ReceiptPercentIcon className="w-7 h-7 text-blue-600" />
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 shrink-0">
+              <ReceiptPercentIcon className="w-5 h-5" />
+            </div>
             Nouvelle échéance
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">
@@ -215,18 +223,21 @@ const EcheanceNouvellePage: React.FC = () => {
 
       <form
         onSubmit={handleSubmit}
+        noValidate
         className="bg-white rounded-2xl shadow-sm border border-gray-100/50 p-6 md:p-8 space-y-6"
       >
-        {/* Plan de scolarité */}
+        {/* ═══ PLAN DE SCOLARITÉ ═══ */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
             Plan de scolarité <span className="text-red-500">*</span>
           </label>
           <select
             value={form.planScolariteId}
-            onChange={(e) => updateField('planScolariteId', e.target.value)}
+            onChange={(e) =>
+              updateField('planScolariteId', e.target.value)
+            }
             disabled={loadingPlans}
-            className={`w-full px-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
+            className={`w-full px-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all ${
               errors.planScolariteId
                 ? 'border-red-300 bg-red-50'
                 : 'border-gray-200'
@@ -269,19 +280,21 @@ const EcheanceNouvellePage: React.FC = () => {
           )}
         </div>
 
-        {/* Aperçu du plan sélectionné */}
+        {/* ═══ APERÇU DU PLAN ═══ */}
         {planSelectionne && planStats && (
-          <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl">
-            <div className="flex items-center gap-2 mb-2">
-              <BanknotesIcon className="w-4 h-4 text-blue-600" />
+          <div className="p-4 bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl">
+            <div className="flex items-center gap-2 mb-3">
+              <BanknotesIcon className="w-4 h-4 text-emerald-600" />
               <p className="text-sm font-semibold text-gray-900">
                 {planSelectionne.nom}
               </p>
             </div>
             <div className="grid grid-cols-3 gap-3 text-xs">
               <div>
-                <p className="text-gray-500">Montant total</p>
-                <p className="font-bold text-gray-900">
+                <p className="text-gray-500 uppercase tracking-wider text-[10px]">
+                  Montant total
+                </p>
+                <p className="font-bold text-gray-900 mt-0.5">
                   {formatMoney(
                     planSelectionne.montantTotal,
                     planSelectionne.devise
@@ -289,8 +302,10 @@ const EcheanceNouvellePage: React.FC = () => {
                 </p>
               </div>
               <div>
-                <p className="text-gray-500">Déjà planifié</p>
-                <p className="font-bold text-gray-900">
+                <p className="text-gray-500 uppercase tracking-wider text-[10px]">
+                  Déjà planifié
+                </p>
+                <p className="font-bold text-gray-900 mt-0.5">
                   {formatMoney(
                     planStats.totalEcheances,
                     planSelectionne.devise
@@ -298,25 +313,24 @@ const EcheanceNouvellePage: React.FC = () => {
                 </p>
               </div>
               <div>
-                <p className="text-gray-500">Restant à planifier</p>
+                <p className="text-gray-500 uppercase tracking-wider text-[10px]">
+                  Restant à planifier
+                </p>
                 <p
-                  className={`font-bold ${
+                  className={`font-bold mt-0.5 ${
                     montantRestant === 0
                       ? 'text-emerald-600'
-                      : 'text-orange-600'
+                      : 'text-amber-600'
                   }`}
                 >
-                  {formatMoney(
-                    montantRestant ?? 0,
-                    planSelectionne.devise
-                  )}
+                  {formatMoney(montantRestant ?? 0, planSelectionne.devise)}
                 </p>
               </div>
             </div>
           </div>
         )}
 
-        {/* Nom */}
+        {/* ═══ NOM ═══ */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
             Nom de l'échéance <span className="text-red-500">*</span>
@@ -327,7 +341,7 @@ const EcheanceNouvellePage: React.FC = () => {
             onChange={(e) => updateField('nom', e.target.value)}
             placeholder="Ex: 1ère tranche"
             maxLength={100}
-            className={`w-full px-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
+            className={`w-full px-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all ${
               errors.nom ? 'border-red-300 bg-red-50' : 'border-gray-200'
             }`}
           />
@@ -336,23 +350,23 @@ const EcheanceNouvellePage: React.FC = () => {
           )}
         </div>
 
-        {/* Montant + Ordre */}
+        {/* ═══ MONTANT + ORDRE ═══ */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Montant — MoneyInput */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Montant <span className="text-red-500">*</span>
             </label>
             <div className="relative">
-              <BanknotesIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="number"
+              <BanknotesIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none z-10" />
+              <MoneyInput
+                value={form.montant}
+                onChange={(v) => updateField('montant', v)}
+                placeholder="0"
                 min={0}
                 step={1000}
-                value={form.montant}
-                onChange={(e) =>
-                  updateField('montant', Number(e.target.value) || 0)
-                }
-                className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
+                withThousandsSeparator
+                className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all ${
                   errors.montant
                     ? 'border-red-300 bg-red-50'
                     : 'border-gray-200'
@@ -360,15 +374,18 @@ const EcheanceNouvellePage: React.FC = () => {
               />
             </div>
             {errors.montant && (
-              <p className="text-xs text-red-600 mt-1.5">{errors.montant}</p>
+              <p className="text-xs text-red-600 mt-1.5">
+                {errors.montant}
+              </p>
             )}
             {planSelectionne && form.montant > 0 && (
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-emerald-700 mt-1 font-medium">
                 {formatMoney(form.montant, planSelectionne.devise)}
               </p>
             )}
           </div>
 
+          {/* Ordre */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Ordre
@@ -381,8 +398,10 @@ const EcheanceNouvellePage: React.FC = () => {
               onChange={(e) =>
                 updateField('ordre', Number(e.target.value) || 0)
               }
-              className={`w-full px-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
-                errors.ordre ? 'border-red-300 bg-red-50' : 'border-gray-200'
+              className={`w-full px-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all ${
+                errors.ordre
+                  ? 'border-red-300 bg-red-50'
+                  : 'border-gray-200'
               }`}
             />
             {errors.ordre ? (
@@ -395,18 +414,18 @@ const EcheanceNouvellePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Date limite */}
+        {/* ═══ DATE LIMITE ═══ */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
             Date limite <span className="text-red-500">*</span>
           </label>
           <div className="relative">
-            <CalendarDaysIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <CalendarDaysIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
             <input
               type="date"
               value={form.dateLimite?.slice(0, 10) ?? ''}
               onChange={(e) => updateField('dateLimite', e.target.value)}
-              className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
+              className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all ${
                 errors.dateLimite
                   ? 'border-red-300 bg-red-50'
                   : 'border-gray-200'
@@ -414,36 +433,38 @@ const EcheanceNouvellePage: React.FC = () => {
             />
           </div>
           {errors.dateLimite && (
-            <p className="text-xs text-red-600 mt-1.5">{errors.dateLimite}</p>
+            <p className="text-xs text-red-600 mt-1.5">
+              {errors.dateLimite}
+            </p>
           )}
         </div>
 
-        {/* Info box */}
-        <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3">
-          <InformationCircleIcon className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
-          <div className="text-xs text-blue-800">
+        {/* ═══ INFO BOX ═══ */}
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3">
+          <InformationCircleIcon className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
+          <div className="text-xs text-emerald-800">
             <p className="font-semibold mb-0.5">Comment ça marche ?</p>
-            <p className="text-blue-700">
+            <p className="text-emerald-700">
               Une fois créée, cette échéance peut recevoir des paiements
-              partiels ou complets. Elle sera marquée comme <strong>payée</strong>{' '}
-              automatiquement lorsque le total des paiements alloués atteindra
-              son montant.
+              partiels ou complets. Elle sera marquée comme{' '}
+              <strong>payée</strong> automatiquement lorsque le total des
+              paiements alloués atteindra son montant.
             </p>
           </div>
         </div>
 
-        {/* Actions */}
+        {/* ═══ ACTIONS ═══ */}
         <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
           <Link
             to="/dashboard/echeances"
-            className="px-4 py-2.5 text-gray-700 font-medium rounded-lg hover:bg-gray-100"
+            className="px-4 py-2.5 text-gray-700 font-medium rounded-lg hover:bg-gray-100 transition-colors"
           >
             Annuler
           </Link>
           <button
             type="submit"
             disabled={createMutation.isPending}
-            className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg shadow-md hover:shadow-lg disabled:opacity-60"
+            className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-semibold rounded-lg shadow-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {createMutation.isPending ? (
               <>
