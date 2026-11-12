@@ -224,22 +224,83 @@ io.on("connection", (socket) => {
 });
 
 export { io };
-
 // ============================================
 // MIDDLEWARES GLOBAUX
 // ============================================
 
-const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || "900000"),
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || "100"),
+/**
+ * ⭐ CRUCIAL EN PRODUCTION
+ * ────────────────────────
+ * Sans `trust proxy`, Express considère que TOUTES les requêtes
+ * viennent de la même IP (celle du reverse proxy Nginx/Cloudflare).
+ * Résultat : le rate limit s'applique à tout le monde → "Trop de requêtes".
+ *
+ * ⚠️ Adaptez selon votre infra :
+ *   - 1           → un seul proxy (Nginx devant Node) — CAS LE PLUS COURANT
+ *   - 2           → Cloudflare + Nginx
+ *   - true        → plusieurs proxies en cascade
+ *   - 'loopback'  → proxy local uniquement
+ */
+app.set("trust proxy", 1);
+
+/**
+ * 🔑 Clé de rate limit intelligente :
+ * - Si l'utilisateur est authentifié (JWT décodé en amont) → par userId
+ * - Sinon → par IP réelle (via trust proxy)
+ *
+ * Cela évite que plusieurs utilisateurs derrière la même IP
+ * (NAT d'entreprise, réseau partagé) partagent le même quota.
+ */
+const rateLimitKeyGenerator = (req: Request): string => {
+  const userId = (req as any).user?.userId;
+  if (userId) return `user:${userId}`;
+  return `ip:${req.ip}`;
+};
+
+/**
+ * 🚦 RATE LIMIT GLOBAL
+ * ─────────────────────
+ * Quota généreux pour un usage normal, mais bloque les vrais abus.
+ * 1000 requêtes / 15 min / user (ou IP) = ~1 req/sec.
+ */
+const globalLimiter = rateLimit({
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || "900000"), // 15 min
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || "1000"), // 1000 (au lieu de 100)
   message: {
     status: 429,
-    message: "Trop de requêtes, veuillez réessayer plus tard.",
+    message:
+      "Trop de requêtes. Réessayez dans quelques minutes. Si le problème persiste, contactez le support.",
+    timestamp: new Date().toISOString(),
   },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: rateLimitKeyGenerator,
+  // ⭐ Ne PAS compter les requêtes réussies pour les endpoints de lecture
+  skip: (req) => {
+    // Ne pas limiter les routes critiques
+    const path = req.path;
+    if (
+      path === "/health" ||
+      path === "/" ||
+      path.includes("/auth/refresh") ||
+      path.includes("/auth/me")
+    ) {
+      return true;
+    }
+    // Ne pas limiter les GET (lectures) — ils sont généralement safe
+    if (req.method === "GET") {
+      return false;
+    }
+    return false;
+  },
+  // ⭐ Ne compter QUE les échecs pour les POST sensibles
+  skipSuccessfulRequests: false,
+  skipFailedRequests: false,
 });
 
+// ═══════════════════════════════════════════════
+// HELMET — sécurité HTTP
+// ═══════════════════════════════════════════════
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -247,28 +308,50 @@ app.use(
         defaultSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         scriptSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", CLIENT_URL],
       },
     },
     crossOriginEmbedderPolicy: false,
+    // ⭐ Désactiver la mise en cache stricte pour les API
+    crossOriginResourcePolicy: { policy: "cross-origin" },
   })
 );
 
+// ═══════════════════════════════════════════════
+// CORS
+// ═══════════════════════════════════════════════
 app.use(
   cors({
     origin: CLIENT_URL,
     credentials: true,
     exposedHeaders: ["X-Total-Count", "Content-Disposition"],
+    // ⭐ Autoriser les headers custom
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   })
 );
 
+// ═══════════════════════════════════════════════
+// COMPRESSION
+// ═══════════════════════════════════════════════
 app.use(compression());
 
+// ═══════════════════════════════════════════════
+// LOGGING
+// ═══════════════════════════════════════════════
 app.use(
   morgan(NODE_ENV === "development" ? "dev" : "combined", {
-    skip: (req) => req.path === "/health" || req.path === "/",
+    skip: (req) =>
+      req.path === "/health" ||
+      req.path === "/" ||
+      req.path.includes("/auth/refresh"),
   })
 );
 
+// ═══════════════════════════════════════════════
+// BODY PARSERS
+// ═══════════════════════════════════════════════
 app.use(
   express.json({
     limit: "50mb",
@@ -282,9 +365,26 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(cookieParser());
 app.use(passport.initialize());
 
-// Rate limiting global sur /api (hors auth qui a ses propres limiteurs)
-app.use("/api", limiter);
+// ═══════════════════════════════════════════════
+// 🚦 RATE LIMITING GLOBAL SUR /api
+// ═══════════════════════════════════════════════
+app.use("/api", globalLimiter);
 
+// ═══════════════════════════════════════════════
+// DIAGNOSTIC — Log de l'IP réelle (dev uniquement)
+// ═══════════════════════════════════════════════
+if (NODE_ENV === "development") {
+  app.use((req: Request, _res: Response, next: NextFunction) => {
+    if (req.path.startsWith("/api/auth")) {
+      console.log(
+        `🔍 [${req.method}] ${req.path} — IP: ${req.ip} — User: ${
+          (req as any).user?.userId ?? "anonyme"
+        }`
+      );
+    }
+    next();
+  });
+}
 // ============================================
 // FICHIERS STATIQUES
 // ============================================

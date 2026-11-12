@@ -12,7 +12,9 @@ import {
 } from 'react';
 import {
   authApi,
- 
+  startProactiveRefresh,
+  stopProactiveRefresh,
+  refreshTokenNow,
 } from '../api/auth.api';
 import type {
   User,
@@ -20,7 +22,7 @@ import type {
   RegisterPayload,
   VerifyOtpPayload,
   ResendOtpPayload,
-   ForgotPasswordResponse,       // ⭐ depuis types/auth.types
+  ForgotPasswordResponse,
   VerifyResetOtpResponse,
   ForgotPasswordPayload,
   ResetPasswordPayload,
@@ -65,7 +67,7 @@ const isEtablissement = (e: any): e is EtablissementInfo => {
 };
 
 // ============================================
-// HELPERS CACHE (locaux)
+// HELPERS CACHE
 // ============================================
 const cache = {
   getUser(): User | null {
@@ -229,35 +231,29 @@ const enrichUser = (
 // TYPES DU CONTEXTE
 // ============================================
 interface AuthContextValue {
-  // État
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   isInitializing: boolean;
   error: string | null;
 
-  // Scope & helpers
   scope: UserScope | null;
   isSuperAdmin: boolean;
   isTenantUser: boolean;
 
-  // Établissement
   etablissement: EtablissementInfo | null;
   etablissementNom: string | null;
   etablissementCode: string | null;
   etablissementVille: string | null;
   hasEtablissement: boolean;
 
-  // Actions
   login: (payload: LoginPayload) => Promise<User>;
   register: (payload: RegisterPayload) => Promise<User>;
   verifyOtp: (payload: VerifyOtpPayload) => Promise<User>;
   resendOtp: (payload: ResendOtpPayload) => Promise<void>;
 
-  // ⭐ MODIFIÉ : retourne { email, etablissementId }
   forgotPassword: (payload: ForgotPasswordPayload) => Promise<ForgotPasswordResponse>;
 
-  // ⭐ NOUVEAU : vérifie l'OTP de reset et retourne un resetToken
   verifyResetOtp: (payload: {
     email: string;
     otp: string;
@@ -334,7 +330,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   // ─────────────────────────────────────────
-  // HELPER : applique un user + persiste
+  // HELPERS INTERNES
   // ─────────────────────────────────────────
   const applyUser = useCallback((u: User) => {
     setUser(u);
@@ -349,9 +345,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (isEtablissement(u.etablissement)) cache.setEtablissement(u.etablissement);
   }, []);
 
-  // ─────────────────────────────────────────
-  // HELPER : persiste les tokens
-  // ─────────────────────────────────────────
   const applyTokens = useCallback(
     (tokens: { accessToken: string; refreshToken: string }) => {
       cache.setAccessToken(tokens.accessToken);
@@ -360,8 +353,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     []
   );
 
+  const clearSession = useCallback(() => {
+    cache.clearAll();
+    setUser(null);
+    setIsAuthenticated(false);
+    setScope(null);
+    setEtablissement(null);
+    setError(null);
+  }, []);
+
   // ─────────────────────────────────────────
-  // RESTAURATION DE SESSION AU DÉMARRAGE
+  // 🆕 RESTAURATION DE SESSION AU DÉMARRAGE
+  // (robuste : retry après refresh si 401)
   // ─────────────────────────────────────────
   useEffect(() => {
     if (didInit.current) return;
@@ -373,15 +376,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.log('🔵 [AuthContext] restoreSession — hasToken:', hasToken);
 
       if (!hasToken) {
-        cache.clearAll();
-        setUser(null);
-        setIsAuthenticated(false);
-        setScope(null);
-        setEtablissement(null);
+        clearSession();
         setIsInitializing(false);
         return;
       }
 
+      // 1. Utiliser d'abord le cache pour éviter le flash
       const cached = cache.getUser();
       if (isValidUser(cached)) {
         setUser(cached);
@@ -390,6 +390,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setIsAuthenticated(true);
       }
 
+      // 2. Tenter un /me
       try {
         const res = await authApi.me();
 
@@ -399,33 +400,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
             ? enrichUser(payload.user, payload.etablissement)
             : enrichUser(payload, payload.etablissement);
 
-          setUser(freshUser);
-          setScope(inferScope(freshUser));
-          setEtablissement(
-            isEtablissement(freshUser.etablissement)
-              ? freshUser.etablissement
-              : null
-          );
-          setIsAuthenticated(true);
-
-          cache.setUser(freshUser);
-          if (freshUser.scope) cache.setScope(freshUser.scope);
-          if (isEtablissement(freshUser.etablissement))
-            cache.setEtablissement(freshUser.etablissement);
+          applyUser(freshUser);
         }
       } catch (err: any) {
         const status = err?.response?.status;
 
+        // 401 → tenter un refresh puis retenter /me
         if (status === 401) {
-          try {
-            const refreshToken = cache.getRefreshToken();
-            if (!refreshToken) throw new Error('No refresh token');
+          const refreshed = await refreshTokenNow();
 
-            const refreshRes = await authApi.refresh({ refreshToken });
-
-            if (isApiSuccess(refreshRes) && refreshRes.data) {
-              applyTokens(refreshRes.data.tokens);
-
+          if (refreshed) {
+            try {
               const meRes = await authApi.me();
               if (isApiSuccess(meRes) && meRes.data) {
                 const payload: any = meRes.data;
@@ -435,22 +420,52 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
                 applyUser(freshUser);
               }
+            } catch {
+              clearSession();
             }
-          } catch {
-            cache.clearAll();
-            setUser(null);
-            setIsAuthenticated(false);
-            setScope(null);
-            setEtablissement(null);
+          } else {
+            // Refresh échoué → session morte
+            clearSession();
           }
         }
+        // autres erreurs (réseau, 5xx) → garder le cache
       } finally {
         setIsInitializing(false);
       }
     };
 
     void restoreSession();
-  }, [applyUser, applyTokens]);
+  }, [applyUser, clearSession]);
+
+  // ─────────────────────────────────────────
+  // 🆕 REFRESH PROACTIF (toutes les 8 min)
+  // ─────────────────────────────────────────
+  useEffect(() => {
+    if (isAuthenticated) {
+      startProactiveRefresh();
+    } else {
+      stopProactiveRefresh();
+    }
+    return () => stopProactiveRefresh();
+  }, [isAuthenticated]);
+
+  // ─────────────────────────────────────────
+  // 🆕 REFRESH AU FOCUS DE L'ONGLET
+  // ─────────────────────────────────────────
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState !== 'visible') return;
+      const rt = cache.getRefreshToken();
+      if (!rt) return;
+      await refreshTokenNow();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () =>
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isAuthenticated]);
 
   // ─────────────────────────────────────────
   // WRAPPER : gestion d'erreur + loading
@@ -496,6 +511,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         applyTokens(tokens);
         applyUser(u);
 
+        // 🆕 Démarre le refresh proactif immédiatement
+        startProactiveRefresh();
+
         return u;
       }, 'Erreur de connexion'),
     [run, applyTokens, applyUser]
@@ -515,6 +533,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const u = enrichUser(rawUser, etab ?? null);
         applyTokens(tokens);
         applyUser(u);
+        startProactiveRefresh();
 
         return u;
       }, "Erreur lors de l'inscription"),
@@ -535,6 +554,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const u = enrichUser(rawUser, etab ?? null);
         applyTokens(tokens);
         applyUser(u);
+        startProactiveRefresh();
 
         return u;
       }, 'OTP invalide ou expiré'),
@@ -552,7 +572,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     [run]
   );
 
-  // ⭐ MODIFIÉ : retourne { email, etablissementId }
   const forgotPassword = useCallback(
     (payload: ForgotPasswordPayload) =>
       run(async () => {
@@ -568,7 +587,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     [run]
   );
 
-  // ⭐ NOUVEAU : vérifie l'OTP de reset
   const verifyResetOtp = useCallback(
     (payload: { email: string; otp: string; etablissementId: string }) =>
       run(async () => {
@@ -644,15 +662,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       await authApi.logout().catch(() => {});
     } finally {
-      cache.clearAll();
-      setUser(null);
-      setIsAuthenticated(false);
-      setScope(null);
-      setEtablissement(null);
-      setError(null);
+      // 🆕 Arrêter le refresh proactif
+      stopProactiveRefresh();
+      clearSession();
       setIsLoading(false);
     }
-  }, []);
+  }, [clearSession]);
 
   const clearError = useCallback(() => setError(null), []);
 
@@ -712,7 +727,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       verifyOtp,
       resendOtp,
       forgotPassword,
-      verifyResetOtp,   // ⭐ AJOUT
+      verifyResetOtp,
       resetPassword,
       changePassword,
       updateProfile,
@@ -739,7 +754,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       verifyOtp,
       resendOtp,
       forgotPassword,
-      verifyResetOtp,   // ⭐ AJOUT
+      verifyResetOtp,
       resetPassword,
       changePassword,
       updateProfile,

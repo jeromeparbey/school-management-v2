@@ -79,7 +79,7 @@ const DashboardLayout: React.FC = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  // ─── Restaurer l'état collapsed depuis localStorage ───
+  // ─── Restaurer l'état collapsed ───
   useEffect(() => {
     try {
       const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
@@ -113,7 +113,7 @@ const DashboardLayout: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // ─── Fermer sidebar au changement de route (mobile) ───
+  // ─── Fermer sidebar au changement de route ───
   useEffect(() => {
     if (isMobile) setIsSidebarOpen(false);
   }, [location.pathname, isMobile]);
@@ -133,7 +133,10 @@ const DashboardLayout: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen flex bg-gradient-to-br from-emerald-50 via-teal-50/30 to-gray-50">
+    <div className="min-h-screen flex bg-[#FAF9F6] text-[#0A0A0A]">
+      {/* ═══════════════════════════════════════════════════════
+          SIDEBAR
+          ═══════════════════════════════════════════════════════ */}
       <Sidebar
         isOpen={isSidebarOpen}
         isMobile={isMobile}
@@ -142,7 +145,11 @@ const DashboardLayout: React.FC = () => {
         onLogout={handleLogout}
       />
 
+      {/* ═══════════════════════════════════════════════════════
+          CONTENU PRINCIPAL
+          ═══════════════════════════════════════════════════════ */}
       <div className="flex-1 min-w-0 flex flex-col">
+        {/* ───── TOPBAR ───── */}
         <TopBar
           onMenuClick={() => setIsSidebarOpen(true)}
           onSidebarToggle={toggleSidebarCollapsed}
@@ -150,28 +157,31 @@ const DashboardLayout: React.FC = () => {
           title={currentTitle}
         />
 
-        {/* ═══════════ CONTENU PRINCIPAL ═══════════ */}
+        {/* ───── CONTENU ───── */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8">
           <div className="max-w-[1600px] mx-auto">
             <Outlet />
           </div>
         </main>
 
-        {/* ═══════════ FOOTER ═══════════ */}
-        <footer className="border-t border-emerald-100 bg-white/60 backdrop-blur-sm">
-          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
-              <p className="text-emerald-700/70 font-medium">
-                © {new Date().getFullYear()}{' '}
-                <span className="font-semibold text-emerald-700">
-                  EduManage
-                </span>{' '}
-                — Tous droits réservés.
-              </p>
-              <p className="text-emerald-600/60 flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Version 1.0.0 · Édition Pro
-              </p>
+        {/* ═══════════════════════════════════════════════════
+            FOOTER — CARTE (aligné sur TopBar)
+            ═══════════════════════════════════════════════════ */}
+        <footer className="px-4 sm:px-6 lg:px-8 pb-4 sm:pb-6">
+          <div className="max-w-[1600px] mx-auto">
+            <div className="bg-[#FCFBF7] rounded-xl border border-black/[0.06] shadow-[0_1px_2px_rgba(10,10,10,0.03)] px-5 py-3.5">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-[11.5px]">
+                <p className="text-black/50 font-medium text-center sm:text-left">
+                  © {new Date().getFullYear()}{' '}
+                  <span className="font-bold text-[#0A0A0A]">EduManage</span>
+                  <span className="text-black/30 mx-1">—</span>
+                  Tous droits réservés.
+                </p>
+                <p className="flex items-center gap-1.5 font-mono uppercase tracking-[0.12em] text-black/40 text-[10.5px]">
+                  <span className="w-1 h-1 rounded-full bg-[#10B981]" />
+                  Version 1.0.0 · Édition Pro
+                </p>
+              </div>
             </div>
           </div>
         </footer>

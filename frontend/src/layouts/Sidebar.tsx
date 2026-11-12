@@ -5,8 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   XMarkIcon,
   ArrowRightOnRectangleIcon,
-  AcademicCapIcon,
-  SparklesIcon,
   ChevronRightIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../hooks/AuthContext';
@@ -20,10 +18,6 @@ interface SidebarProps {
   onClose: () => void;
   onLogout: () => void;
 }
-
-// ═══════════════════════════════════════════════════════════
-// HELPERS
-// ═══════════════════════════════════════════════════════════
 
 const ROLE_LABELS: Record<string, string> = {
   DIRECTEUR: 'Directeur',
@@ -40,10 +34,6 @@ const ROLE_LABELS: Record<string, string> = {
 
 const getRoleLabel = (role?: string) =>
   role ? ROLE_LABELS[role] ?? role : 'Utilisateur';
-
-// ═══════════════════════════════════════════════════════════
-// COMPOSANT
-// ═══════════════════════════════════════════════════════════
 
 const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
@@ -62,14 +52,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   const roleLabel = getRoleLabel(user?.role);
   const initials = `${user?.prenom?.[0] ?? ''}${user?.nom?.[0] ?? ''}`.toUpperCase();
 
-  // Largeur : plié = 80px, déplié = 288px
-  const sidebarWidth = isCollapsed ? 80 : 288;
+  const sidebarWidth = isCollapsed ? 72 : 272;
 
   return (
     <>
-      {/* ═══════════════════════════════════════════════════════
-          OVERLAY MOBILE
-          ═══════════════════════════════════════════════════════ */}
+      {/* Overlay mobile */}
       <AnimatePresence>
         {isMobile && isOpen && (
           <motion.div
@@ -77,7 +64,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 md:hidden"
+            className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-40 md:hidden"
           />
         )}
       </AnimatePresence>
@@ -85,31 +72,42 @@ const Sidebar: React.FC<SidebarProps> = ({
       <motion.aside
         initial={false}
         animate={{
-          width: isMobile ? 288 : sidebarWidth,
+          width: isMobile ? 272 : sidebarWidth,
           x: isMobile ? (isOpen ? 0 : -320) : 0,
         }}
-        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
         className="
           fixed md:sticky top-0 left-0 z-50 md:z-20
           h-screen flex-shrink-0
-          bg-gradient-to-b from-emerald-700 via-emerald-800 to-teal-900
+          bg-[#EDE9DE] text-[#0A0A0A]
           flex flex-col
-          shadow-xl shadow-emerald-900/30
-          border-r border-emerald-600/30
-          overflow-hidden
+          border-r border-black/[0.10]
+          overflow-visible
+          relative
         "
       >
-        {/* ═══════════════════════════════════════════════════════
-            LOGO + BRANDING
-            ═══════════════════════════════════════════════════════ */}
+        {/* ───── GRILLE DÉCORATIVE ───── */}
+        <div
+          className="absolute inset-0 opacity-[0.06] pointer-events-none"
+          style={{
+            backgroundImage:
+              'linear-gradient(to right, #0A0A0A 1px, transparent 1px), linear-gradient(to bottom, #0A0A0A 1px, transparent 1px)',
+            backgroundSize: '48px 48px',
+          }}
+        />
+
+        {/* ───── LOGO (CARTE) ───── */}
         <div
           className={`
-            flex items-center border-b border-emerald-500/20 flex-shrink-0
+            relative z-10 m-3 mb-2 rounded-xl
+            bg-[#FCFBF7] border border-black/[0.10]
+            shadow-[0_1px_2px_rgba(10,10,10,0.04)]
+            flex items-center flex-shrink-0
             transition-all duration-300
             ${
               isCollapsed && !isMobile
-                ? 'justify-center px-2 py-5'
-                : 'justify-between px-5 py-5'
+                ? 'justify-center px-2 py-3'
+                : 'justify-between px-4 py-3.5'
             }
           `}
         >
@@ -119,16 +117,12 @@ const Sidebar: React.FC<SidebarProps> = ({
               isCollapsed && !isMobile ? 'justify-center' : ''
             }`}
           >
-            <motion.div
-              whileHover={{ rotate: 8, scale: 1.05 }}
-              transition={{ type: 'spring', stiffness: 300 }}
-              className="relative w-11 h-11 rounded-xl bg-white/95 flex items-center justify-center shadow-lg shadow-emerald-900/30 shrink-0"
-            >
-              <AcademicCapIcon className="w-6 h-6 text-emerald-700" />
-              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-emerald-800 animate-pulse" />
-            </motion.div>
+            <div className="w-9 h-9 rounded-lg bg-[#0A0A0A] flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:rotate-6">
+              <span className="text-[#F5F2EA] font-black text-base leading-none">
+                E
+              </span>
+            </div>
 
-            {/* Texte — masqué si plié (desktop) */}
             <AnimatePresence initial={false}>
               {(!isCollapsed || isMobile) && (
                 <motion.div
@@ -136,13 +130,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                   animate={{ opacity: 1, width: 'auto' }}
                   exit={{ opacity: 0, width: 0 }}
                   transition={{ duration: 0.2 }}
-                  className="flex flex-col overflow-hidden whitespace-nowrap"
+                  className="flex flex-col overflow-hidden whitespace-nowrap leading-none"
                 >
-                  <span className="text-base font-bold text-white tracking-tight">
+                  <span className="text-[15px] font-bold tracking-tight text-[#0A0A0A]">
                     EduManage
                   </span>
-                  <span className="text-[10px] font-semibold uppercase tracking-widest text-emerald-200 -mt-0.5 flex items-center gap-1">
-                    <SparklesIcon className="w-2.5 h-2.5" />
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#F59E0B] mt-0.5">
                     Pro
                   </span>
                 </motion.div>
@@ -150,35 +143,39 @@ const Sidebar: React.FC<SidebarProps> = ({
             </AnimatePresence>
           </Link>
 
-          {/* Bouton fermer — mobile uniquement */}
           {isMobile && (
             <button
               onClick={onClose}
-              className="p-2 text-emerald-100 hover:bg-white/10 rounded-lg transition-colors"
+              className="p-2 text-black/50 hover:text-black hover:bg-black/[0.05] rounded-lg transition-colors"
               aria-label="Fermer"
             >
-              <XMarkIcon className="w-5 h-5" />
+              <XMarkIcon className="w-4.5 h-4.5" />
             </button>
           )}
         </div>
 
-        {/* ═══════════════════════════════════════════════════════
-            PROFIL UTILISATEUR
-            ═══════════════════════════════════════════════════════ */}
+        {/* ───── PROFIL (CARTE) ───── */}
         <div
           className={`
-            border-b border-emerald-500/20 flex-shrink-0
+            relative z-10 mx-3 mb-2 rounded-xl
+            bg-[#FCFBF7] border border-black/[0.10]
+            shadow-[0_1px_2px_rgba(10,10,10,0.04)]
+            flex-shrink-0
             transition-all duration-300
-            ${isCollapsed && !isMobile ? 'px-2 py-4' : 'px-4 py-4'}
+            ${isCollapsed && !isMobile ? 'p-1.5' : 'p-1.5'}
           `}
         >
           <Link
             to="/dashboard/mon-profil"
             className={`
-              flex items-center rounded-xl bg-white/10 hover:bg-white/15
-              border border-white/10 hover:border-white/20
-              transition-all group backdrop-blur-sm
-              ${isCollapsed && !isMobile ? 'justify-center p-2' : 'gap-3 p-3'}
+              flex items-center rounded-lg
+              hover:bg-black/[0.04]
+              transition-colors duration-200 group
+              ${
+                isCollapsed && !isMobile
+                  ? 'justify-center p-2'
+                  : 'gap-3 px-2 py-2'
+              }
             `}
             title={
               isCollapsed && !isMobile
@@ -186,39 +183,35 @@ const Sidebar: React.FC<SidebarProps> = ({
                 : undefined
             }
           >
-            <div className="relative w-11 h-11 rounded-full bg-white flex items-center justify-center shrink-0 shadow-md">
-              <span className="text-sm font-bold text-emerald-700">
+            <div className="w-9 h-9 rounded-full bg-[#0A0A0A] flex items-center justify-center shrink-0">
+              <span className="text-[11.5px] font-bold text-[#F5F2EA] tracking-wide">
                 {initials}
               </span>
-              <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-400 ring-2 ring-emerald-800" />
             </div>
 
-            {/* Info — masquée si plié */}
             {(!isCollapsed || isMobile) && (
               <>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-white truncate">
+                  <p className="text-[13px] font-semibold text-[#0A0A0A] truncate leading-tight">
                     {user?.prenom} {user?.nom}
                   </p>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-200 truncate">
+                  <p className="text-[10px] font-mono uppercase tracking-[0.15em] text-black/50 truncate mt-1">
                     {roleLabel}
                   </p>
                 </div>
-                <ChevronRightIcon className="w-4 h-4 text-emerald-200 group-hover:text-white transition-colors shrink-0" />
+                <ChevronRightIcon className="w-3.5 h-3.5 text-black/30 group-hover:text-[#F59E0B] transition-colors shrink-0" />
               </>
             )}
           </Link>
         </div>
 
-        {/* ═══════════════════════════════════════════════════════
-            NAVIGATION
-            ═══════════════════════════════════════════════════════ */}
+        {/* ───── NAVIGATION ───── */}
         <nav
           className={`
-            flex-1 overflow-y-auto sidebar-scroll
+            relative z-10 flex-1 overflow-y-auto overflow-x-visible sidebar-scroll
             transition-all duration-300
-            ${isCollapsed && !isMobile ? 'px-1.5 py-4' : 'px-3 py-4'}
-            space-y-4
+            ${isCollapsed && !isMobile ? 'px-2 py-2' : 'px-3 py-2'}
+            space-y-2
           `}
         >
           {groups.map((group) => (
@@ -227,67 +220,66 @@ const Sidebar: React.FC<SidebarProps> = ({
               group={group}
               currentPath={location.pathname}
               isCollapsed={isCollapsed && !isMobile}
+              isMobile={isMobile}
             />
           ))}
         </nav>
 
-        {/* ═══════════════════════════════════════════════════════
-            DÉCONNEXION
-            ═══════════════════════════════════════════════════════ */}
+        {/* ───── DÉCONNEXION (CARTE) ───── */}
         <div
           className={`
-            border-t border-emerald-500/20 flex-shrink-0
+            relative z-10 mx-3 mb-3 mt-2 rounded-xl
+            bg-[#FCFBF7] border border-black/[0.10]
+            shadow-[0_1px_2px_rgba(10,10,10,0.04)]
+            flex-shrink-0
             transition-all duration-300
-            ${isCollapsed && !isMobile ? 'p-2' : 'p-3'}
+            ${isCollapsed && !isMobile ? 'p-1.5' : 'p-1.5'}
           `}
         >
           <button
             onClick={onLogout}
             className={`
-              group flex items-center w-full text-emerald-100
-              hover:text-rose-100 hover:bg-rose-500/20 rounded-xl
-              transition-all border border-transparent hover:border-rose-400/30
+              group flex items-center w-full text-black/55
+              hover:text-[#DC2626] hover:bg-red-50 rounded-lg
+              transition-all duration-200
               ${
                 isCollapsed && !isMobile
-                  ? 'justify-center p-3'
-                  : 'gap-3 px-4 py-3'
+                  ? 'justify-center p-2'
+                  : 'gap-3 px-2.5 py-2.5'
               }
             `}
             title={isCollapsed && !isMobile ? 'Déconnexion' : undefined}
           >
-            <ArrowRightOnRectangleIcon className="w-5 h-5 shrink-0 transition-transform group-hover:translate-x-1" />
+            <ArrowRightOnRectangleIcon className="w-4 h-4 shrink-0" />
             {(!isCollapsed || isMobile) && (
               <>
-                <span className="text-sm font-medium">Déconnexion</span>
-                <ChevronRightIcon className="w-4 h-4 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                <span className="text-[13px] font-medium">Déconnexion</span>
+                <ChevronRightIcon className="w-3.5 h-3.5 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
               </>
             )}
           </button>
 
           {(!isCollapsed || isMobile) && (
-            <p className="mt-2 text-center text-[10px] text-emerald-300/70 font-medium">
+            <p className="mb-1 text-center text-[9.5px] font-mono uppercase tracking-[0.15em] text-black/35">
               © {new Date().getFullYear()} EduManage Pro
             </p>
           )}
         </div>
       </motion.aside>
 
-      {/* ═══════════════════════════════════════════════════════
-          SCROLLBAR CUSTOM
-          ═══════════════════════════════════════════════════════ */}
       <style>{`
         .sidebar-scroll::-webkit-scrollbar {
-          width: 6px;
+          width: 4px;
         }
         .sidebar-scroll::-webkit-scrollbar-track {
           background: transparent;
         }
         .sidebar-scroll::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.25);
-          border-radius: 3px;
+          background: rgba(10, 10, 10, 0.12);
+          border-radius: 2px;
         }
         .sidebar-scroll::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.4);
+          background: rgba(245, 158, 11, 0.5);
         }
       `}</style>
     </>

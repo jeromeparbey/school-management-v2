@@ -9,6 +9,7 @@ import { ThemeProvider } from './context/ThemeContext';
 // PAGES PUBLIQUES
 // ═══════════════════════════════════════════════════════════
 import HomePage from './pages/home/HomePage';
+import FeaturesPage from './pages/FeaturesPage';   // ✅ AJOUT
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
@@ -260,6 +261,25 @@ function App() {
                 ROUTES PUBLIQUES
                 ═══════════════════════════════════════════ */}
             <Route path="/" element={<HomePage />} />
+
+            {/* ✅ NOUVELLE ROUTE — Page Fonctionnalités */}
+            <Route path="/features" element={<FeaturesPage />} />
+
+            {/* ─── Placeholders pour les liens des dropdowns ─── */}
+            {/* Ces routes évitent les 404 quand l'utilisateur clique sur */}
+            {/* les sous-menus de la navbar. À remplacer par les vraies pages. */}
+            <Route path="/tarifs" element={<Navigate to="/" replace />} />
+            <Route path="/demo" element={<Navigate to="/" replace />} />
+            <Route path="/security" element={<Navigate to="/" replace />} />
+            <Route path="/about" element={<Navigate to="/" replace />} />
+            <Route path="/clients" element={<Navigate to="/" replace />} />
+            <Route path="/careers" element={<Navigate to="/" replace />} />
+            <Route path="/contact" element={<Navigate to="/" replace />} />
+            <Route path="/help" element={<Navigate to="/" replace />} />
+            <Route path="/docs" element={<Navigate to="/" replace />} />
+            <Route path="/api" element={<Navigate to="/" replace />} />
+            <Route path="/status" element={<Navigate to="/" replace />} />
+
             <Route
               path="/login"
               element={
@@ -466,16 +486,16 @@ function App() {
               />
 
               {/* ─── Réductions ─── */}
-<Route path="reductions" element={<ReductionsListPage />} />
-<Route
-  path="reductions/nouvelle"
-  element={<ReductionNouvellePage />}
-/>
-<Route
-  path="reductions/:id/editer"
-  element={<ReductionEditerPage />}
-/>
-<Route path="reductions/:id" element={<ReductionDetailPage />} />
+              <Route path="reductions" element={<ReductionsListPage />} />
+              <Route
+                path="reductions/nouvelle"
+                element={<ReductionNouvellePage />}
+              />
+              <Route
+                path="reductions/:id/editer"
+                element={<ReductionEditerPage />}
+              />
+              <Route path="reductions/:id" element={<ReductionDetailPage />} />
 
               {/* ─── Échéances ─── */}
               <Route path="echeances" element={<EcheancesPage />} />

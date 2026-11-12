@@ -1,37 +1,87 @@
-
 import React, { useEffect, useState, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { motion, useScroll, useTransform, useSpring, AnimatePresence } from 'framer-motion';
+import { Link, useLocation } from 'react-router-dom';
+import { motion, useScroll, useSpring, AnimatePresence } from 'framer-motion';
 import {
-  AcademicCapIcon,
-  UserGroupIcon,
-  CurrencyDollarIcon,
-  ChartBarIcon,
-  CalendarIcon,
-  ClockIcon,
-  CheckCircleIcon,
   ArrowRightIcon,
-  ShieldCheckIcon,
-  DevicePhoneMobileIcon,
-  DocumentTextIcon,
-  EnvelopeIcon,
+  ArrowUpRightIcon,
+  CheckIcon,
+  PlusIcon,
+  MinusIcon,
+  StarIcon,
+  ChevronDownIcon,
   PhoneIcon,
-  MapPinIcon,
-  ChevronRightIcon,
-  SparklesIcon,
-  TrophyIcon,
-  BuildingLibraryIcon,
-  UsersIcon,
-  RocketLaunchIcon,
-  ArrowTrendingUpIcon,
-  CloudArrowUpIcon,
+  Bars3Icon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
-import { StarIcon as StarSolidIcon } from '@heroicons/react/24/solid';
+
+// ═══════════════════════════════════════════════
+// IMAGES
+// ═══════════════════════════════════════════════
+
+const IMG = {
+  hero: 'https://images.unsplash.com/photo-1497486751825-1233686d5d80?auto=format&fit=crop&w=1400&q=80',
+  school:
+    'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=1200&q=80',
+  students:
+    'https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=1200&q=80',
+  classroom:
+    'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=1000&q=80',
+  testimonial:
+    'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=400&q=80',
+};
+
+// ═══════════════════════════════════════════════
+// NAVIGATION — MENUS DÉROULANTS
+// ═══════════════════════════════════════════════
+
+type NavMenu = {
+  label: string;
+  items: { label: string; desc?: string; to: string }[];
+};
+
+const NAV_MENUS: NavMenu[] = [
+  {
+    label: 'Produit',
+    items: [
+      { label: 'Fonctionnalités', desc: 'Tous les modules en détail', to: '/features' },
+      { label: 'Tarifs', desc: 'Plans et prix', to: '/tarifs' },
+      { label: 'Démo', desc: 'Essayer sans compte', to: '/demo' },
+      { label: 'Sécurité', desc: 'Chiffrement & conformité', to: '/security' },
+    ],
+  },
+  {
+    label: 'Entreprise',
+    items: [
+      { label: 'À propos', desc: 'Notre mission', to: '/about' },
+      { label: 'Clients', desc: 'Écoles qui nous font confiance', to: '/clients' },
+      { label: 'Carrières', desc: 'Rejoindre le projet', to: '/careers' },
+      { label: 'Contact', desc: 'Parler à un humain', to: '/contact' },
+    ],
+  },
+  {
+    label: 'Ressources',
+    items: [
+      { label: "Centre d'aide", desc: 'Réponses rapides', to: '/help' },
+      { label: 'Documentation', desc: 'Guides détaillés', to: '/docs' },
+      { label: 'API Développeurs', desc: 'Intégrer EduManage', to: '/api' },
+      { label: 'Statut', desc: 'Disponibilité en direct', to: '/status' },
+    ],
+  },
+];
+
+// ═══════════════════════════════════════════════
+// PAGE
+// ═══════════════════════════════════════════════
 
 const HomePage: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
-  const [activeTestimonial, setActiveTestimonial] = useState(0);
+  const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileSubmenu, setMobileSubmenu] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -39,1010 +89,936 @@ const HomePage: React.FC = () => {
   });
 
   const scaleX = useSpring(scrollYProgress, {
-    stiffness: 100,
+    stiffness: 120,
     damping: 30,
     restDelta: 0.001,
   });
 
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.3], [1, 0.8]);
-  const heroScale = useTransform(scrollYProgress, [0, 0.3], [1, 0.98]);
-  const heroY = useTransform(scrollYProgress, [0, 0.3], [0, 50]);
-
   useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 50);
+    const handleScroll = () => setIsScrolled(window.scrollY > 40);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Fermer les menus au clic extérieur
   useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveTestimonial((prev) => (prev + 1) % testimonials.length);
-    }, 5000);
-    return () => clearInterval(interval);
+    const handleClickOutside = (e: MouseEvent) => {
+      if (navRef.current && !navRef.current.contains(e.target as Node)) {
+        setOpenMenu(null);
+        setMobileMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Fermer au changement de route
+  useEffect(() => {
+    setOpenMenu(null);
+    setMobileMenuOpen(false);
+    setMobileSubmenu(null);
+  }, [location.pathname]);
+
+  // Fermer au scroll (uniquement pour le dropdown desktop)
+  useEffect(() => {
+    if (openMenu) {
+      const close = () => setOpenMenu(null);
+      window.addEventListener('scroll', close, { once: true });
+      return () => window.removeEventListener('scroll', close);
+    }
+  }, [openMenu]);
 
   const features = [
     {
-      icon: UserGroupIcon,
-      title: 'Gestion des élèves',
-      description: 'Suivi personnalisé de chaque élève avec tableau de bord intelligent et alertes en temps réel.',
-      color: 'from-emerald-500 to-teal-600',
-      bgColor: 'bg-emerald-50',
-      delay: 0.1,
+      num: '01',
+      title: 'Élèves',
+      desc: 'Dossiers centralisés, historique complet, alertes automatiques. Chaque élève a sa fiche vivante.',
     },
     {
-      icon: AcademicCapIcon,
-      title: 'Gestion des enseignants',
-      description: 'Plateforme collaborative pour enseignants avec planification automatique et évaluations.',
-      color: 'from-green-500 to-emerald-600',
-      bgColor: 'bg-green-50',
-      delay: 0.2,
+      num: '02',
+      title: 'Enseignants',
+      desc: 'Planning, évaluations, communication interne. Vos équipes travaillent ensemble, sans friction.',
     },
     {
-      icon: CurrencyDollarIcon,
-      title: 'Paiements & Scolarité',
-      description: 'Système de paiement sécurisé avec facturation automatique et suivi des échéances.',
-      color: 'from-teal-500 to-cyan-600',
-      bgColor: 'bg-teal-50',
-      delay: 0.3,
+      num: '03',
+      title: 'Scolarité',
+      desc: 'Paiements Mobile Money, reçus automatiques, relances intelligentes. Fini les impayés oubliés.',
     },
     {
-      icon: CalendarIcon,
-      title: 'Emploi du temps',
-      description: 'Planning intelligent avec synchronisation multi-plateformes et notifications.',
-      color: 'from-lime-500 to-green-600',
-      bgColor: 'bg-lime-50',
-      delay: 0.4,
+      num: '04',
+      title: 'Bulletins',
+      desc: 'Génération en un clic, moyennes calculées, PDF signés. Vos bulletins en 3 minutes, pas 3 jours.',
     },
     {
-      icon: DocumentTextIcon,
-      title: 'Bulletins scolaires',
-      description: 'Génération automatique de bulletins personnalisés avec analyses de performance.',
-      color: 'from-emerald-600 to-green-700',
-      bgColor: 'bg-emerald-50',
-      delay: 0.5,
+      num: '05',
+      title: 'Présences',
+      desc: 'Pointage rapide, notifications parents en temps réel, rapports mensuels automatiques.',
     },
     {
-      icon: ClockIcon,
-      title: 'Présence & Pointage',
-      description: 'Système de suivi des présences avec reconnaissance faciale et rapports détaillés.',
-      color: 'from-cyan-500 to-teal-600',
-      bgColor: 'bg-cyan-50',
-      delay: 0.6,
-    },
-    {
-      icon: ShieldCheckIcon,
-      title: 'Sécurité & Conformité',
-      description: 'Protection des données avec chiffrement avancé et conformité RGPD certifiée.',
-      color: 'from-green-600 to-emerald-700',
-      bgColor: 'bg-green-50',
-      delay: 0.7,
-    },
-    {
-      icon: DevicePhoneMobileIcon,
-      title: 'Mobile Responsive',
-      description: 'Application mobile native avec synchronisation en temps réel et push notifications.',
-      color: 'from-teal-600 to-emerald-700',
-      bgColor: 'bg-teal-50',
-      delay: 0.8,
+      num: '06',
+      title: 'Sécurité',
+      desc: 'Chiffrement AES-256, hébergement souverain, conformité RGPD. Vos données vous appartiennent.',
     },
   ];
 
   const stats = [
-    { label: 'Écoles actives', value: '250+', icon: BuildingLibraryIcon, gradient: 'from-emerald-500 to-teal-500' },
-    { label: 'Élèves gérés', value: '50K+', icon: UsersIcon, gradient: 'from-green-500 to-emerald-500' },
-    { label: 'Transactions', value: '150K+', icon: CloudArrowUpIcon, gradient: 'from-teal-500 to-cyan-500' },
-    { label: 'Satisfaction', value: '98%', icon: ChartBarIcon, gradient: 'from-lime-500 to-green-500' },
+    { value: '250+', label: 'écoles' },
+    { value: '50K', label: 'élèves gérés' },
+    { value: '99.9%', label: 'disponibilité' },
+    { value: '40%', label: 'temps gagné' },
   ];
 
   const testimonials = [
     {
+      quote:
+        'On a divisé par trois le temps passé sur la paperasse. Nos secrétaires respirent enfin.',
       name: 'Jean Dupont',
-      role: 'Directeur, Lycée International de Paris',
-      content:
-        'Cette solution a révolutionné la gestion de notre établissement. Nous avons gagné 40% de temps administratif et nos équipes sont plus sereines.',
-      rating: 5,
-      image: 'https://ui-avatars.com/api/?name=Jean+Dupont&background=059669&color=fff&size=80&font-size=0.5',
+      role: 'Directeur, Lycée International de Lomé',
+      initials: 'JD',
     },
     {
+      quote:
+        "La gestion des paiements Mobile Money a changé notre quotidien. Plus de files d'attente, plus d'erreurs.",
       name: 'Marie Martin',
       role: 'Secrétaire Générale, Collège Saint-Joseph',
-      content:
-        "L'interface est remarquablement intuitive. La gestion des paiements et des bulletins est devenue un jeu d'enfant !",
-      rating: 5,
-      image: 'https://ui-avatars.com/api/?name=Marie+Martin&background=10b981&color=fff&size=80&font-size=0.5',
+      initials: 'MM',
     },
     {
-      name: 'Pierre Leblanc',
-      role: 'Enseignant, École Primaire des Lilas',
-      content:
-        "Le suivi des présences et des évaluations est un véritable gain de temps. Je peux me concentrer sur l'essentiel : enseigner.",
-      rating: 5,
-      image: 'https://ui-avatars.com/api/?name=Pierre+Leblanc&background=047857&color=fff&size=80&font-size=0.5',
-    },
-    {
+      quote:
+        "Un outil pensé pour l'Afrique, pas adapté après coup. Ça se sent dans chaque détail.",
       name: 'Sophie Dubois',
       role: 'Directrice, Institut Sainte-Marie',
-      content:
-        "Un outil exceptionnel qui a modernisé notre établissement. La communication avec les parents n'a jamais été aussi fluide.",
-      rating: 5,
-      image: 'https://ui-avatars.com/api/?name=Sophie+Dubois&background=065f46&color=fff&size=80&font-size=0.5',
+      initials: 'SD',
     },
   ];
 
-  const partners = [
-    { name: 'UNESCO', icon: '🏛️' },
-    { name: 'Ministère Éducation', icon: '📚' },
-    { name: 'Google for Education', icon: '🎯' },
-    { name: 'Microsoft Education', icon: '💻' },
+  const faqs = [
+    {
+      q: 'Combien de temps pour démarrer ?',
+      a: 'Moins de 48h. Nous importons vos données existantes (Excel, papier, autre logiciel) et formons votre équipe gratuitement.',
+    },
+    {
+      q: 'Fonctionne-t-il avec Mobile Money ?',
+      a: 'Oui. Intégration native avec Flooz, T-Money, MTN MoMo et Orange Money. Les paiements sont reçus directement sur votre compte école.',
+    },
+    {
+      q: 'Mes données sont-elles en sécurité ?',
+      a: 'Chiffrement AES-256, hébergement au Togo et en Europe, sauvegardes quotidiennes. Conformité RGPD et ISO 27001.',
+    },
+    {
+      q: 'Y a-t-il un engagement ?',
+      a: 'Aucun. Essai gratuit 30 jours, sans carte bancaire. Vous pouvez annuler en un clic à tout moment.',
+    },
   ];
 
   return (
-    <div ref={containerRef} className="min-h-screen bg-white overflow-x-hidden">
-      {/* Progress Bar */}
+    <div
+      ref={containerRef}
+      className="min-h-screen bg-[#F7F4EB] text-[#0A0A0A] overflow-x-hidden antialiased"
+    >
+      {/* Progress bar */}
       <motion.div
-        className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-green-500 z-50"
-        style={{ scaleX, transformOrigin: '0% 0%' }}
+        className="fixed top-0 left-0 right-0 h-[2px] bg-[#10B981] z-50 origin-left"
+        style={{ scaleX }}
       />
+
+  
 
       {/* ============ NAVBAR ============ */}
       <motion.nav
-        className={`fixed top-0 w-full z-40 transition-all duration-500 ${
+        ref={navRef}
+        className={`sticky top-0 w-full z-40 transition-all duration-300 ${
           isScrolled
-            ? 'bg-white/95 backdrop-blur-xl shadow-2xl py-3 border-b border-gray-100'
-            : 'bg-transparent py-5'
+            ? 'bg-[#F7F4EB]/90 backdrop-blur-md border-b border-black/5 py-3'
+            : 'bg-[#F7F4EB] py-4'
         }`}
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        transition={{ duration: 0.5 }}
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1400px] mx-auto px-6 lg:px-10">
           <div className="flex justify-between items-center">
-            <Link to="/" className="flex items-center space-x-3 group">
-              <motion.div
-                className="w-11 h-11 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-2xl flex items-center justify-center shadow-xl shadow-emerald-500/30 group-hover:shadow-emerald-500/50 transition-all duration-300"
-                whileHover={{ rotate: 10, scale: 1.05 }}
-              >
-                <span className="text-white font-bold text-2xl">E</span>
-              </motion.div>
-              <div>
-                <span className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-                  EduManage
+            {/* Logo */}
+            <Link to="/" className="flex items-center gap-3 group">
+              <div className="w-9 h-9 bg-[#0A0A0A] rounded-lg flex items-center justify-center transition-transform duration-300 group-hover:rotate-6">
+                <span className="text-[#F7F4EB] font-black text-lg leading-none">E</span>
+              </div>
+              <div className="leading-none">
+                <span className="text-[15px] font-bold tracking-tight block">EduManage</span>
+                <span className="text-[10px] text-[#10B981] font-mono tracking-[0.2em] font-semibold">
+                  PRO
                 </span>
-                <span className="text-xs text-gray-400 block -mt-0.5">Pro</span>
               </div>
             </Link>
 
-            <div className="hidden md:flex items-center space-x-10">
-              {['Fonctionnalités', 'Tarifs', 'À propos', 'Contact'].map((item, index) => (
-                <motion.div
-                  key={item}
-                  initial={{ opacity: 0, y: -20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                >
-                  <Link
-                    to={`/${item.toLowerCase().replace(' ', '')}`}
-                    className="text-gray-600 hover:text-emerald-600 transition-all duration-300 text-sm font-medium relative group"
-                  >
-                    {item}
-                    <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-emerald-600 to-teal-600 transition-all duration-300 group-hover:w-full" />
-                  </Link>
-                </motion.div>
-              ))}
-            </div>
-
-            <div className="flex items-center space-x-4">
-              <Link to="/login">
-                <motion.button
-                  className="hidden md:inline-flex px-4 py-2 text-sm font-medium text-gray-700 hover:text-emerald-600 transition-colors"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  Connexion
-                </motion.button>
-              </Link>
-              <Link to="/login">
-                <motion.button
-                  className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-sm font-semibold rounded-xl shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 transition-all duration-300"
-                  whileHover={{ scale: 1.05, y: -2 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  Essayer gratuitement
-                </motion.button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </motion.nav>
-
-      {/* ============ HERO SECTION ============ */}
-      <motion.section
-        className="relative overflow-hidden min-h-screen flex items-center pt-20"
-        style={{ opacity: heroOpacity, scale: heroScale, y: heroY }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-br from-emerald-600 via-teal-700 to-green-900">
-          <div className="absolute inset-0 opacity-10">
-            <div
-              className="absolute inset-0"
-              style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.15'%3E%3Cpath d='M50 40v-8h-8v8h-8v8h8v8h8v-8h8v-8h-8zM20 40v-8h-8v8H4v8h8v8h8v-8h8v-8h-8zm0-20v-8h-8v8H4v8h8v8h8v-8h8v-8h-8zm0-20V0h-8v8H4v8h8v8h8V8h8V0h-8z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-              }}
-            />
-          </div>
-
-          <motion.div
-            className="absolute top-20 right-20 w-96 h-96 bg-emerald-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20"
-            animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.3, 0.2] }}
-            transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
-          />
-          <motion.div
-            className="absolute bottom-20 left-20 w-96 h-96 bg-teal-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20"
-            animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.25, 0.2] }}
-            transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
-          />
-          <motion.div
-            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-green-400 rounded-full mix-blend-multiply filter blur-3xl opacity-10"
-            animate={{ scale: [1, 1.4, 1], opacity: [0.1, 0.2, 0.1] }}
-            transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut', delay: 4 }}
-          />
-
-          {[...Array(20)].map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute w-1 h-1 bg-white rounded-full"
-              style={{ top: `${Math.random() * 100}%`, left: `${Math.random() * 100}%` }}
-              animate={{ y: [0, -30, 0], opacity: [0, 1, 0] }}
-              transition={{ duration: 3 + Math.random() * 4, repeat: Infinity, delay: Math.random() * 5 }}
-            />
-          ))}
-        </div>
-
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <motion.div
-              initial={{ opacity: 0, x: -80 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, type: 'spring', stiffness: 100 }}
-              className="text-white"
-            >
-              <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-                <span className="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-medium bg-white/10 backdrop-blur-lg border border-white/20 shadow-lg">
-                  <SparklesIcon className="w-4 h-4 mr-2 animate-pulse" />
-                  🚀 Gestion Scolaire 4.0
-                </span>
-              </motion.div>
-
-              <motion.h1
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="text-5xl sm:text-6xl lg:text-7xl font-bold leading-tight mt-6"
-              >
-                Gérez votre
-                <span className="block bg-gradient-to-r from-emerald-200 via-teal-200 to-green-200 bg-clip-text text-transparent">
-                  établissement
-                </span>
-                <span className="text-white">en toute simplicité</span>
-              </motion.h1>
-
-              <motion.p
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className="text-xl text-emerald-100 mb-10 max-w-2xl leading-relaxed"
-              >
-                Une solution tout-en-un pour gérer élèves, enseignants, paiements, bulletins et plus encore. La
-                plateforme qui fait gagner du temps à toute votre équipe.
-              </motion.p>
-
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-                className="flex flex-wrap gap-5"
-              >
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Link to="/login">
-                    <button className="px-10 py-4.5 bg-white text-emerald-700 font-semibold rounded-2xl shadow-2xl hover:shadow-emerald-500/30 transition-all duration-300 flex items-center gap-3 text-lg group">
-                      Commencer maintenant
-                      <motion.div animate={{ x: [0, 5, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>
-                        <ArrowRightIcon className="w-5 h-5" />
-                      </motion.div>
+            {/* Menus desktop */}
+            <div className="hidden md:flex items-center gap-1">
+              {NAV_MENUS.map((menu) => {
+                const isOpen = openMenu === menu.label;
+                return (
+                  <div key={menu.label} className="relative">
+                    <button
+                      onClick={() => setOpenMenu(isOpen ? null : menu.label)}
+                      onMouseEnter={() => setOpenMenu(menu.label)}
+                      className={`flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-medium transition-colors rounded-lg ${
+                        isOpen
+                          ? 'text-[#0A0A0A] bg-black/5'
+                          : 'text-black/65 hover:text-black'
+                      }`}
+                    >
+                      {menu.label}
+                      <ChevronDownIcon
+                        className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                          isOpen ? 'rotate-180' : ''
+                        }`}
+                      />
                     </button>
-                  </Link>
-                </motion.div>
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Link to="/demo">
-                    <button className="px-10 py-4.5 border-2 border-white/30 text-white font-semibold rounded-2xl hover:bg-white/10 transition-all backdrop-blur-sm flex items-center gap-3 text-lg">
-                      Voir la démo
-                      <ChevronRightIcon className="w-5 h-5" />
-                    </button>
-                  </Link>
-                </motion.div>
-              </motion.div>
 
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.6 }}
-                className="mt-12 flex flex-wrap items-center gap-8"
-              >
-                {[
-                  { text: 'Gratuit 30 jours', icon: CheckCircleIcon },
-                  { text: 'Sans engagement', icon: CheckCircleIcon },
-                  { text: 'Support 24/7', icon: CheckCircleIcon },
-                ].map((item, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.7 + index * 0.1 }}
-                    className="flex items-center gap-2 text-sm text-emerald-100"
-                  >
-                    <item.icon className="w-5 h-5 text-emerald-300" />
-                    <span>{item.text}</span>
-                  </motion.div>
-                ))}
-              </motion.div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: 80 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.3, type: 'spring', stiffness: 100 }}
-              className="hidden lg:block"
-            >
-              <motion.div
-                className="relative"
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-              >
-                <div className="absolute -inset-6 bg-gradient-to-r from-emerald-400 via-teal-400 to-green-400 rounded-3xl blur-2xl opacity-30 animate-pulse" />
-                <div className="relative bg-white/5 backdrop-blur-2xl rounded-3xl p-6 border border-white/20 shadow-2xl">
-                  <div className="bg-white rounded-2xl overflow-hidden shadow-2xl">
-                    <div className="bg-gray-50 p-5 border-b border-gray-200">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-                          <div className="w-3 h-3 bg-yellow-500 rounded-full animate-pulse delay-200" />
-                          <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse delay-400" />
-                        </div>
-                        <div className="flex items-center gap-4 text-sm text-gray-500">
-                          <span>👋 Bonjour, Admin</span>
-                          <div className="w-8 h-8 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
-                            A
+                    {/* Dropdown */}
+                    <AnimatePresence>
+                      {isOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                          transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                          onMouseLeave={() => setOpenMenu(null)}
+                          className="absolute top-full left-0 mt-2 w-[300px] bg-white rounded-xl border border-black/[0.07] shadow-[0_20px_60px_-20px_rgba(10,10,10,0.25)] overflow-hidden"
+                        >
+                          <div className="p-2">
+                            {menu.items.map((item) => (
+                              <Link
+                                key={item.label}
+                                to={item.to}
+                                className="flex items-start gap-3 px-3 py-2.5 rounded-lg hover:bg-[#F7F4EB] transition-colors group"
+                              >
+                                <div className="w-1 h-1 rounded-full bg-[#10B981] mt-2 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />
+                                <div className="min-w-0">
+                                  <p className="text-[13px] font-semibold text-[#0A0A0A] group-hover:text-[#10B981] transition-colors">
+                                    {item.label}
+                                  </p>
+                                  {item.desc && (
+                                    <p className="text-[11.5px] text-black/50 leading-snug mt-0.5">
+                                      {item.desc}
+                                    </p>
+                                  )}
+                                </div>
+                              </Link>
+                            ))}
                           </div>
-                        </div>
-                      </div>
-                    </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                );
+              })}
+            </div>
 
-                    <div className="p-8 space-y-6">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-bold text-gray-800">Tableau de bord</h3>
-                        <span className="text-xs text-emerald-600 font-medium bg-emerald-50 px-3 py-1 rounded-full">
-                          Dernières 24h
-                        </span>
-                      </div>
+            {/* Actions */}
+            <div className="flex items-center gap-2">
+              <Link
+                to="/login"
+                className="hidden sm:inline-flex text-[13px] font-medium text-black/60 hover:text-black transition-colors px-3 py-2"
+              >
+                Connexion
+              </Link>
+              <Link
+                to="/register"
+                className="group inline-flex items-center gap-2 bg-[#0A0A0A] text-[#F7F4EB] text-[13px] font-semibold px-5 py-2.5 rounded-full hover:bg-[#10B981] transition-all duration-300"
+              >
+                Démarrer
+                <ArrowUpRightIcon className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </Link>
 
-                      <div className="grid grid-cols-3 gap-4">
-                        {[
-                          { label: 'Élèves', value: '1,284', color: 'emerald', trend: '+12%' },
-                          { label: 'Enseignants', value: '48', color: 'teal', trend: '+3%' },
-                          { label: 'Paiements', value: '€12.5K', color: 'green', trend: '+8%' },
-                        ].map((item, index) => (
-                          <motion.div
-                            key={index}
-                            className={`bg-${item.color}-50 p-5 rounded-xl border border-${item.color}-100`}
-                            whileHover={{ scale: 1.03, y: -2 }}
-                            transition={{ duration: 0.2 }}
-                          >
-                            <p className={`text-sm text-${item.color}-600 font-medium`}>{item.label}</p>
-                            <p className={`text-2xl font-bold text-${item.color}-700 mt-1`}>{item.value}</p>
-                            <p className={`text-xs text-${item.color}-500 mt-1 flex items-center gap-1`}>
-                              <ArrowTrendingUpIcon className="w-3 h-3" />
-                              {item.trend}
-                            </p>
-                          </motion.div>
-                        ))}
-                      </div>
+              {/* Burger mobile */}
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="md:hidden w-10 h-10 rounded-full border border-black/10 flex items-center justify-center ml-1"
+                aria-label="Menu"
+              >
+                {mobileMenuOpen ? (
+                  <XMarkIcon className="w-5 h-5" />
+                ) : (
+                  <Bars3Icon className="w-5 h-5" />
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
 
-                      <motion.div
-                        className="bg-gradient-to-r from-emerald-50 to-teal-50 h-32 rounded-xl flex items-center justify-center p-6 border border-emerald-100"
-                        whileHover={{ scale: 1.01 }}
-                        transition={{ duration: 0.3 }}
+        {/* ============ MENU MOBILE ============ */}
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              className="md:hidden overflow-hidden bg-[#F7F4EB] border-t border-black/5"
+            >
+              <div className="px-6 py-5 space-y-1">
+                {NAV_MENUS.map((menu) => {
+                  const isOpen = mobileSubmenu === menu.label;
+                  return (
+                    <div key={menu.label}>
+                      <button
+                        onClick={() =>
+                          setMobileSubmenu(isOpen ? null : menu.label)
+                        }
+                        className="w-full flex items-center justify-between py-3 text-[14px] font-semibold text-[#0A0A0A]"
                       >
-                        <div className="flex items-center gap-6 w-full">
-                          <div className="flex-1">
-                            <p className="text-sm text-gray-600 font-medium">Performance globale</p>
-                            <div className="mt-3 flex items-end gap-1 h-12">
-                              {[65, 78, 82, 70, 92, 85, 88, 76, 95, 82].map((h, i) => (
-                                <motion.div
-                                  key={i}
-                                  className={`w-6 ${h > 80 ? 'bg-emerald-500' : 'bg-emerald-300'} rounded-t`}
-                                  style={{ height: `${h * 0.6}px` }}
-                                  initial={{ height: 0 }}
-                                  animate={{ height: `${h * 0.6}px` }}
-                                  transition={{ delay: i * 0.1, duration: 0.5 }}
-                                />
+                        {menu.label}
+                        <ChevronDownIcon
+                          className={`w-4 h-4 transition-transform ${
+                            isOpen ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </button>
+                      <AnimatePresence>
+                        {isOpen && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="pl-3 pb-2 space-y-1 border-l border-black/10 ml-1">
+                              {menu.items.map((item) => (
+                                <Link
+                                  key={item.label}
+                                  to={item.to}
+                                  className="block py-2 pl-3 text-[13px] text-black/60 hover:text-[#10B981] transition-colors"
+                                >
+                                  {item.label}
+                                </Link>
                               ))}
                             </div>
-                          </div>
-                          <div className="text-center">
-                            <p className="text-2xl font-bold text-emerald-600">92%</p>
-                            <p className="text-xs text-gray-500">Taux de réussite</p>
-                          </div>
-                        </div>
-                      </motion.div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
+                  );
+                })}
+
+                <div className="pt-4 border-t border-black/10 space-y-2">
+                  <Link
+                    to="/login"
+                    className="block py-2.5 text-[13.5px] font-medium text-black/70"
+                  >
+                    Connexion
+                  </Link>
+                  <a
+                    href="tel:+22892438582"
+                    className="flex items-center gap-2 py-2 text-[13px] text-black/60"
+                  >
+                    <PhoneIcon className="w-4 h-4 text-[#10B981]" />
+                    +228 92 43 85 82
+                  </a>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.nav>
+
+      {/* ============ HERO ============ */}
+      <section className="relative pt-20 lg:pt-28 pb-20 lg:pb-28 overflow-hidden">
+        <div
+          className="absolute inset-0 opacity-[0.03] pointer-events-none"
+          style={{
+            backgroundImage:
+              'linear-gradient(to right, #0A0A0A 1px, transparent 1px), linear-gradient(to bottom, #0A0A0A 1px, transparent 1px)',
+            backgroundSize: '64px 64px',
+            maskImage: 'radial-gradient(ellipse at top, black 40%, transparent 80%)',
+          }}
+        />
+
+        <div className="relative max-w-[1400px] mx-auto px-6 lg:px-10">
+          <div className="grid lg:grid-cols-12 gap-10 lg:gap-12 items-center">
+            <motion.div
+              className="lg:col-span-7"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <div className="flex items-center gap-3 mb-7">
+                <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
+                <span className="text-[11.5px] font-mono uppercase tracking-[0.2em] text-black/50">
+                  Gestion scolaire · Afrique de l'Ouest
+                </span>
+              </div>
+
+              <h1 className="text-[clamp(2.5rem,6.5vw,5.5rem)] font-black leading-[0.95] tracking-[-0.04em]">
+                L'école,
+                <br />
+                <span className="text-[#10B981]">réinventée</span>
+                <br />
+                pour l'Afrique.
+              </h1>
+
+              <p className="mt-7 text-[16px] lg:text-[17px] text-black/60 max-w-lg leading-relaxed">
+                EduManage Pro remplace vos fichiers Excel, vos cahiers de présence et vos relances
+                manuelles par une plateforme unique, rapide et pensée pour le terrain.
+              </p>
+
+              <div className="mt-9 flex flex-wrap items-center gap-4">
+                <Link
+                  to="/register"
+                  className="group inline-flex items-center gap-3 bg-[#10B981] text-white text-[14.5px] font-semibold px-7 py-4 rounded-full hover:bg-[#0A0A0A] transition-all duration-300"
+                >
+                  Essayer gratuitement
+                  <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center transition-transform duration-300 group-hover:translate-x-1">
+                    <ArrowRightIcon className="w-3.5 h-3.5" />
+                  </span>
+                </Link>
+                <Link
+                  to="/demo"
+                  className="inline-flex items-center gap-2 text-[14.5px] font-semibold text-black/80 hover:text-[#10B981] transition-colors px-4 py-4"
+                >
+                  Voir la démo
+                  <ArrowUpRightIcon className="w-4 h-4" />
+                </Link>
+              </div>
+
+              <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-3 text-[12.5px] text-black/50">
+                {['30 jours gratuits', 'Sans carte bancaire', 'Support 24/7'].map((t) => (
+                  <div key={t} className="flex items-center gap-1.5">
+                    <CheckIcon className="w-4 h-4 text-[#10B981]" />
+                    {t}
                   </div>
+                ))}
+              </div>
+            </motion.div>
 
-                  <motion.div
-                    className="absolute -bottom-8 -right-8 bg-white rounded-2xl shadow-2xl p-5"
-                    animate={{ y: [0, -5, 0] }}
-                    transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center">
-                        <TrophyIcon className="w-7 h-7 text-emerald-600" />
-                      </div>
-                      <div>
-                        <p className="font-bold text-gray-900">250+ écoles</p>
-                        <p className="text-sm text-gray-500">nous font confiance</p>
-                      </div>
-                    </div>
-                  </motion.div>
+            <motion.div
+              className="lg:col-span-5 relative"
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.9, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <div className="relative rounded-3xl overflow-hidden shadow-[0_30px_80px_-30px_rgba(10,10,10,0.4)]">
+                <img
+                  src={IMG.hero}
+                  alt="Élèves en classe en Afrique de l'Ouest"
+                  className="w-full h-[420px] lg:h-[520px] object-cover"
+                  loading="eager"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/0 to-black/0" />
 
-                  <motion.div
-                    className="absolute -top-6 -left-6 bg-white rounded-2xl shadow-2xl p-4"
-                    animate={{ x: [0, -3, 0] }}
-                    transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
-                        <RocketLaunchIcon className="w-5 h-5 text-teal-600" />
+                <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between bg-[#F7F4EB]/95 backdrop-blur-md rounded-2xl px-4 py-3">
+                  <div>
+                    <p className="text-[10px] font-mono uppercase tracking-[0.15em] text-black/40">
+                      En direct · Lomé
+                    </p>
+                    <p className="text-[13px] font-bold text-[#0A0A0A] mt-0.5">
+                      1 284 élèves connectés
+                    </p>
+                  </div>
+                  <div className="flex -space-x-2">
+                    {['JD', 'MM', 'SD', 'AK'].map((i) => (
+                      <div
+                        key={i}
+                        className="w-8 h-8 rounded-full bg-[#0A0A0A] border-2 border-[#F7F4EB] flex items-center justify-center text-[#F7F4EB] text-[10px] font-bold"
+                      >
+                        {i}
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">+40%</p>
-                        <p className="text-xs text-gray-500">de productivité</p>
-                      </div>
-                    </div>
-                  </motion.div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <motion.div
+                animate={{ y: [0, -6, 0] }}
+                transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+                className="hidden lg:flex absolute -right-4 top-6 bg-[#0A0A0A] text-[#F7F4EB] rounded-2xl px-4 py-3 shadow-xl items-center gap-3"
+              >
+                <StarIcon className="w-4 h-4 text-[#10B981]" />
+                <div>
+                  <p className="text-[11px] font-mono uppercase tracking-[0.1em] text-white/40">
+                    Satisfaction
+                  </p>
+                  <p className="text-[14px] font-bold leading-none mt-0.5">98%</p>
                 </div>
               </motion.div>
             </motion.div>
           </div>
         </div>
-      </motion.section>
+      </section>
 
-      {/* ============ PARTNERS ============ */}
-      <motion.section
-        className="py-12 bg-gray-50 border-t border-gray-100"
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        transition={{ duration: 0.6 }}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap items-center justify-center gap-12 opacity-60">
-            <p className="text-sm text-gray-400 font-medium uppercase tracking-wider">Ils nous font confiance</p>
-            {partners.map((partner, index) => (
-              <motion.div
-                key={index}
-                className="flex items-center gap-2 text-gray-400"
-                whileHover={{ scale: 1.05, color: '#059669' }}
-                transition={{ duration: 0.2 }}
-              >
-                <span className="text-2xl">{partner.icon}</span>
-                <span className="text-sm font-medium">{partner.name}</span>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </motion.section>
-
-      {/* ============ STATS ============ */}
-      <section className="py-20 bg-gradient-to-b from-white to-gray-50 relative">
-        <div className="absolute inset-0 opacity-5">
-          <div className="absolute inset-0 bg-[url('/pattern.svg')] bg-repeat" />
-        </div>
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-            {stats.map((stat, index) => (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, y: 50 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.15, type: 'spring', stiffness: 100 }}
-                whileHover={{ y: -8, transition: { duration: 0.2 } }}
-                className="group relative"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-white to-gray-50 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <div className="relative text-center bg-white p-8 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100/50">
-                  <div className={`inline-flex p-4 rounded-2xl bg-gradient-to-br ${stat.gradient} shadow-lg mb-5`}>
-                    <stat.icon className="w-7 h-7 text-white" />
-                  </div>
-                  <motion.p
-                    className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent"
-                    initial={{ scale: 0.5 }}
-                    whileInView={{ scale: 1 }}
-                    transition={{ delay: index * 0.15 + 0.2, type: 'spring' }}
-                  >
-                    {stat.value}
-                  </motion.p>
-                  <p className="text-sm text-gray-600 mt-2 font-medium">{stat.label}</p>
-                </div>
-              </motion.div>
+      {/* ============ BANDEAU PARTENAIRES ============ */}
+      <section className="py-7 border-y border-black/5 bg-white/50">
+        <div className="max-w-[1400px] mx-auto px-6 lg:px-10">
+          <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 text-[11.5px] font-mono uppercase tracking-[0.15em] text-black/40">
+            <span className="text-black/70">Ils nous font confiance :</span>
+            {[
+              'UNESCO',
+              'Ministère Éducation',
+              'Google for Education',
+              'Microsoft Education',
+              'AUF',
+            ].map((p) => (
+              <span key={p} className="hover:text-[#10B981] transition-colors cursor-default">
+                {p}
+              </span>
             ))}
           </div>
         </div>
       </section>
 
       {/* ============ FEATURES ============ */}
-      <section className="py-28 bg-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-50 rounded-full filter blur-3xl opacity-30" />
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-teal-50 rounded-full filter blur-3xl opacity-30" />
-
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-16"
-          >
-            <motion.span
-              className="inline-flex items-center gap-2 text-emerald-600 font-semibold text-sm uppercase tracking-wider bg-emerald-50 px-5 py-2 rounded-full"
-              whileHover={{ scale: 1.05 }}
-            >
-              <SparklesIcon className="w-4 h-4" />
-              Fonctionnalités exclusives
-            </motion.span>
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mt-6 leading-tight">
-              Tout ce dont vous avez besoin
-              <span className="block bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
-                pour une gestion optimale
+      <section className="py-24 lg:py-32">
+        <div className="max-w-[1400px] mx-auto px-6 lg:px-10">
+          <div className="grid lg:grid-cols-12 gap-10 mb-14">
+            <div className="lg:col-span-6">
+              <span className="text-[11.5px] font-mono uppercase tracking-[0.2em] text-[#10B981]">
+                — 01 / Produit
               </span>
-            </h2>
-            <p className="text-lg text-gray-600 mt-4 max-w-2xl mx-auto">
-              Une suite complète d'outils intelligents pour moderniser votre établissement scolaire
-            </p>
-          </motion.div>
+              <h2 className="text-[clamp(2rem,4vw,3.4rem)] font-black leading-[1.05] tracking-[-0.03em] mt-4">
+                Six modules.
+                <br />
+                Une seule école.
+              </h2>
+            </div>
+            <div className="lg:col-span-5 lg:col-start-8 flex items-end">
+              <p className="text-black/60 text-[15px] leading-relaxed">
+                Pas de features inutiles. Chaque module résout un problème réel que nous avons vu
+                dans les écoles de Lomé, Cotonou et Accra.
+              </p>
+            </div>
+          </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {features.map((feature, index) => (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-px bg-black/10 border border-black/10 rounded-2xl overflow-hidden">
+            {features.slice(0, 3).map((f, i) => (
               <motion.div
-                key={feature.title}
-                initial={{ opacity: 0, y: 50 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: feature.delay, type: 'spring', stiffness: 100 }}
-                whileHover={{ y: -12, transition: { duration: 0.2 } }}
-                className="group relative"
+                key={f.num}
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.05, duration: 0.5 }}
+                className="group bg-[#F7F4EB] p-8 lg:p-9 hover:bg-white transition-colors duration-300 relative"
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <div className={`relative ${feature.bgColor} rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100/50 group-hover:border-emerald-100/50`}>
-                  <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${feature.color} flex items-center justify-center mb-5 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                    <feature.icon className="w-7 h-7 text-white" />
-                  </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">{feature.title}</h3>
-                  <p className="text-gray-600 text-sm leading-relaxed">{feature.description}</p>
+                <div className="flex items-start justify-between mb-7">
+                  <span className="text-[11px] font-mono text-black/30 tracking-wider">
+                    {f.num}
+                  </span>
+                  <ArrowUpRightIcon className="w-5 h-5 text-black/20 group-hover:text-[#10B981] group-hover:rotate-45 transition-all duration-300" />
                 </div>
+                <h3 className="text-xl font-bold tracking-tight mb-2.5 group-hover:text-[#10B981] transition-colors">
+                  {f.title}
+                </h3>
+                <p className="text-[13.5px] text-black/60 leading-relaxed">{f.desc}</p>
+              </motion.div>
+            ))}
+
+            <div className="md:col-span-2 lg:col-span-3 grid lg:grid-cols-2 gap-px bg-black/10">
+              <div className="relative overflow-hidden bg-[#F7F4EB]">
+                <img
+                  src={IMG.students}
+                  alt="Élèves concentrés en classe"
+                  className="w-full h-[280px] lg:h-[320px] object-cover hover:scale-105 transition-transform duration-700"
+                  loading="lazy"
+                />
+                <div className="absolute top-4 left-4 bg-[#0A0A0A]/80 backdrop-blur-sm text-[#F7F4EB] text-[10.5px] font-mono uppercase tracking-[0.15em] px-2.5 py-1 rounded-full">
+                  École primaire · Lomé
+                </div>
+              </div>
+              <div className="bg-[#0A0A0A] text-[#F7F4EB] p-8 lg:p-10 flex flex-col justify-between">
+                <div>
+                  <span className="text-[11px] font-mono uppercase tracking-[0.2em] text-[#10B981]">
+                    — Focus terrain
+                  </span>
+                  <h3 className="text-[clamp(1.4rem,2.2vw,2rem)] font-black leading-[1.1] tracking-[-0.03em] mt-3">
+                    Testé dans les
+                    <br />
+                    <span className="text-[#10B981]">vraies écoles.</span>
+                  </h3>
+                  <p className="mt-4 text-white/50 text-[13.5px] leading-relaxed max-w-sm">
+                    Chaque fonctionnalité a été validée par des directeurs, secrétaires et
+                    enseignants sur le terrain. Pas dans un bureau.
+                  </p>
+                </div>
+                <div className="mt-8 pt-6 border-t border-white/10 grid grid-cols-3 gap-3">
+                  {stats.slice(0, 3).map((s) => (
+                    <div key={s.label}>
+                      <p className="text-xl font-black tracking-tight">{s.value}</p>
+                      <p className="text-[9.5px] font-mono uppercase tracking-[0.15em] text-white/40 mt-0.5">
+                        {s.label}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {features.slice(3, 6).map((f, i) => (
+              <motion.div
+                key={f.num}
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.05, duration: 0.5 }}
+                className="group bg-[#F7F4EB] p-8 lg:p-9 hover:bg-white transition-colors duration-300 relative"
+              >
+                <div className="flex items-start justify-between mb-7">
+                  <span className="text-[11px] font-mono text-black/30 tracking-wider">
+                    {f.num}
+                  </span>
+                  <ArrowUpRightIcon className="w-5 h-5 text-black/20 group-hover:text-[#10B981] group-hover:rotate-45 transition-all duration-300" />
+                </div>
+                <h3 className="text-xl font-bold tracking-tight mb-2.5 group-hover:text-[#10B981] transition-colors">
+                  {f.title}
+                </h3>
+                <p className="text-[13.5px] text-black/60 leading-relaxed">{f.desc}</p>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
-      {/* ============ TESTIMONIALS SECTION ============ */}
-      <section className="py-28 bg-gradient-to-b from-gray-50 to-white relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0 bg-[url('/pattern.svg')] bg-repeat" />
-        </div>
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-16"
-          >
-            <span className="text-emerald-600 font-semibold text-sm uppercase tracking-wider bg-emerald-50 px-5 py-2 rounded-full inline-block">
-              Témoignages
-            </span>
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mt-6">
-              Ce que disent nos
-              <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent"> utilisateurs</span>
-            </h2>
-            <p className="text-lg text-gray-600 mt-4 max-w-2xl mx-auto">
-              Des établissements à travers l'Afrique de l'Ouest nous font confiance chaque jour
-            </p>
-          </motion.div>
+      {/* ============ HOW IT WORKS ============ */}
+      <section className="py-24 lg:py-28 bg-[#0A0A0A] text-[#F7F4EB] rounded-[2rem] mx-4 lg:mx-8 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#10B981] rounded-full opacity-10 blur-[120px]" />
+        <div className="relative max-w-[1400px] mx-auto px-6 lg:px-16">
+          <div className="grid lg:grid-cols-12 gap-12">
+            <div className="lg:col-span-5">
+              <span className="text-[11.5px] font-mono uppercase tracking-[0.2em] text-[#10B981]">
+                — 02 / Process
+              </span>
+              <h2 className="text-[clamp(2rem,4vw,3.4rem)] font-black leading-[1.05] tracking-[-0.03em] mt-4">
+                Opérationnel
+                <br />
+                en 48h.
+              </h2>
+              <p className="mt-6 text-white/50 text-[14.5px] leading-relaxed max-w-sm">
+                Pas de projet sur 6 mois. Pas de consultant. Vous importez, on forme, vous
+                démarrez.
+              </p>
 
-          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-            {testimonials.slice(0, 2).map((testimonial, index) => (
-              <motion.div
-                key={testimonial.name}
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ delay: index * 0.15, type: "spring" }}
-                whileHover={{ y: -8 }}
-                className="bg-white rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300 p-8 border border-gray-100"
-              >
-                <div className="flex items-start gap-5 mb-5">
-                  <img
-                    src={testimonial.image}
-                    alt={testimonial.name}
-                    className="w-16 h-16 rounded-full object-cover ring-4 ring-emerald-50"
-                  />
-                  <div>
-                    <p className="font-bold text-gray-900 text-lg">{testimonial.name}</p>
-                    <p className="text-sm text-gray-500">{testimonial.role}</p>
-                    <div className="flex mt-1">
-                      {[...Array(testimonial.rating)].map((_, i) => (
-                        <StarSolidIcon key={i} className="w-4 h-4 text-yellow-400" />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <p className="text-gray-700 leading-relaxed">"{testimonial.content}"</p>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Testimonial carousel for mobile */}
-          <div className="md:hidden mt-8">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeTestimonial}
-                initial={{ opacity: 0, x: 50 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -50 }}
-                transition={{ duration: 0.5 }}
-                className="bg-white rounded-3xl shadow-xl p-8 border border-gray-100"
-              >
-                <div className="flex items-start gap-5 mb-5">
-                  <img
-                    src={testimonials[activeTestimonial].image}
-                    alt={testimonials[activeTestimonial].name}
-                    className="w-16 h-16 rounded-full object-cover ring-4 ring-emerald-50"
-                  />
-                  <div>
-                    <p className="font-bold text-gray-900 text-lg">{testimonials[activeTestimonial].name}</p>
-                    <p className="text-sm text-gray-500">{testimonials[activeTestimonial].role}</p>
-                    <div className="flex mt-1">
-                      {[...Array(testimonials[activeTestimonial].rating)].map((_, i) => (
-                        <StarSolidIcon key={i} className="w-4 h-4 text-yellow-400" />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <p className="text-gray-700 leading-relaxed">"{testimonials[activeTestimonial].content}"</p>
-              </motion.div>
-            </AnimatePresence>
-            <div className="flex justify-center gap-2 mt-6">
-              {testimonials.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => setActiveTestimonial(index)}
-                  className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
-                    activeTestimonial === index ? 'w-8 bg-emerald-600' : 'bg-gray-300 hover:bg-gray-400'
-                  }`}
+              <div className="mt-8 rounded-2xl overflow-hidden border border-white/10">
+                <img
+                  src={IMG.classroom}
+                  alt="Salle de classe moderne"
+                  className="w-full h-[220px] object-cover"
+                  loading="lazy"
                 />
+              </div>
+            </div>
+
+            <div className="lg:col-span-6 lg:col-start-7 space-y-8">
+              {[
+                {
+                  step: '01',
+                  title: 'Import de vos données',
+                  desc: 'Excel, papier, autre logiciel — notre équipe migre tout gratuitement en 24h.',
+                },
+                {
+                  step: '02',
+                  title: 'Formation de votre équipe',
+                  desc: '2 sessions live (1h chacune) pour secrétaires, enseignants et direction. En français.',
+                },
+                {
+                  step: '03',
+                  title: 'Vous êtes opérationnels',
+                  desc: 'Premier paiement encaissé, premier bulletin généré. Le reste suit naturellement.',
+                },
+              ].map((s, i) => (
+                <motion.div
+                  key={s.step}
+                  initial={{ opacity: 0, x: 30 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.15, duration: 0.6 }}
+                  className="flex gap-6 lg:gap-8 border-t border-white/10 pt-7 first:border-0 first:pt-0"
+                >
+                  <span className="text-[12.5px] font-mono text-[#10B981] pt-1 shrink-0">
+                    {s.step}
+                  </span>
+                  <div>
+                    <h3 className="text-[19px] font-bold mb-2">{s.title}</h3>
+                    <p className="text-white/50 text-[13.5px] leading-relaxed max-w-md">
+                      {s.desc}
+                    </p>
+                  </div>
+                </motion.div>
               ))}
             </div>
           </div>
         </div>
       </section>
 
-      {/* ============ CTA SECTION ============ */}
-      <motion.section
-        className="py-28 bg-gradient-to-br from-emerald-600 via-teal-700 to-green-900 relative overflow-hidden"
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        transition={{ duration: 0.6 }}
-      >
-        {/* Animated background */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0 bg-[url('/pattern.svg')] bg-repeat" />
-        </div>
-        <motion.div
-          className="absolute top-0 right-0 w-96 h-96 bg-emerald-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20"
-          animate={{ x: [0, -50, 0], y: [0, 30, 0] }}
-          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-        />
-        <motion.div
-          className="absolute bottom-0 left-0 w-96 h-96 bg-teal-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20"
-          animate={{ x: [0, 50, 0], y: [0, -30, 0] }}
-          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-        />
-
-        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <motion.div
-              animate={{ y: [0, -5, 0] }}
-              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-              className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-lg px-6 py-3 rounded-full border border-white/20 mb-8"
-            >
-              <RocketLaunchIcon className="w-5 h-5 text-white animate-pulse" />
-              <span className="text-white font-medium">Offre limitée — Lomé, Togo</span>
-            </motion.div>
-
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 leading-tight">
-              Prêt à transformer
-              <span className="block text-emerald-200">votre établissement ?</span>
-            </h2>
-            <p className="text-xl text-emerald-100 mb-10 max-w-2xl mx-auto leading-relaxed">
-              Rejoignez plus de 250 écoles à travers le Togo et l'Afrique de l'Ouest qui ont déjà choisi notre solution.
-            </p>
-            <div className="flex flex-wrap justify-center gap-5">
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Link to="/register">
-                  <button className="px-10 py-4.5 bg-white text-emerald-700 font-bold rounded-2xl shadow-2xl hover:shadow-emerald-500/30 transition-all duration-300 flex items-center gap-3 text-lg group">
-                    Essayer gratuitement
-                    <motion.div animate={{ x: [0, 5, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>
-                      <ArrowRightIcon className="w-5 h-5" />
-                    </motion.div>
-                  </button>
-                </Link>
-              </motion.div>
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <a href="tel:+22892438582">
-                  <button className="px-10 py-4.5 border-2 border-white/30 text-white font-semibold rounded-2xl hover:bg-white/10 transition-all backdrop-blur-sm flex items-center gap-3 text-lg">
-                    <PhoneIcon className="w-5 h-5" />
-                    +228 92 43 85 82
-                  </button>
-                </a>
-              </motion.div>
+      {/* ============ TESTIMONIALS ============ */}
+      <section className="py-24 lg:py-32">
+        <div className="max-w-[1400px] mx-auto px-6 lg:px-10">
+          <div className="grid lg:grid-cols-12 gap-10 items-end mb-14">
+            <div className="lg:col-span-6">
+              <span className="text-[11.5px] font-mono uppercase tracking-[0.2em] text-[#10B981]">
+                — 03 / Clients
+              </span>
+              <h2 className="text-[clamp(2rem,4vw,3.4rem)] font-black leading-[1.05] tracking-[-0.03em] mt-4">
+                Ils gèrent
+                <br />
+                avec nous.
+              </h2>
             </div>
-            <motion.p
-              className="mt-8 text-sm text-emerald-200"
-              animate={{ opacity: [0.5, 1, 0.5] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
-              🔒 Essai gratuit de 30 jours. Aucune carte bancaire requise.
-            </motion.p>
-          </motion.div>
-        </div>
-      </motion.section>
-
-      {/* ============ FOOTER ============ */}
-      <footer className="bg-gray-900 text-gray-300 relative overflow-hidden">
-        {/* Subtle top gradient line */}
-        <div className="h-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-green-500" />
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-10">
-          {/* ===== Top: Brand + Newsletter ===== */}
-          <div className="grid lg:grid-cols-3 gap-12 pb-14 border-b border-gray-800">
-            {/* Brand */}
-            <div className="lg:col-span-1">
-              <Link to="/" className="flex items-center space-x-3 group">
-                <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center shadow-xl shadow-emerald-500/20">
-                  <span className="text-white font-bold text-2xl">E</span>
-                </div>
-                <div>
-                  <span className="text-2xl font-bold text-white">EduManage</span>
-                  <span className="text-xs text-emerald-400 block -mt-0.5 font-medium tracking-wider">PRO</span>
-                </div>
-              </Link>
-              <p className="text-sm text-gray-400 mt-6 leading-relaxed max-w-sm">
-                La solution complète de gestion d'établissement scolaire, conçue pour l'Afrique.
-                Modernisez votre école avec des outils intelligents, sécurisés et adaptés au contexte local.
+            <div className="lg:col-span-5 lg:col-start-8">
+              <p className="text-black/50 text-[14px] leading-relaxed">
+                Des établissements de Lomé à Abidjan, du primaire au lycée.
               </p>
-
-              {/* Trust badges */}
-              <div className="flex flex-wrap gap-2 mt-6">
-                {['🇹🇬 Togo', '🇨🇮 Côte d\'Ivoire', '🇧🇯 Bénin', '🇬🇭 Ghana', '🇸🇳 Sénégal'].map((country) => (
-                  <span
-                    key={country}
-                    className="text-xs bg-gray-800 text-gray-300 px-3 py-1.5 rounded-full border border-gray-700"
-                  >
-                    {country}
-                  </span>
-                ))}
-              </div>
-
-              {/* Socials */}
-              <div className="flex space-x-3 mt-6">
-                {[
-                  { label: 'Facebook', href: 'https://facebook.com', svg: (
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                  )},
-                  { label: 'X', href: 'https://x.com', svg: (
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                  )},
-                  { label: 'LinkedIn', href: 'https://linkedin.com', svg: (
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-                  )},
-                  { label: 'Instagram', href: 'https://instagram.com', svg: (
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
-                  )},
-                ].map((social) => (
-                  <motion.a
-                    key={social.label}
-                    href={social.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={social.label}
-                    className="w-10 h-10 bg-gray-800 rounded-xl flex items-center justify-center text-gray-400 hover:text-white hover:bg-emerald-600 transition-all duration-300"
-                    whileHover={{ scale: 1.1, y: -2 }}
-                    whileTap={{ scale: 0.9 }}
-                  >
-                    {social.svg}
-                  </motion.a>
-                ))}
-              </div>
             </div>
+          </div>
 
-            {/* Newsletter */}
-            <div className="lg:col-span-2">
-              <h4 className="text-white font-bold text-lg mb-3">Restez informé</h4>
-              <p className="text-sm text-gray-400 mb-5 max-w-md">
-                Recevez nos nouveautés, conseils de gestion scolaire et offres exclusives. Pas de spam, promis.
-              </p>
-              <form
-                onSubmit={(e) => e.preventDefault()}
-                className="flex flex-col sm:flex-row gap-3 max-w-md"
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
+            {testimonials.slice(0, 3).map((t, i) => (
+              <motion.div
+                key={t.name}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+                className="bg-white border border-black/5 rounded-2xl p-7 hover:border-[#10B981]/30 transition-colors duration-300 flex flex-col"
               >
-                <div className="relative flex-1">
-                  <EnvelopeIcon className="w-5 h-5 text-gray-500 absolute left-4 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="email"
-                    required
-                    placeholder="votre@email.com"
-                    className="w-full pl-12 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                <div className="text-[#10B981] text-[34px] font-black leading-none mb-5">"</div>
+                <p className="text-[14px] text-black/70 leading-relaxed mb-6 flex-1">
+                  {t.quote}
+                </p>
+                <div className="flex items-center gap-3 pt-5 border-t border-black/5">
+                  <div className="w-9 h-9 rounded-full bg-[#0A0A0A] text-[#F7F4EB] flex items-center justify-center text-[11px] font-bold">
+                    {t.initials}
+                  </div>
+                  <div>
+                    <p className="text-[12.5px] font-bold">{t.name}</p>
+                    <p className="text-[10.5px] text-black/50">{t.role}</p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.3 }}
+              className="relative rounded-2xl overflow-hidden group"
+            >
+              <img
+                src={IMG.school}
+                alt="Bâtiment scolaire en Afrique"
+                className="w-full h-full min-h-[240px] object-cover group-hover:scale-105 transition-transform duration-700"
+                loading="lazy"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0" />
+              <div className="absolute bottom-4 left-4 right-4">
+                <p className="text-[10px] font-mono uppercase tracking-[0.15em] text-white/60">
+                  Client depuis 2022
+                </p>
+                <p className="text-[13px] font-bold text-white mt-1">
+                  Institut Sainte-Marie
+                </p>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ============ FAQ ============ */}
+      <section className="py-24 lg:py-28 bg-white">
+        <div className="max-w-[1400px] mx-auto px-6 lg:px-10">
+          <div className="grid lg:grid-cols-12 gap-12">
+            <div className="lg:col-span-4">
+              <span className="text-[11.5px] font-mono uppercase tracking-[0.2em] text-[#10B981]">
+                — 04 / FAQ
+              </span>
+              <h2 className="text-[clamp(2rem,4vw,3rem)] font-black leading-[1.05] tracking-[-0.03em] mt-4">
+                Questions
+                <br />
+                fréquentes.
+              </h2>
+            </div>
+
+            <div className="lg:col-span-7 lg:col-start-6">
+              {faqs.map((faq, i) => (
+                <div key={i} className="border-b border-black/10">
+                  <button
+                    onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                    className="w-full flex items-center justify-between text-left py-6 group"
+                  >
+                    <span className="text-[15.5px] font-semibold pr-4 group-hover:text-[#10B981] transition-colors">
+                      {faq.q}
+                    </span>
+                    <span className="w-8 h-8 rounded-full border border-black/10 flex items-center justify-center flex-shrink-0 group-hover:border-[#10B981] transition-colors">
+                      {openFaq === i ? (
+                        <MinusIcon className="w-4 h-4 text-[#10B981]" />
+                      ) : (
+                        <PlusIcon className="w-4 h-4 text-black/40" />
+                      )}
+                    </span>
+                  </button>
+                  <AnimatePresence>
+                    {openFaq === i && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                        className="overflow-hidden"
+                      >
+                        <p className="pb-6 text-[14px] text-black/60 leading-relaxed max-w-xl">
+                          {faq.a}
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ============ CTA FINAL ============ */}
+      <section className="py-24 lg:py-28">
+        <div className="max-w-[1400px] mx-auto px-6 lg:px-10">
+          <div className="relative bg-[#10B981] rounded-[2rem] overflow-hidden">
+            <div
+              className="absolute inset-0 opacity-10"
+              style={{
+                backgroundImage:
+                  'radial-gradient(circle at 1px 1px, white 1px, transparent 0)',
+                backgroundSize: '32px 32px',
+              }}
+            />
+            <div className="relative grid lg:grid-cols-12 gap-8 items-center p-10 lg:p-16">
+              <div className="lg:col-span-7">
+                <h2 className="text-[clamp(2rem,4.5vw,3.8rem)] font-black leading-[0.95] tracking-[-0.04em] text-white">
+                  Prêt à simplifier
+                  <br />
+                  votre école ?
+                </h2>
+                <p className="mt-5 text-white/80 text-[15px] max-w-lg leading-relaxed">
+                  30 jours gratuits. Sans carte bancaire. Sans engagement. Rejoignez 250+
+                  établissements qui ont déjà fait le saut.
+                </p>
+                <div className="mt-8 flex flex-wrap gap-4">
+                  <Link
+                    to="/register"
+                    className="group inline-flex items-center gap-3 bg-[#0A0A0A] text-white text-[14.5px] font-semibold px-7 py-4 rounded-full hover:bg-white hover:text-[#0A0A0A] transition-all duration-300"
+                  >
+                    Démarrer maintenant
+                    <ArrowRightIcon className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
+                  </Link>
+                  <a
+                    href="tel:+22892438582"
+                    className="inline-flex items-center gap-2 text-white text-[14.5px] font-semibold px-4 py-4 hover:text-[#0A0A0A] transition-colors"
+                  >
+                    <PhoneIcon className="w-4 h-4" />
+                    +228 92 43 85 82
+                  </a>
+                </div>
+              </div>
+
+              <div className="lg:col-span-5 hidden lg:block">
+                <div className="rounded-2xl overflow-hidden border-4 border-white/20 shadow-2xl">
+                  <img
+                    src={IMG.testimonial}
+                    alt="Directeur d'école souriant"
+                    className="w-full h-[280px] object-cover"
+                    loading="lazy"
                   />
                 </div>
-                <button
-                  type="submit"
-                  className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold text-sm rounded-xl hover:shadow-lg hover:shadow-emerald-500/30 transition-all duration-300 flex items-center justify-center gap-2"
-                >
-                  S'abonner
-                  <ArrowRightIcon className="w-4 h-4" />
-                </button>
-              </form>
-              <p className="text-xs text-gray-500 mt-3">
-                En vous abonnant, vous acceptez notre politique de confidentialité.
-              </p>
-            </div>
-          </div>
-
-          {/* ===== Middle: Link columns ===== */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-10 py-14">
-            {/* Produit */}
-            <div>
-              <h4 className="text-white font-bold mb-5 text-base">Produit</h4>
-              <ul className="space-y-3 text-sm">
-                {[
-                  { label: 'Fonctionnalités', href: '/#features' },
-                  { label: 'Tarifs', href: '/tarifs' },
-                  { label: 'Démo gratuite', href: '/demo' },
-                  { label: 'FAQ', href: '/faq' },
-                  { label: 'Mises à jour', href: '/updates' },
-                  { label: 'Intégrations', href: '/integrations' },
-                ].map((item) => (
-                  <li key={item.label}>
-                    <Link to={item.href} className="text-gray-400 hover:text-emerald-400 transition-colors duration-300 inline-flex items-center gap-1 group">
-                      <ChevronRightIcon className="w-3 h-3 opacity-0 -ml-4 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300" />
-                      {item.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Entreprise */}
-            <div>
-              <h4 className="text-white font-bold mb-5 text-base">Entreprise</h4>
-              <ul className="space-y-3 text-sm">
-                {[
-                  { label: 'À propos', href: '/about' },
-                  { label: 'Notre équipe', href: '/team' },
-                  { label: 'Blog', href: '/blog' },
-                  { label: 'Carrières', href: '/careers' },
-                  { label: 'Presse', href: '/press' },
-                  { label: 'Partenaires', href: '/partners' },
-                ].map((item) => (
-                  <li key={item.label}>
-                    <Link to={item.href} className="text-gray-400 hover:text-emerald-400 transition-colors duration-300 inline-flex items-center gap-1 group">
-                      <ChevronRightIcon className="w-3 h-3 opacity-0 -ml-4 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300" />
-                      {item.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Ressources */}
-            <div>
-              <h4 className="text-white font-bold mb-5 text-base">Ressources</h4>
-              <ul className="space-y-3 text-sm">
-                {[
-                  { label: "Centre d'aide", href: '/help' },
-                  { label: 'Documentation', href: '/docs' },
-                  { label: 'Tutoriels', href: '/tutorials' },
-                  { label: 'API Développeurs', href: '/api' },
-                  { label: 'Statut du service', href: '/status' },
-                  { label: 'Communauté', href: '/community' },
-                ].map((item) => (
-                  <li key={item.label}>
-                    <Link to={item.href} className="text-gray-400 hover:text-emerald-400 transition-colors duration-300 inline-flex items-center gap-1 group">
-                      <ChevronRightIcon className="w-3 h-3 opacity-0 -ml-4 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300" />
-                      {item.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Contact */}
-            <div>
-              <h4 className="text-white font-bold mb-5 text-base">Contact</h4>
-              <ul className="space-y-4 text-sm">
-                <li>
-                  <a href="tel:+22892438582" className="flex items-start gap-3 text-gray-400 hover:text-emerald-400 transition-colors group">
-                    <div className="w-9 h-9 bg-gray-800 group-hover:bg-emerald-600/20 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors">
-                      <PhoneIcon className="w-4 h-4 text-emerald-400" />
-                    </div>
-                    <div className="pt-1.5">
-                      <p className="text-xs text-gray-500 uppercase tracking-wider">Téléphone</p>
-                      <p className="font-medium text-gray-300 group-hover:text-white">+228 92 43 85 82</p>
-                    </div>
-                  </a>
-                </li>
-                <li>
-                  <a href="mailto:contact@edumanage.tg" className="flex items-start gap-3 text-gray-400 hover:text-emerald-400 transition-colors group">
-                    <div className="w-9 h-9 bg-gray-800 group-hover:bg-emerald-600/20 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors">
-                      <EnvelopeIcon className="w-4 h-4 text-emerald-400" />
-                    </div>
-                    <div className="pt-1.5">
-                      <p className="text-xs text-gray-500 uppercase tracking-wider">Email</p>
-                      <p className="font-medium text-gray-300 group-hover:text-white">contact@edumanage.tg</p>
-                    </div>
-                  </a>
-                </li>
-                <li>
-                  <div className="flex items-start gap-3 text-gray-400">
-                    <div className="w-9 h-9 bg-gray-800 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <MapPinIcon className="w-4 h-4 text-emerald-400" />
-                    </div>
-                    <div className="pt-1.5">
-                      <p className="text-xs text-gray-500 uppercase tracking-wider">Adresse</p>
-                      <p className="font-medium text-gray-300">Lomé, Togo</p>
-                      <p className="text-xs text-gray-500">Boulevard du 13 Janvier</p>
-                    </div>
-                  </div>
-                </li>
-                <li>
-                  <div className="flex items-start gap-3 text-gray-400">
-                    <div className="w-9 h-9 bg-gray-800 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <ClockIcon className="w-4 h-4 text-emerald-400" />
-                    </div>
-                    <div className="pt-1.5">
-                      <p className="text-xs text-gray-500 uppercase tracking-wider">Horaires</p>
-                      <p className="font-medium text-gray-300">Lun – Ven : 8h – 18h</p>
-                      <p className="text-xs text-gray-500">Sam : 9h – 13h (GMT)</p>
-                    </div>
-                  </div>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          {/* ===== Bottom: Legal ===== */}
-          <div className="border-t border-gray-800 pt-8">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-500">
-              <p className="text-center md:text-left">
-                &copy; {new Date().getFullYear()} <span className="text-gray-300 font-medium">EduManage Pro</span>. Tous droits réservés.
-                <span className="block sm:inline sm:ml-2 text-xs text-gray-600"> Lomé, Togo 🇹🇬</span>
-              </p>
-              <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
-                <Link to="/privacy" className="hover:text-emerald-400 transition-colors">Confidentialité</Link>
-                <Link to="/terms" className="hover:text-emerald-400 transition-colors">Conditions</Link>
-                <Link to="/cookies" className="hover:text-emerald-400 transition-colors">Cookies</Link>
-                <Link to="/legal" className="hover:text-emerald-400 transition-colors">Mentions légales</Link>
-                <Link to="/sitemap" className="hover:text-emerald-400 transition-colors">Plan du site</Link>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ============ FOOTER ============ */}
+      <footer className="border-t border-black/10 bg-[#F7F4EB]">
+        <div className="max-w-[1400px] mx-auto px-6 lg:px-10 py-16">
+          <div className="grid lg:grid-cols-12 gap-10">
+            <div className="lg:col-span-5">
+              <Link to="/" className="flex items-center gap-3 mb-6">
+                <div className="w-9 h-9 bg-[#0A0A0A] rounded-lg flex items-center justify-center">
+                  <span className="text-[#F7F4EB] font-black text-lg leading-none">E</span>
+                </div>
+                <div className="leading-none">
+                  <span className="text-[15px] font-bold tracking-tight block">EduManage</span>
+                  <span className="text-[10px] text-[#10B981] font-mono tracking-[0.2em] font-semibold">
+                    PRO
+                  </span>
+                </div>
+              </Link>
+              <p className="text-[13px] text-black/50 max-w-sm leading-relaxed">
+                La plateforme de gestion scolaire pensée pour l'Afrique de l'Ouest. Conçue à Lomé,
+                utilisée partout.
+              </p>
+              <div className="flex flex-wrap gap-2 mt-6">
+                {['🇹🇬 Togo', "🇨🇮 Côte d'Ivoire", '🇧🇯 Bénin', '🇬🇭 Ghana', '🇸🇳 Sénégal'].map(
+                  (c) => (
+                    <span
+                      key={c}
+                      className="text-[11px] bg-black/5 text-black/60 px-2.5 py-1 rounded-full"
+                    >
+                      {c}
+                    </span>
+                  ),
+                )}
+              </div>
+              <a
+                href="tel:+22892438582"
+                className="inline-flex items-center gap-2 mt-6 text-[13px] text-black/60 hover:text-[#10B981] transition-colors"
+              >
+                <PhoneIcon className="w-4 h-4 text-[#10B981]" />
+                +228 92 43 85 82
+              </a>
+            </div>
+
+            {[
+              {
+                title: 'Produit',
+                items: ['Fonctionnalités', 'Tarifs', 'Démo', 'Sécurité'],
+              },
+              {
+                title: 'Entreprise',
+                items: ['À propos', 'Clients', 'Carrières', 'Contact'],
+              },
+              {
+                title: 'Ressources',
+                items: ["Centre d'aide", 'Documentation', 'API', 'Statut'],
+              },
+            ].map((col) => (
+              <div key={col.title} className="lg:col-span-2">
+                <h4 className="text-[11.5px] font-mono uppercase tracking-[0.15em] text-black/40 mb-4">
+                  {col.title}
+                </h4>
+                <ul className="space-y-2.5">
+                  {col.items.map((item) => (
+                    <li key={item}>
+                      <Link
+                        to={`/${item.toLowerCase().replace(/\s/g, '-')}`}
+                        className="text-[13px] text-black/60 hover:text-[#10B981] transition-colors"
+                      >
+                        {item}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-16 pt-8 border-t border-black/10 flex flex-col md:flex-row justify-between gap-4 text-[11.5px] text-black/40">
+            <p>© {new Date().getFullYear()} EduManage Pro — Lomé, Togo 🇹🇬</p>
+            <div className="flex flex-wrap gap-x-6 gap-y-2">
+              {['Confidentialité', 'Conditions', 'Cookies', 'Mentions légales'].map((l) => (
+                <Link
+                  key={l}
+                  to={`/${l.toLowerCase()}`}
+                  className="hover:text-[#10B981] transition-colors"
+                >
+                  {l}
+                </Link>
+              ))}
             </div>
           </div>
         </div>

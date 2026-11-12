@@ -1,7 +1,6 @@
 // frontend2/src/components/layout/SidebarItem.tsx
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import type { NavItem } from '../config/navigation.types';
 import { isNavItemActive, hasActiveChild } from '../config/navigation.types';
 
@@ -24,7 +23,7 @@ const SidebarItem: React.FC<Props> = ({
   const path = item.path ?? item.href ?? '#';
 
   // ═══════════════════════════════════════════════════════════
-  // MODE PLIÉ : icône seule + tooltip au survol
+  // MODE PLIÉ : icône seule + tooltip
   // ═══════════════════════════════════════════════════════════
   if (isCollapsed) {
     return (
@@ -33,69 +32,50 @@ const SidebarItem: React.FC<Props> = ({
         title={item.label}
         className={`
           group relative flex items-center justify-center
-          w-full h-11 rounded-xl
-          transition-all duration-200
+          w-full h-10 rounded-lg
+          transition-colors duration-200
           ${
             isParentActive
-              ? 'bg-white text-emerald-800 shadow-md shadow-emerald-900/20'
-              : 'text-emerald-50 hover:bg-white/10 hover:text-white'
+              ? 'bg-[#10B981]/10 text-[#0A0A0A]'
+              : 'text-black/50 hover:bg-black/[0.06] hover:text-black'
           }
         `}
       >
-        {/* Barre latérale ambre si actif */}
+        {/* Trait émeraude à gauche si actif */}
         {isParentActive && (
-          <motion.span
-            layoutId="sidebar-active-bar"
-            className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-amber-400 rounded-r-full shadow-sm"
-          />
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-5 bg-[#10B981] rounded-r-full" />
         )}
 
         {/* Icône */}
-        <Icon className="w-5 h-5" />
+        <Icon
+          className={`w-[18px] h-[18px] ${
+            isParentActive ? 'text-[#10B981]' : ''
+          }`}
+        />
 
-        {/* Badge (point discret en mode plié) */}
+        {/* Badge AMBRE */}
         {item.badgeKey && (
-          <span
-            className={`
-              absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full
-              ring-2
-              ${
-                isParentActive
-                  ? 'bg-emerald-600 ring-emerald-800'
-                  : 'bg-amber-400 ring-emerald-900'
-              }
-            `}
-          />
+          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#F59E0B] ring-2 ring-[#FCFBF7]" />
         )}
 
-        {/* Point "New" discret */}
+        {/* Point "New" AMBRE */}
         {item.isNew && !item.badgeKey && (
-          <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-emerald-900 animate-pulse" />
+          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#F59E0B] ring-2 ring-[#FCFBF7]" />
         )}
 
-        {/* 🆕 Tooltip au survol */}
+        {/* Tooltip */}
         <span
           className="
-            absolute left-full ml-3 px-3 py-1.5 rounded-lg
-            bg-emerald-950 text-white text-xs font-medium
+            absolute left-full ml-3 px-2.5 py-1.5 rounded-md
+            bg-[#0A0A0A] text-[#F5F2EA] text-[11.5px] font-medium
             whitespace-nowrap opacity-0 invisible
             group-hover:opacity-100 group-hover:visible
             transition-all duration-150
-            shadow-xl shadow-emerald-950/40
-            border border-emerald-800/50
+            shadow-lg shadow-black/20
             pointer-events-none z-50
           "
         >
           {item.label}
-          {/* Flèche du tooltip */}
-          <span
-            className="
-              absolute right-full top-1/2 -translate-y-1/2
-              w-0 h-0
-              border-y-4 border-y-transparent
-              border-r-4 border-r-emerald-950
-            "
-          />
         </span>
       </Link>
     );
@@ -109,49 +89,45 @@ const SidebarItem: React.FC<Props> = ({
       to={path}
       className={`
         group relative flex items-center gap-3
-        px-3 py-2.5 rounded-xl
-        transition-all duration-200
+        px-3 py-2 rounded-lg
+        transition-colors duration-200
         ${
           isParentActive
-            ? 'bg-white text-emerald-800 font-semibold shadow-md shadow-emerald-900/20'
-            : 'text-emerald-50 hover:bg-white/10 hover:text-white border border-transparent'
+            ? 'bg-[#10B981]/10 text-[#0A0A0A] font-semibold'
+            : 'text-black/65 hover:bg-black/[0.06] hover:text-black'
         }
       `}
     >
-      {/* Barre latérale animée quand actif (ambre pour contraste) */}
+      {/* Trait émeraude à gauche si actif */}
       {isParentActive && (
-        <motion.span
-          layoutId="sidebar-active-bar"
-          className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-amber-400 rounded-r-full shadow-sm"
-        />
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-5 bg-[#10B981] rounded-r-full" />
       )}
 
-      {/* Icône */}
-      <div
+      {/* Icône nue */}
+      <Icon
         className={`
-          w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all
+          w-[17px] h-[17px] shrink-0 transition-colors
           ${
             isParentActive
-              ? 'bg-emerald-600 text-white shadow-sm'
-              : 'bg-white/10 text-emerald-100 group-hover:bg-white/20 group-hover:text-white'
+              ? 'text-[#10B981]'
+              : 'text-black/45 group-hover:text-black/75'
           }
         `}
-      >
-        {Icon && <Icon className="w-4 h-4" />}
-      </div>
+      />
 
       {/* Label */}
-      <span className="text-sm flex-1 truncate">{item.label}</span>
+      <span className="text-[13px] flex-1 truncate">{item.label}</span>
 
-      {/* Badge */}
+      {/* Badge numérique mono */}
       {item.badgeKey && (
         <span
           className={`
-            px-2 py-0.5 text-[10px] font-bold rounded-full shrink-0
+            px-1.5 min-w-[18px] h-[18px] text-[10px] font-mono font-semibold rounded-full shrink-0
+            flex items-center justify-center
             ${
               isParentActive
-                ? 'bg-emerald-600 text-white'
-                : 'bg-amber-400 text-emerald-900'
+                ? 'bg-[#10B981] text-white'
+                : 'bg-[#F59E0B] text-[#0A0A0A]'
             }
           `}
         >
@@ -159,11 +135,12 @@ const SidebarItem: React.FC<Props> = ({
         </span>
       )}
 
-      {/* Indicateur NOUVEAU */}
+      {/* Indicateur NOUVEAU — point ambre */}
       {item.isNew && (
-        <span className="px-1.5 py-0.5 text-[8px] font-bold uppercase bg-amber-400 text-emerald-900 rounded shrink-0">
-          New
-        </span>
+        <span
+          className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] shrink-0"
+          title="Nouveau"
+        />
       )}
     </Link>
   );
